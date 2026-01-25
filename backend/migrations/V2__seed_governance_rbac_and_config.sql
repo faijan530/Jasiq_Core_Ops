@@ -1,0 +1,38 @@
+BEGIN;
+
+INSERT INTO permission (id, code, description) VALUES
+  ('11111111-1111-1111-1111-111111111111', 'GOV_DIVISION_READ', 'Read divisions'),
+  ('11111111-1111-1111-1111-111111111112', 'GOV_DIVISION_WRITE', 'Create/update division activation'),
+  ('11111111-1111-1111-1111-111111111113', 'GOV_PROJECT_READ', 'Read projects'),
+  ('11111111-1111-1111-1111-111111111114', 'GOV_PROJECT_WRITE', 'Create/update projects'),
+  ('11111111-1111-1111-1111-111111111115', 'GOV_RBAC_READ', 'View roles and permissions'),
+  ('11111111-1111-1111-1111-111111111116', 'GOV_AUDIT_READ', 'View audit logs'),
+  ('11111111-1111-1111-1111-111111111117', 'GOV_MONTH_CLOSE_READ', 'View month close status'),
+  ('11111111-1111-1111-1111-111111111118', 'GOV_MONTH_CLOSE_WRITE', 'Close/open months'),
+  ('11111111-1111-1111-1111-111111111119', 'GOV_SYSTEM_CONFIG_READ', 'View system configuration'),
+  ('11111111-1111-1111-1111-111111111120', 'GOV_SYSTEM_CONFIG_WRITE', 'Update system configuration')
+ON CONFLICT (code) DO NOTHING;
+
+INSERT INTO role (id, name, description) VALUES
+  ('22222222-2222-2222-2222-222222222222', 'COREOPS_ADMIN', 'Full governance administrator')
+ON CONFLICT (name) DO NOTHING;
+
+INSERT INTO role_permission (role_id, permission_id)
+SELECT '22222222-2222-2222-2222-222222222222', p.id
+FROM permission p
+WHERE p.code IN (
+  'GOV_DIVISION_READ','GOV_DIVISION_WRITE',
+  'GOV_PROJECT_READ','GOV_PROJECT_WRITE',
+  'GOV_RBAC_READ','GOV_AUDIT_READ',
+  'GOV_MONTH_CLOSE_READ','GOV_MONTH_CLOSE_WRITE',
+  'GOV_SYSTEM_CONFIG_READ','GOV_SYSTEM_CONFIG_WRITE'
+)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO system_config (key, value, description) VALUES
+  ('PROJECTS_ENABLED', 'true', 'Enable project module'),
+  ('MONTH_CLOSE_ENABLED', 'true', 'Enable global month close enforcement'),
+  ('ATTENDANCE_MODE', 'STANDARD', 'Attendance mode')
+ON CONFLICT (key) DO NOTHING;
+
+COMMIT;
