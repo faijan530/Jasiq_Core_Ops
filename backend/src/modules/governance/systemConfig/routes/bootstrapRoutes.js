@@ -2,7 +2,7 @@ import { Router } from 'express';
 
 import { asyncHandler } from '../../../../shared/kernel/asyncHandler.js';
 import { getUserGrants } from '../../../../shared/kernel/authorization.js';
-import { getSystemConfigMap, isMonthCloseEnabled, isProjectsEnabled } from '../../../../shared/kernel/systemConfig.js';
+import { getSystemConfigMap, isEmployeeEnabled, isMonthCloseEnabled, isProjectsEnabled } from '../../../../shared/kernel/systemConfig.js';
 
 function buildNavigation({ permissions, features }) {
   const items = [
@@ -49,6 +49,14 @@ function buildNavigation({ permissions, features }) {
       path: '/admin/system-config',
       requiredPermission: 'GOV_SYSTEM_CONFIG_READ',
       order: 60
+    },
+    {
+      id: 'employees',
+      label: 'Employees',
+      path: '/admin/employees',
+      requiredPermission: 'EMPLOYEE_READ',
+      order: 70,
+      featureFlag: 'EMPLOYEE_ENABLED'
     }
   ];
 
@@ -102,6 +110,10 @@ function buildUiScreens() {
     systemConfig: {
       id: 'systemConfig',
       title: 'System Configuration'
+    },
+    employees: {
+      id: 'employees',
+      title: 'Employee Management'
     }
   };
 }
@@ -119,7 +131,8 @@ export function bootstrapRoutes({ pool }) {
       const features = {
         flags: {
           PROJECTS_ENABLED: await isProjectsEnabled(pool),
-          MONTH_CLOSE_ENABLED: await isMonthCloseEnabled(pool)
+          MONTH_CLOSE_ENABLED: await isMonthCloseEnabled(pool),
+          EMPLOYEE_ENABLED: await isEmployeeEnabled(pool)
         }
       };
 

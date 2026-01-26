@@ -25,3 +25,10 @@ export async function isProjectsEnabled(pool) {
   const v = String(value).trim().toLowerCase();
   return v === 'true' || v === '1' || v === 'yes' || v === 'enabled';
 }
+
+export async function isEmployeeEnabled(pool) {
+  const value = await getSystemConfigValue(pool, 'EMPLOYEE_ENABLED');
+  if (value === null) return false;
+  const v = String(value).trim().toLowerCase();
+  return v === 'true' || v === '1' || v === 'yes' || v === 'enabled';
+}

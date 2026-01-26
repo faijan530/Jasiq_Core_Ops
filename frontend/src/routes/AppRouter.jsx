@@ -12,6 +12,7 @@ import { RbacPage } from '../screens/rbac/RbacPage.jsx';
 import { MonthClosePage } from '../screens/monthClose/MonthClosePage.jsx';
 import { AuditPage } from '../screens/audit/AuditPage.jsx';
 import { SystemConfigPage } from '../screens/systemConfig/SystemConfigPage.jsx';
+import { EmployeesPage } from '../screens/employees/EmployeesPage.jsx';
 
 function resolveScreenComponentByPath(path) {
   if (path === '/admin/divisions') return <DivisionsPage />;
@@ -20,6 +21,7 @@ function resolveScreenComponentByPath(path) {
   if (path === '/admin/month-close') return <MonthClosePage />;
   if (path === '/admin/audit') return <AuditPage />;
   if (path === '/admin/system-config') return <SystemConfigPage />;
+  if (path === '/admin/employees') return <EmployeesPage />;
   return null;
 }
 
