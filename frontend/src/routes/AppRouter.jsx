@@ -13,6 +13,7 @@ import { MonthClosePage } from '../screens/monthClose/MonthClosePage.jsx';
 import { AuditPage } from '../screens/audit/AuditPage.jsx';
 import { SystemConfigPage } from '../screens/systemConfig/SystemConfigPage.jsx';
 import { EmployeesPage } from '../screens/employees/EmployeesPage.jsx';
+import { AttendancePage } from '../screens/attendance/AttendancePage.jsx';
 
 function resolveScreenComponentByPath(path) {
   if (path === '/admin/divisions') return <DivisionsPage />;
@@ -22,6 +23,7 @@ function resolveScreenComponentByPath(path) {
   if (path === '/admin/audit') return <AuditPage />;
   if (path === '/admin/system-config') return <SystemConfigPage />;
   if (path === '/admin/employees') return <EmployeesPage />;
+  if (path === '/admin/attendance') return <AttendancePage />;
   return null;
 }
 

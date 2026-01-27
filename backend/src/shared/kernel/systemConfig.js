@@ -32,3 +32,10 @@ export async function isEmployeeEnabled(pool) {
   const v = String(value).trim().toLowerCase();
   return v === 'true' || v === '1' || v === 'yes' || v === 'enabled';
 }
+
+export async function isAttendanceEnabled(pool) {
+  const value = await getSystemConfigValue(pool, 'ATTENDANCE_ENABLED');
+  if (value === null) return false;
+  const v = String(value).trim().toLowerCase();
+  return v === 'true' || v === '1' || v === 'yes' || v === 'enabled';
+}

@@ -2,7 +2,7 @@ import { Router } from 'express';
 
 import { asyncHandler } from '../../../../shared/kernel/asyncHandler.js';
 import { getUserGrants } from '../../../../shared/kernel/authorization.js';
-import { getSystemConfigMap, isEmployeeEnabled, isMonthCloseEnabled, isProjectsEnabled } from '../../../../shared/kernel/systemConfig.js';
+import { getSystemConfigMap, isAttendanceEnabled, isEmployeeEnabled, isMonthCloseEnabled, isProjectsEnabled } from '../../../../shared/kernel/systemConfig.js';
 
 function buildNavigation({ permissions, features }) {
   const items = [
@@ -57,6 +57,14 @@ function buildNavigation({ permissions, features }) {
       requiredPermission: 'EMPLOYEE_READ',
       order: 70,
       featureFlag: 'EMPLOYEE_ENABLED'
+    },
+    {
+      id: 'attendance',
+      label: 'Attendance',
+      path: '/admin/attendance',
+      requiredPermission: 'ATTENDANCE_READ',
+      order: 80,
+      featureFlag: 'ATTENDANCE_ENABLED'
     }
   ];
 
@@ -114,6 +122,10 @@ function buildUiScreens() {
     employees: {
       id: 'employees',
       title: 'Employee Management'
+    },
+    attendance: {
+      id: 'attendance',
+      title: 'Attendance Management'
     }
   };
 }
@@ -132,7 +144,8 @@ export function bootstrapRoutes({ pool }) {
         flags: {
           PROJECTS_ENABLED: await isProjectsEnabled(pool),
           MONTH_CLOSE_ENABLED: await isMonthCloseEnabled(pool),
-          EMPLOYEE_ENABLED: await isEmployeeEnabled(pool)
+          EMPLOYEE_ENABLED: await isEmployeeEnabled(pool),
+          ATTENDANCE_ENABLED: await isAttendanceEnabled(pool)
         }
       };
 

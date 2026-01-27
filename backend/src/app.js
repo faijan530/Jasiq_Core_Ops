@@ -20,6 +20,7 @@ import { systemConfigRoutes } from './modules/governance/systemConfig/routes/sys
 import { bootstrapRoutes } from './modules/governance/systemConfig/routes/bootstrapRoutes.js';
 
 import { employeeRoutes } from './modules/employee/index.js';
+import { attendanceRoutes } from './modules/attendance/controller/attendanceRoutes.js';
 
 export function buildApp({ pool }) {
   const app = express();
@@ -52,7 +53,9 @@ export function buildApp({ pool }) {
     monthCloseEnforcementMiddleware({
       pool,
       isEnabledFn: isMonthCloseEnabled,
-      isExemptPathFn: (req) => req.originalUrl.startsWith('/api/v1/governance/month-close')
+      isExemptPathFn: (req) =>
+        req.originalUrl.startsWith('/api/v1/governance/month-close') ||
+        req.originalUrl.startsWith('/api/v1/attendance')
     })
   );
 
@@ -66,6 +69,7 @@ export function buildApp({ pool }) {
   app.use('/api/v1/governance/system-config', systemConfigRoutes({ pool }));
 
   app.use('/api/v1/employees', employeeRoutes({ pool }));
+  app.use('/api/v1/attendance', attendanceRoutes({ pool }));
 
   app.use(errorMiddleware);
 
