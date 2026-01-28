@@ -64,3 +64,39 @@ export function requirePermission({ pool, permissionCode, getDivisionId }) {
     }
   };
 }
+
+export function requireAnyPermission({ pool, permissionCodes, getDivisionId }) {
+  return async function middleware(req, res, next) {
+    try {
+      const userId = req.auth?.userId;
+      const grants = await getUserGrants(pool, userId);
+
+      const divisionId = getDivisionId ? await getDivisionId(req) : null;
+
+      const codes = Array.isArray(permissionCodes)
+        ? permissionCodes.map((c) => String(c))
+        : [];
+
+      const match = grants.scoped.find((g) => {
+        if (!codes.includes(g.permissionCode)) return false;
+        if (g.scope === 'COMPANY') return true;
+        if (!divisionId) return false;
+        return String(g.divisionId) === String(divisionId);
+      });
+
+      if (!match) {
+        next(forbidden());
+        return;
+      }
+
+      req.authorization = {
+        roles: grants.roles,
+        permissions: grants.permissions
+      };
+
+      next();
+    } catch (err) {
+      next(err);
+    }
+  };
+}

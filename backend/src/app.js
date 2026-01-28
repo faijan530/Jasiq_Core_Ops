@@ -18,9 +18,11 @@ import { auditRoutes } from './modules/governance/audit/routes/auditRoutes.js';
 import { monthCloseRoutes } from './modules/governance/monthClose/routes/monthCloseRoutes.js';
 import { systemConfigRoutes } from './modules/governance/systemConfig/routes/systemConfigRoutes.js';
 import { bootstrapRoutes } from './modules/governance/systemConfig/routes/bootstrapRoutes.js';
+import { governanceRoutes } from './modules/governance/index.js';
 
 import { employeeRoutes } from './modules/employee/index.js';
 import { attendanceRoutes } from './modules/attendance/controller/attendanceRoutes.js';
+import { timesheetRoutes } from './modules/timesheet/index.js';
 
 export function buildApp({ pool }) {
   const app = express();
@@ -55,11 +57,14 @@ export function buildApp({ pool }) {
       isEnabledFn: isMonthCloseEnabled,
       isExemptPathFn: (req) =>
         req.originalUrl.startsWith('/api/v1/governance/month-close') ||
-        req.originalUrl.startsWith('/api/v1/attendance')
+        req.originalUrl.startsWith('/api/v1/attendance') ||
+        req.originalUrl.startsWith('/api/v1/timesheets')
     })
   );
 
   app.use('/api/v1/app', bootstrapRoutes({ pool }));
+
+  app.use('/api/v1', governanceRoutes({ pool }));
 
   app.use('/api/v1/governance/divisions', divisionRoutes({ pool }));
   app.use('/api/v1/governance/projects', projectRoutes({ pool }));
@@ -70,6 +75,7 @@ export function buildApp({ pool }) {
 
   app.use('/api/v1/employees', employeeRoutes({ pool }));
   app.use('/api/v1/attendance', attendanceRoutes({ pool }));
+  app.use('/api/v1/timesheets', timesheetRoutes({ pool }));
 
   app.use(errorMiddleware);
 
