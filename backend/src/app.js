@@ -23,6 +23,7 @@ import { governanceRoutes } from './modules/governance/index.js';
 import { employeeRoutes } from './modules/employee/index.js';
 import { attendanceRoutes } from './modules/attendance/controller/attendanceRoutes.js';
 import { timesheetRoutes } from './modules/timesheet/index.js';
+import { leaveRoutes } from './modules/leave/index.js';
 
 export function buildApp({ pool }) {
   const app = express();
@@ -58,7 +59,8 @@ export function buildApp({ pool }) {
       isExemptPathFn: (req) =>
         req.originalUrl.startsWith('/api/v1/governance/month-close') ||
         req.originalUrl.startsWith('/api/v1/attendance') ||
-        req.originalUrl.startsWith('/api/v1/timesheets')
+        req.originalUrl.startsWith('/api/v1/timesheets') ||
+        req.originalUrl.startsWith('/api/v1/leave')
     })
   );
 
@@ -76,6 +78,7 @@ export function buildApp({ pool }) {
   app.use('/api/v1/employees', employeeRoutes({ pool }));
   app.use('/api/v1/attendance', attendanceRoutes({ pool }));
   app.use('/api/v1/timesheets', timesheetRoutes({ pool }));
+  app.use('/api/v1/leave', leaveRoutes({ pool }));
 
   app.use(errorMiddleware);
 
