@@ -15,6 +15,10 @@ import { SystemConfigPage } from '../screens/systemConfig/SystemConfigPage.jsx';
 import { EmployeesPage } from '../screens/employees/EmployeesPage.jsx';
 import { AttendancePage } from '../screens/attendance/AttendancePage.jsx';
 
+import { MyTimesheet } from '../screens/timesheet/MyTimesheet.jsx';
+import { Approvals } from '../screens/timesheet/Approvals.jsx';
+import { TimesheetDetail } from '../screens/timesheet/TimesheetDetail.jsx';
+
 function resolveScreenComponentByPath(path) {
   if (path === '/admin/divisions') return <DivisionsPage />;
   if (path === '/admin/projects') return <ProjectsPage />;
@@ -24,6 +28,8 @@ function resolveScreenComponentByPath(path) {
   if (path === '/admin/system-config') return <SystemConfigPage />;
   if (path === '/admin/employees') return <EmployeesPage />;
   if (path === '/admin/attendance') return <AttendancePage />;
+  if (path === '/timesheet/my') return <MyTimesheet />;
+  if (path === '/timesheet/approvals') return <Approvals />;
   return null;
 }
 
@@ -61,6 +67,7 @@ export function AppRouter() {
           if (!element) return null;
           return <Route key={item.id} path={item.path} element={element} />;
         })}
+        <Route path="/timesheet/:id" element={<TimesheetDetail />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>

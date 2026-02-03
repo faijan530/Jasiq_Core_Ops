@@ -6,16 +6,46 @@ const BootstrapContext = createContext(null);
 
 function normalizeBootstrap(payload) {
   const navigationItems = payload?.navigation?.items || [];
+  const permissions = payload?.rbac?.permissions || [];
+  const systemConfig = payload?.systemConfig || {};
+
+  const enabledRaw = systemConfig?.TIMESHEET_ENABLED?.value ?? systemConfig?.TIMESHEET_ENABLED;
+  const enabled = String(enabledRaw ?? '').trim().toLowerCase();
+  const timesheetEnabled = enabled === 'true' || enabled === '1' || enabled === 'yes' || enabled === 'enabled' || enabled === 'on';
+
+  const canReadTimesheet = permissions.includes('TIMESHEET_READ');
+  const canReadApprovals = permissions.includes('TIMESHEET_APPROVAL_QUEUE_READ');
+
+  const merged = [...navigationItems];
+  const existingPaths = new Set(merged.map((i) => i.path));
+
+  if (timesheetEnabled && canReadTimesheet && !existingPaths.has('/timesheet/my')) {
+    merged.push({
+      id: 'timesheetMy',
+      label: 'My Timesheet',
+      path: '/timesheet/my',
+      requiredPermission: 'TIMESHEET_READ'
+    });
+  }
+
+  if (timesheetEnabled && canReadTimesheet && canReadApprovals && !existingPaths.has('/timesheet/approvals')) {
+    merged.push({
+      id: 'timesheetApprovals',
+      label: 'Timesheet Approvals',
+      path: '/timesheet/approvals',
+      requiredPermission: 'TIMESHEET_APPROVAL_QUEUE_READ'
+    });
+  }
 
   const byPath = {};
-  for (const item of navigationItems) {
+  for (const item of merged) {
     byPath[item.path] = item;
   }
 
   return {
     ...payload,
     navigation: {
-      items: navigationItems,
+      items: merged,
       byPath
     }
   };
