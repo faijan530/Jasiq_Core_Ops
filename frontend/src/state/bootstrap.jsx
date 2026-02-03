@@ -13,8 +13,23 @@ function normalizeBootstrap(payload) {
   const enabled = String(enabledRaw ?? '').trim().toLowerCase();
   const timesheetEnabled = enabled === 'true' || enabled === '1' || enabled === 'yes' || enabled === 'enabled' || enabled === 'on';
 
+  const leaveEnabledRaw = systemConfig?.LEAVE_ENABLED?.value ?? systemConfig?.LEAVE_ENABLED;
+  const leaveEnabledStr = String(leaveEnabledRaw ?? '').trim().toLowerCase();
+  const leaveEnabled =
+    leaveEnabledStr === 'true' ||
+    leaveEnabledStr === '1' ||
+    leaveEnabledStr === 'yes' ||
+    leaveEnabledStr === 'enabled' ||
+    leaveEnabledStr === 'on';
+
   const canReadTimesheet = permissions.includes('TIMESHEET_READ');
   const canReadApprovals = permissions.includes('TIMESHEET_APPROVAL_QUEUE_READ');
+
+  const canReadLeaveRequests = permissions.includes('LEAVE_REQUEST_READ');
+  const canApproveLeaveL1 = permissions.includes('LEAVE_APPROVE_L1');
+  const canApproveLeaveL2 = permissions.includes('LEAVE_APPROVE_L2');
+  const canReadLeaveTypes = permissions.includes('LEAVE_TYPE_READ');
+  const canReadLeaveBalances = permissions.includes('LEAVE_BALANCE_READ');
 
   const merged = [...navigationItems];
   const existingPaths = new Set(merged.map((i) => i.path));
@@ -34,6 +49,42 @@ function normalizeBootstrap(payload) {
       label: 'Timesheet Approvals',
       path: '/timesheet/approvals',
       requiredPermission: 'TIMESHEET_APPROVAL_QUEUE_READ'
+    });
+  }
+
+  if (leaveEnabled && canReadLeaveRequests && !existingPaths.has('/leave/my')) {
+    merged.push({
+      id: 'leaveMy',
+      label: 'My Leave',
+      path: '/leave/my',
+      requiredPermission: 'LEAVE_REQUEST_READ'
+    });
+  }
+
+  if (leaveEnabled && canReadLeaveRequests && (canApproveLeaveL1 || canApproveLeaveL2) && !existingPaths.has('/leave/approvals')) {
+    merged.push({
+      id: 'leaveApprovals',
+      label: 'Leave Approvals',
+      path: '/leave/approvals',
+      requiredPermission: 'LEAVE_REQUEST_READ'
+    });
+  }
+
+  if (leaveEnabled && canReadLeaveTypes && !existingPaths.has('/leave/types')) {
+    merged.push({
+      id: 'leaveTypes',
+      label: 'Leave Types',
+      path: '/leave/types',
+      requiredPermission: 'LEAVE_TYPE_READ'
+    });
+  }
+
+  if (leaveEnabled && canReadLeaveBalances && !existingPaths.has('/leave/balances')) {
+    merged.push({
+      id: 'leaveBalances',
+      label: 'Leave Balances',
+      path: '/leave/balances',
+      requiredPermission: 'LEAVE_BALANCE_READ'
     });
   }
 

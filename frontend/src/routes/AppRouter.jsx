@@ -19,6 +19,13 @@ import { MyTimesheet } from '../screens/timesheet/MyTimesheet.jsx';
 import { Approvals } from '../screens/timesheet/Approvals.jsx';
 import { TimesheetDetail } from '../screens/timesheet/TimesheetDetail.jsx';
 
+import { EmployeeLeavePage } from '../screens/leave/EmployeeLeavePage.jsx';
+import { ApplyLeavePage } from '../screens/leave/ApplyLeavePage.jsx';
+import { LeaveRequestDetailPage } from '../screens/leave/LeaveRequestDetailPage.jsx';
+import { LeaveApprovalPage } from '../screens/leave/LeaveApprovalPage.jsx';
+import { LeaveTypePage } from '../screens/leave/LeaveTypePage.jsx';
+import { LeaveBalancePage } from '../screens/leave/LeaveBalancePage.jsx';
+
 function resolveScreenComponentByPath(path) {
   if (path === '/admin/divisions') return <DivisionsPage />;
   if (path === '/admin/projects') return <ProjectsPage />;
@@ -30,6 +37,10 @@ function resolveScreenComponentByPath(path) {
   if (path === '/admin/attendance') return <AttendancePage />;
   if (path === '/timesheet/my') return <MyTimesheet />;
   if (path === '/timesheet/approvals') return <Approvals />;
+  if (path === '/leave/my') return <EmployeeLeavePage />;
+  if (path === '/leave/approvals') return <LeaveApprovalPage />;
+  if (path === '/leave/types') return <LeaveTypePage />;
+  if (path === '/leave/balances') return <LeaveBalancePage />;
   return null;
 }
 
@@ -68,6 +79,8 @@ export function AppRouter() {
           return <Route key={item.id} path={item.path} element={element} />;
         })}
         <Route path="/timesheet/:id" element={<TimesheetDetail />} />
+        <Route path="/leave/apply" element={<ApplyLeavePage />} />
+        <Route path="/leave/requests/:id" element={<LeaveRequestDetailPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>
