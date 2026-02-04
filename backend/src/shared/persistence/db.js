@@ -13,6 +13,9 @@ export function createPool() {
 
   return new Pool({
     connectionString,
+    ssl: process.env.NODE_ENV === 'production'
+      ? { rejectUnauthorized: false }
+      : false,
     max: 10,
     idleTimeoutMillis: 30_000
   });
