@@ -24,12 +24,13 @@ import { employeeRoutes } from './modules/employee/index.js';
 import { attendanceRoutes } from './modules/attendance/controller/attendanceRoutes.js';
 import { timesheetRoutes } from './modules/timesheet/index.js';
 import { leaveRoutes } from './modules/leave/index.js';
+import { adminLoginRoutes } from './shared/auth/adminLogin.routes.js';
 
 export function buildApp({ pool }) {
   const app = express();
 
   app.use(helmet());
-  app.use(cors({ origin: config.corsOrigin, credentials: true }));
+  app.use(cors({ origin: config.corsOrigin.split(','), credentials: true }));
   app.use(express.json({ limit: '1mb' }));
   app.use(requestIdMiddleware);
   app.use(requestLogMiddleware);
@@ -37,6 +38,9 @@ export function buildApp({ pool }) {
   app.get('/healthz', (req, res) => {
     res.json({ status: 'ok' });
   });
+
+  // Admin login routes (no auth required)
+  app.use('/api/v1/auth', adminLoginRoutes({ pool }));
 
   const auth = authMiddleware({ jwtConfig: config.jwt });
 

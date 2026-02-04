@@ -109,8 +109,9 @@ export function BootstrapProvider({ children }) {
 
   const [token, setTokenState] = useState(getAuthToken());
 
-  const refresh = useCallback(async () => {
-    if (!token) {
+  const refresh = useCallback(async (overrideToken = null) => {
+    const currentToken = overrideToken !== null ? overrideToken : token;
+    if (!currentToken) {
       setBootstrap(null);
       setStatus('idle');
       return;
@@ -144,6 +145,11 @@ export function BootstrapProvider({ children }) {
   const setToken = useCallback((next) => {
     setAuthToken(next);
     setTokenState(next || null);
+    if (!next) {
+      // Clear bootstrap immediately when token is cleared
+      setBootstrap(null);
+      setStatus('idle');
+    }
   }, []);
 
   const value = useMemo(

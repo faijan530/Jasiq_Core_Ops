@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 
 import { useBootstrap } from '../state/bootstrap.jsx';
 import { LoginPage } from './LoginPage.jsx';
+import { AdminLoginPage } from './AdminLoginPage.jsx';
 import { AdminLayout } from './AdminLayout.jsx';
 import { NotFoundPage } from './NotFoundPage.jsx';
 
@@ -47,8 +48,12 @@ function resolveScreenComponentByPath(path) {
 export function AppRouter() {
   const { status, bootstrap } = useBootstrap();
 
+  // Show Admin Login by default; JWT paste only via explicit hash
   if (status === 'idle') {
-    return <LoginPage />;
+    if (window.location.hash === '#/jwt-paste') {
+      return <LoginPage />;
+    }
+    return <AdminLoginPage />;
   }
 
   if (status === 'loading') {
