@@ -16,7 +16,9 @@ export function createPool() {
     ssl: process.env.NODE_ENV === 'production'
       ? { rejectUnauthorized: false }
       : false,
-    max: 10,
-    idleTimeoutMillis: 30_000
+    keepAlive: true,
+    connectionTimeoutMillis: 5000,
+    idleTimeoutMillis: 30000,
+    max: 10
   });
 }
