@@ -53,7 +53,7 @@ export function adminLoginController({ pool }) {
       }
 
       // Issue JWT using same pattern as issueToken.js
-      const expiresIn = user.role_name === 'TECH_ADMIN' ? '5m' : '10m';
+      const expiresIn = user.role_name === 'TECH_ADMIN' ? '2h' : '4h';
       const token = jwt.sign(
         {
           sub: user.id,

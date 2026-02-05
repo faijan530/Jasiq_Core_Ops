@@ -1,13 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { apiFetch, getAuthToken } from '../api/client.js';
+import { apiFetch } from '../api/client.js';
 
 export function usePagedQuery({ path, page, pageSize, enabled = true }) {
   const [status, setStatus] = useState('idle');
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   const [refreshIndex, setRefreshIndex] = useState(0);
-  const [token, setToken] = useState(null);
 
   const refresh = useCallback(() => {
     setRefreshIndex((x) => x + 1);
@@ -20,26 +19,8 @@ export function usePagedQuery({ path, page, pageSize, enabled = true }) {
     return u.pathname + u.search;
   }, [path, page, pageSize]);
 
-  // Sync token from localStorage
-  useEffect(() => {
-    const t = localStorage.getItem('jasiq_token');
-    setToken(t);
-  }, [refreshIndex]);
-
-  // Listen for storage changes (e.g., from other tabs)
-  useEffect(() => {
-    const handleStorageChange = (e) => {
-      if (e.key === 'jasiq_token') {
-        setToken(e.newValue);
-      }
-    };
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
-  }, []);
-
   useEffect(() => {
     if (!enabled) return;
-    if (!token) return; // Don't fetch if no token
 
     let alive = true;
 
@@ -63,7 +44,7 @@ export function usePagedQuery({ path, page, pageSize, enabled = true }) {
     return () => {
       alive = false;
     };
-  }, [url, enabled, refreshIndex, getAuthToken()]);
+  }, [url, enabled, refreshIndex]);
 
   return { status, data, error, url, refresh };
 }

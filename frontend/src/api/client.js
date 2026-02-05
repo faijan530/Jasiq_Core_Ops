@@ -48,6 +48,17 @@ export async function apiFetch(path, { method, body, headers } = {}) {
     return await res.json();
   }
 
+  // Handle 401 Unauthorized - clear token and redirect to login
+  if (res.status === 401) {
+    setAuthToken(null);
+    // Clear any stored bootstrap data
+    localStorage.removeItem('jasiq_bootstrap');
+    // Redirect to login page
+    window.location.hash = '#/';
+    window.location.reload();
+    return null;
+  }
+
   const errPayload = isJson ? await res.json().catch(() => null) : await parseErrorResponse(res);
   const err = new Error(errPayload?.error?.message || `Request failed (${res.status})`);
   err.status = res.status;
