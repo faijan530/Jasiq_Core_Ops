@@ -6,10 +6,18 @@ import { logInfo } from './shared/kernel/logger.js';
 
 const pool = createPool();
 
-await runMigrations(pool);
-
 const app = buildApp({ pool });
 
 app.listen(config.port, () => {
   logInfo('server_started', { port: config.port, nodeEnv: config.nodeEnv });
+  
+  // Run migrations after server starts (non-blocking)
+  setTimeout(async () => {
+    try {
+      await runMigrations(pool);
+    } catch (e) {
+      console.error('Migration failed (non-fatal):', e);
+      // Continue running even if migrations fail
+    }
+  }, 1000);
 });
