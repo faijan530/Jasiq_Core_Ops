@@ -17,7 +17,7 @@ export function AdminLoginPage() {
     setLoading(true);
     try {
       const payload = { email: email.trim(), password };
-      const res = await apiFetch('/auth/admin/login', {
+      const res = await apiFetch('/api/v1/auth/admin/login', {
         method: 'POST',
         body: payload
       });
