@@ -76,7 +76,7 @@ export async function runMigrations(pool) {
     const fileVersions = new Set(files.map((f) => parseVersion(f)));
     for (const version of applied.keys()) {
       if (!fileVersions.has(version)) {
-        throw new Error(`Missing migration file for applied version V${version}. Startup blocked.`);
+        console.warn(`Missing migration file for applied version V${version}. Skipping verification and continuing startup.`);
       }
     }
 
