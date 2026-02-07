@@ -31,6 +31,8 @@ function normalizeBootstrap(payload) {
   const canReadLeaveTypes = permissions.includes('LEAVE_TYPE_READ');
   const canReadLeaveBalances = permissions.includes('LEAVE_BALANCE_READ');
 
+  const canManageAdmins = permissions.includes('AUTH_ADMIN_MANAGE');
+
   const merged = [...navigationItems];
   const existingPaths = new Set(merged.map((i) => i.path));
 
@@ -85,6 +87,15 @@ function normalizeBootstrap(payload) {
       label: 'Leave Balances',
       path: '/leave/balances',
       requiredPermission: 'LEAVE_BALANCE_READ'
+    });
+  }
+
+  if (canManageAdmins && !existingPaths.has('/admin/admin-management')) {
+    merged.push({
+      id: 'adminManagement',
+      label: 'Admin Management',
+      path: '/admin/admin-management',
+      requiredPermission: 'AUTH_ADMIN_MANAGE'
     });
   }
 

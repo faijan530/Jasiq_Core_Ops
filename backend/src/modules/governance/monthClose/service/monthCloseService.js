@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 
-import { badRequest } from '../../../../shared/kernel/errors.js';
+import { badRequest, conflict } from '../../../../shared/kernel/errors.js';
 import { withTransaction } from '../../../../shared/persistence/transaction.js';
 import { writeAuditLog } from '../../../../shared/kernel/audit.js';
 
@@ -12,13 +12,6 @@ import {
   listMonthCloses,
   updateMonthCloseStatus
 } from '../repository/monthCloseRepository.js';
-
-function conflict(message) {
-  const err = new Error(message);
-  err.status = 409;
-  err.code = 'CONFLICT';
-  return err;
-}
 
 function normalizeMonthEnd(isoDate) {
   const d = new Date(isoDate);
@@ -37,14 +30,18 @@ export async function getOrCreateMonthClose(pool, { month, scope }) {
   const existing = await getMonthClose(pool, { month: m, scope });
   if (existing) return existing;
 
-  const created = await insertMonthClose(pool, {
-    id: crypto.randomUUID(),
+  // Implicit OPEN: do not create a row.
+  return {
+    id: null,
     month: m,
     scope,
-    status: 'OPEN'
-  });
-
-  return created;
+    status: 'OPEN',
+    closed_at: null,
+    closed_by: null,
+    closed_reason: null,
+    opened_at: null,
+    opened_by: null
+  };
 }
 
 export async function setMonthCloseStatus(pool, { month, scope, status, actorId, requestId, reason }) {
@@ -59,24 +56,32 @@ export async function setMonthCloseStatus(pool, { month, scope, status, actorId,
     return await withTransaction(pool, async (client) => {
       const latest = await getLatestMonthClose(client, { month: m, scope });
 
-      // FIRST-TIME (EMPTY TABLE) HANDLING
+      // IMPLICIT OPEN: no row exists.
       if (!latest) {
+        if (status === 'OPEN') {
+          // Idempotent OPEN: no change, no audit.
+          throw conflict('Month already open.');
+        }
+
+        // OPEN -> CLOSE inserts a single row.
         const inserted = await insertMonthClose(client, {
           id: crypto.randomUUID(),
           month: m,
           scope,
-          status,
-          closed_at: status === 'CLOSED' ? new Date() : null,
+          status: 'CLOSED',
+          closed_at: new Date(),
           closed_by: actorId,
-          closed_reason: trimmedReason
+          closed_reason: trimmedReason,
+          opened_at: null,
+          opened_by: null
         });
 
         await writeAuditLog(client, {
           requestId,
           entityType: 'MONTH_CLOSE',
           entityId: inserted.id,
-          action: status === 'CLOSED' ? 'CLOSE' : 'OPEN',
-          beforeData: null,
+          action: 'CLOSE',
+          beforeData: { month: m, scope, status: 'OPEN' },
           afterData: { month: inserted.month, scope: inserted.scope, status: inserted.status },
           actorId,
           actorRole: null,
@@ -86,35 +91,32 @@ export async function setMonthCloseStatus(pool, { month, scope, status, actorId,
         return inserted;
       }
 
-      // EXISTING RECORD HANDLING
+      // EXISTING RECORD HANDLING (single-row update)
       if (latest.status === status) {
-        throw conflict(`Month is already ${status}`);
+        // Idempotent: no change, no audit.
+        throw conflict(`Month already ${status === 'OPEN' ? 'open' : 'closed'}.`);
       }
 
-      // INSERT a new row (append-only)
-      const inserted = await insertMonthClose(client, {
-        id: crypto.randomUUID(),
-        month: m,
-        scope,
+      const updated = await updateMonthCloseStatus(client, {
+        id: latest.id,
         status,
-        closed_at: status === 'CLOSED' ? new Date() : null,
-        closed_by: status === 'CLOSED' ? actorId : null,
-        closed_reason: status === 'CLOSED' ? trimmedReason : null
+        actorId,
+        reason: trimmedReason
       });
 
       await writeAuditLog(client, {
         requestId,
         entityType: 'MONTH_CLOSE',
-        entityId: inserted.id,
+        entityId: updated.id,
         action: status === 'CLOSED' ? 'CLOSE' : 'OPEN',
         beforeData: { month: latest.month, scope: latest.scope, status: latest.status },
-        afterData: { month: inserted.month, scope: inserted.scope, status: inserted.status },
+        afterData: { month: updated.month, scope: updated.scope, status: updated.status },
         actorId,
         actorRole: null,
         reason: trimmedReason
       });
 
-      return inserted;
+      return updated;
     });
   } catch (err) {
     // Log unexpected errors and re-throw with context

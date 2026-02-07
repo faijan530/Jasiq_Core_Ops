@@ -24,6 +24,14 @@ export function SystemConfigPage() {
   const [description, setDescription] = useState('');
   const [reason, setReason] = useState('');
 
+  const openUpsertModal = (config) => {
+    setKey(config?.key || '');
+    setValue(config?.value || '');
+    setDescription(config?.description || '');
+    setReason('');
+    setModalOpen(true);
+  };
+
   const list = usePagedQuery({ path: '/api/v1/governance/system-config', page, pageSize, enabled: true });
 
   const upsertMutation = useMutation(async () => {
@@ -63,7 +71,7 @@ export function SystemConfigPage() {
   const items = list.data?.items || [];
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-50 relative z-[9999]">
       <PageHeader title={title} subtitle="Central system configuration controls." />
 
       {/* Warning Banner */}
@@ -78,7 +86,7 @@ export function SystemConfigPage() {
       </div>
 
       <div className="mx-4 md:mx-6 lg:mx-8">
-        <div className="bg-white rounded-lg border border-slate-200 p-4 shadow-sm mb-6">
+        <div className="w-full px-4 py-4 shadow-sm mb-6 relative z-10">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
               <div className="text-sm font-semibold text-slate-900">Write access</div>
@@ -91,11 +99,7 @@ export function SystemConfigPage() {
                 type="button"
                 className="w-full sm:w-auto rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
                 onClick={() => {
-                  setKey('');
-                  setValue('');
-                  setDescription('');
-                  setReason('');
-                  setModalOpen(true);
+                  openUpsertModal(null);
                 }}
               >
                 Add / Update
@@ -126,11 +130,7 @@ export function SystemConfigPage() {
                         type="button"
                         className="mt-3 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100"
                         onClick={() => {
-                          setKey(c.key);
-                          setValue(c.value);
-                          setDescription(c.description || '');
-                          setReason('');
-                          setModalOpen(true);
+                          openUpsertModal(c);
                         }}
                       >
                         Edit
@@ -140,25 +140,21 @@ export function SystemConfigPage() {
                 ))}
               </div>
 
-              <div className="hidden md:block overflow-x-auto">
+              <div className="hidden md:block overflow-x-auto relative z-10">
                 <Table
                   columns={[
-                    { key: 'key', header: 'Key', render: (d) => <span className="font-mono">{d.key}</span> },
-                    { key: 'value', header: 'Value', render: (d) => d.value },
-                    { key: 'desc', header: 'Description', render: (d) => d.description || '' },
+                    { key: 'key', title: 'Key', render: (_v, d) => <span className="font-mono">{d.key}</span> },
+                    { key: 'value', title: 'Value', render: (_v, d) => d.value },
+                    { key: 'desc', title: 'Description', render: (_v, d) => d.description || '' },
                     ...(canWrite ? [{
                       key: 'actions',
-                      header: 'Actions',
-                      render: (d) => (
+                      title: 'Actions',
+                      render: (_v, d) => (
                         <button
                           type="button"
                           className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100"
                           onClick={() => {
-                            setKey(d.key);
-                            setValue(d.value);
-                            setDescription(d.description || '');
-                            setReason('');
-                            setModalOpen(true);
+                            openUpsertModal(d);
                           }}
                         >
                           Edit
@@ -166,7 +162,12 @@ export function SystemConfigPage() {
                       )
                     }] : [])
                   ]}
-                  rows={items.map((c) => ({ key: c.key, data: c }))}
+                  data={items.map((c) => ({
+                    key: c.key,
+                    value: c.value,
+                    description: c.description,
+                    desc: c.description
+                  }))}
                 />
               </div>
             </div>

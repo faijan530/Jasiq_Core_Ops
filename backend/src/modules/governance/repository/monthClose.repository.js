@@ -14,8 +14,8 @@ export async function getLatestMonthClose(client, { month, scope }) {
 export async function insertMonthClose(client, row) {
   const res = await client.query(
     `INSERT INTO month_close (
-      id, month, scope, status, closed_at, closed_by, closed_reason
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7)
+      id, month, scope, status, closed_at, closed_by, closed_reason, opened_at, opened_by
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
     RETURNING *`,
     [
       row.id,
@@ -24,7 +24,9 @@ export async function insertMonthClose(client, row) {
       row.status,
       row.closed_at || null,
       row.closed_by || null,
-      row.closed_reason || null
+      row.closed_reason || null,
+      row.opened_at || null,
+      row.opened_by || null
     ]
   );
   return res.rows[0];

@@ -36,6 +36,8 @@ export function monthCloseController({ pool }) {
           closedAt: row.closed_at,
           closedBy: row.closed_by,
           reason: row.closed_reason,
+          openedAt: row.opened_at,
+          openedBy: row.opened_by,
           createdAt: row.created_at
         }
       });

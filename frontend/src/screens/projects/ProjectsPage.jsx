@@ -204,38 +204,41 @@ export function ProjectsPage() {
                 ))}
               </div>
 
-              <div className="hidden md:block overflow-x-auto">
-                <Table
-                  columns={[
-                    { key: 'code', header: 'Code', render: (d) => <span className="font-mono">{d.code}</span> },
-                    { key: 'name', header: 'Name', render: (d) => d.name },
-                    { key: 'active', header: 'Active', render: (d) => (
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${d.isActive ? 'bg-green-100 text-green-800' : 'bg-slate-100 text-slate-800'}`}>
-                        {d.isActive ? 'ACTIVE' : 'INACTIVE'}
-                      </span>
-                    )},
-                    {
-                      key: 'actions',
-                      header: 'Actions',
-                      render: (d) => (
-                        <button
-                          type="button"
-                          className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 disabled:bg-slate-50"
-                          disabled={updateMutation.status === 'loading'}
-                          onClick={() => {
-                            setActivationTarget(d);
-                            setActivationIsActive(!d.isActive);
-                            setActivationReason('');
-                            setActivationModalOpen(true);
-                          }}
-                        >
-                          Set {d.isActive ? 'Inactive' : 'Active'}
-                        </button>
-                      )
-                    }
-                  ]}
-                  rows={items.map((p) => ({ key: p.id, data: p }))}
-                />
+              <div className="hidden md:block">
+                <div className="overflow-x-auto">
+                  <Table
+                    columns={[
+                      { key: 'code', title: 'Code', render: (_v, d) => <span className="font-mono">{d.code}</span> },
+                      { key: 'name', title: 'Name', render: (_v, d) => d.name },
+                      { key: 'active', title: 'Active', render: (_v, d) => (
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${d.isActive ? 'bg-green-100 text-green-800' : 'bg-slate-100 text-slate-800'}`}>
+                          {d.isActive ? 'ACTIVE' : 'INACTIVE'}
+                        </span>
+                      )},
+                      {
+                        key: 'actions',
+                        title: 'Actions',
+                        render: (_v, d) => (
+                          <button
+                            type="button"
+                            className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 disabled:bg-slate-50"
+                            disabled={updateMutation.status === 'loading'}
+                            onClick={() => {
+                              setActivationTarget(d);
+                              setActivationIsActive(!d.isActive);
+                              setActivationReason('');
+                              setActivationModalOpen(true);
+                            }}
+                          >
+                            Set {d.isActive ? 'Inactive' : 'Active'}
+                          </button>
+                        )
+                      }
+                    ]}
+                    data={items}
+                    empty="No projects found"
+                  />
+                </div>
               </div>
             </div>
           )}

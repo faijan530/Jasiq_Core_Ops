@@ -98,24 +98,28 @@ export function RbacPage() {
                   ))}
               </div>
 
-              <div className="hidden md:block overflow-x-auto">
-                {tab === 'roles' ? (
-                  <Table
-                    columns={[
-                      { key: 'name', header: 'Name', render: (d) => d.name },
-                      { key: 'desc', header: 'Description', render: (d) => d.description || '' }
-                    ]}
-                    rows={items.map((r) => ({ key: r.id, data: r }))}
-                  />
-                ) : (
-                  <Table
-                    columns={[
-                      { key: 'code', header: 'Code', render: (d) => <span className="font-mono">{d.code}</span> },
-                      { key: 'desc', header: 'Description', render: (d) => d.description || '' }
-                    ]}
-                    rows={items.map((p) => ({ key: p.id, data: p }))}
-                  />
-                )}
+              <div className="hidden md:block">
+                <div className="overflow-x-auto">
+                  {tab === 'roles' ? (
+                    <Table
+                      columns={[
+                        { key: 'name', title: 'Name', render: (_v, d) => d.name },
+                        { key: 'desc', title: 'Description', render: (_v, d) => d.description || '' }
+                      ]}
+                      data={items}
+                      empty="No roles found"
+                    />
+                  ) : (
+                    <Table
+                      columns={[
+                        { key: 'code', title: 'Code', render: (_v, d) => <span className="font-mono">{d.code}</span> },
+                        { key: 'desc', title: 'Description', render: (_v, d) => d.description || '' }
+                      ]}
+                      data={items}
+                      empty="No permissions found"
+                    />
+                  )}
+                </div>
               </div>
             </div>
           )}

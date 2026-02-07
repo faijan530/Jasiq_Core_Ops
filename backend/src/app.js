@@ -25,6 +25,7 @@ import { attendanceRoutes } from './modules/attendance/controller/attendanceRout
 import { timesheetRoutes } from './modules/timesheet/index.js';
 import { leaveRoutes } from './modules/leave/index.js';
 import { adminLoginRoutes } from './shared/auth/adminLogin.routes.js';
+import { adminManagementRoutes } from './shared/auth/adminManagement.routes.js';
 
 export function buildApp({ pool }) {
   const app = express();
@@ -41,6 +42,8 @@ export function buildApp({ pool }) {
 
   // Admin login routes (no auth required)
   app.use('/api/v1/auth', adminLoginRoutes({ pool }));
+  // Phase 0 bootstrap signup + admin management routes
+  app.use('/api/v1/auth', adminManagementRoutes({ pool }));
 
   const auth = authMiddleware({ jwtConfig: config.jwt });
 

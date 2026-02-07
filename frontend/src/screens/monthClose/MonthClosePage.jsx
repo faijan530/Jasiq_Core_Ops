@@ -34,6 +34,8 @@ export function MonthClosePage() {
   const [status, setStatus] = useState('CLOSED');
   const [reason, setReason] = useState('');
   const [lastSaved, setLastSaved] = useState(null);
+  const [errorHandled, setErrorHandled] = useState(false);
+  const [feedback, setFeedback] = useState(null);
 
   const list = usePagedQuery({ path: '/api/v1/governance/month-close', page, pageSize, enabled: true });
 
@@ -67,13 +69,104 @@ export function MonthClosePage() {
     });
   }, [items]);
 
+  const fetchLatestItems = async () => {
+    const payload = await apiFetch(list.url);
+    return payload?.items || [];
+  };
+
   const handleApply = async () => {
+    setErrorHandled(false);
+    setFeedback(null);
+
+    const monthEnd = toMonthEndIso(`${month}-01`);
+    const existingRecord = latestByMonth.find((item) => getMonthEndForRow(item) === monthEnd);
+    const currentStatus = existingRecord?.status || 'OPEN';
+
+    if (!existingRecord && status === 'OPEN') {
+      setFeedback({ type: 'info', message: 'This month is currently open.' });
+      return;
+    }
+
+    if (currentStatus === 'OPEN' && status === 'OPEN') {
+      if (existingRecord) {
+        setFeedback({ type: 'info', message: 'This month is already open.' });
+      } else {
+        setFeedback({ type: 'info', message: 'This month is currently open.' });
+      }
+      return;
+    }
+    if (currentStatus === 'CLOSED' && status === 'CLOSED') {
+      setFeedback({ type: 'info', message: 'This month is already closed.' });
+      return;
+    }
+
     try {
-      const result = await setStatusMutation.run();
-      setLastSaved(result);
+      await setStatusMutation.run();
+
+      const freshItems = await fetchLatestItems();
+      const updatedRecord = freshItems.find((item) => getMonthEndForRow(item) === monthEnd);
+      const actualStatus = updatedRecord?.status || 'OPEN';
+
+      if (updatedRecord) setLastSaved(updatedRecord);
       setReason('');
-      await list.refetch();
-    } catch {}
+
+      if (status === 'OPEN' && actualStatus === 'OPEN') {
+        setFeedback({ type: 'success', message: 'Month reopened successfully.' });
+        return;
+      }
+      if (status === 'CLOSED' && actualStatus === 'CLOSED') {
+        setFeedback({ type: 'success', message: 'Month closed successfully.' });
+        return;
+      }
+
+      if (actualStatus === 'OPEN') {
+        setFeedback({
+          type: 'info',
+          message: updatedRecord ? 'This month is already open.' : 'This month is currently open.'
+        });
+        return;
+      }
+      if (actualStatus === 'CLOSED') {
+        setFeedback({ type: 'info', message: 'This month is already closed.' });
+        return;
+      }
+    } catch (error) {
+      setErrorHandled(true);
+
+      try {
+        const freshItems = await fetchLatestItems();
+        const updatedRecord = freshItems.find((item) => getMonthEndForRow(item) === monthEnd);
+        const actualStatus = updatedRecord?.status || 'OPEN';
+
+        if (updatedRecord) setLastSaved(updatedRecord);
+
+        if (status === 'OPEN' && actualStatus === 'OPEN') {
+          setFeedback({ type: 'success', message: 'Month reopened successfully.' });
+          return;
+        }
+        if (status === 'CLOSED' && actualStatus === 'CLOSED') {
+          setFeedback({ type: 'success', message: 'Month closed successfully.' });
+          return;
+        }
+
+        if (actualStatus === 'OPEN') {
+          setFeedback({
+            type: 'info',
+            message: updatedRecord ? 'This month is already open.' : 'This month is currently open.'
+          });
+          return;
+        }
+        if (actualStatus === 'CLOSED') {
+          setFeedback({ type: 'info', message: 'This month is already closed.' });
+          return;
+        }
+      } catch {
+        // Fall through to generic error if we cannot verify state.
+      }
+
+      setFeedback({ type: 'error', message: 'Something went wrong. Please try again.' });
+      return;
+    }
   };
 
   if (list.status === 'loading' && !list.data) {
@@ -185,7 +278,23 @@ export function MonthClosePage() {
               </button>
             </div>
           </div>
-          {setStatusMutation.status === 'error' ? <div className="mt-3"><ErrorState error={setStatusMutation.error} /></div> : null}
+          {feedback ? (
+            <div
+              className={`mt-3 rounded-md border px-3 py-2 text-sm ${
+                feedback.type === 'success'
+                  ? 'bg-green-50 border-green-200 text-green-800'
+                  : feedback.type === 'error'
+                    ? 'bg-rose-50 border-rose-200 text-rose-800'
+                    : 'bg-slate-50 border-slate-200 text-slate-800'
+              }`}
+            >
+              {feedback.message}
+            </div>
+          ) : setStatusMutation.status === 'error' && !errorHandled ? (
+            <div className="mt-3">
+              <ErrorState error={setStatusMutation.error} />
+            </div>
+          ) : null}
           {lastSaved ? (
             <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-md">
               <div className="text-sm font-medium text-green-800">Saved</div>
@@ -226,16 +335,22 @@ export function MonthClosePage() {
                     <div className="mt-3 grid grid-cols-1 gap-2">
                       <div>
                         <div className="text-xs font-medium text-slate-500">Reason</div>
-                        <div className="mt-1 text-sm text-slate-900">{m.closedReason || '-'}</div>
+                        <div className="mt-1 text-sm text-slate-900">
+                          {m.closedReason || '-'}
+                        </div>
                       </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <div className="text-xs font-medium text-slate-500">Closed At</div>
-                          <div className="mt-1 text-xs text-slate-700">{m.closedAt ? String(m.closedAt) : '-'}</div>
+                          <div className="text-xs font-medium text-slate-500">{m.status === 'CLOSED' ? 'Closed At' : 'Opened At'}</div>
+                          <div className="mt-1 text-xs text-slate-700">
+                            {m.status === 'CLOSED' ? (m.closedAt ? String(m.closedAt) : '-') : (m.openedAt ? String(m.openedAt) : '-')}
+                          </div>
                         </div>
                         <div>
-                          <div className="text-xs font-medium text-slate-500">Closed By</div>
-                          <div className="mt-1 font-mono text-xs text-slate-700">{m.closedBy || '-'}</div>
+                          <div className="text-xs font-medium text-slate-500">{m.status === 'CLOSED' ? 'Closed By' : 'Opened By'}</div>
+                          <div className="mt-1 font-mono text-xs text-slate-700">
+                            {m.status === 'CLOSED' ? (m.closedBy || '-') : (m.openedBy || '-')}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -243,21 +358,36 @@ export function MonthClosePage() {
                 ))}
               </div>
 
-              <div className="hidden md:block overflow-x-auto">
-                <Table
-                  columns={[
-                    { key: 'month', header: 'Month', render: (d) => <span className="font-mono text-sm">{String(getMonthEndForRow(d)).slice(0, 10)}</span> },
-                    { key: 'status', header: 'Status', render: (d) => (
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${d.status === 'CLOSED' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}`}>
-                        {d.status}
-                      </span>
-                    )},
-                    { key: 'closedAt', header: 'Closed At', render: (d) => (d.closedAt ? String(d.closedAt) : '-') },
-                    { key: 'closedBy', header: 'Closed By', render: (d) => (d.closedBy ? <span className="font-mono text-xs">{d.closedBy}</span> : '-') },
-                    { key: 'reason', header: 'Reason', render: (d) => d.closedReason || '-' }
-                  ]}
-                  rows={items.map((m) => ({ key: m.id, data: m }))}
-                />
+              <div className="hidden md:block">
+                <div className="overflow-x-auto">
+                  <Table
+                    columns={[
+                      { key: 'month', title: 'Month', render: (_v, d) => <span className="font-mono text-sm">{String(getMonthEndForRow(d)).slice(0, 10)}</span> },
+                      { key: 'status', title: 'Status', render: (_v, d) => (
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${d.status === 'CLOSED' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}`}>
+                          {d.status}
+                        </span>
+                      )},
+                      { key: 'actionBy', title: 'Action By', render: (_value, d) => {
+                        if (d.status === 'CLOSED') {
+                          return d.closedBy ? <span className="font-mono text-xs">{d.closedBy}</span> : '-';
+                        } else {
+                          return d.openedBy ? <span className="font-mono text-xs">{d.openedBy}</span> : '-';
+                        }
+                      }},
+                      { key: 'actionAt', title: 'Action At', render: (_value, d) => {
+                        if (d.status === 'CLOSED') {
+                          return d.closedAt ? String(d.closedAt) : '-';
+                        } else {
+                          return d.openedAt ? String(d.openedAt) : '-';
+                        }
+                      }},
+                      { key: 'reason', title: 'Reason', render: (_value, d) => d.closedReason || '-' }
+                    ]}
+                    data={items}
+                    empty="No month close records found"
+                  />
+                </div>
               </div>
             </div>
           )}

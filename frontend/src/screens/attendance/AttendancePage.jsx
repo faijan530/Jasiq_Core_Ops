@@ -63,6 +63,16 @@ export function AttendancePage() {
   const [divisionId, setDivisionId] = useState('');
   const [view, setView] = useState('monthly');
 
+  const [employeeSearch, setEmployeeSearch] = useState('');
+  const [employeeSearchDebounced, setEmployeeSearchDebounced] = useState('');
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setEmployeeSearchDebounced(employeeSearch);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [employeeSearch]);
+
   const divisions = usePagedQuery({ path: '/api/v1/governance/divisions', page: 1, pageSize: 200, enabled: true });
   const divisionsById = useMemo(() => {
     const map = {};
@@ -177,6 +187,27 @@ export function AttendancePage() {
 
   const employees = monthState.data?.employees || [];
   const records = monthState.data?.records || [];
+
+  const filteredEmployees = useMemo(() => {
+    const q = String(employeeSearchDebounced || '').trim().toLowerCase();
+    if (!q) return employees;
+    return (employees || []).filter((e) => {
+      const code = String(e?.employeeCode || '').toLowerCase();
+      const name = `${String(e?.firstName || '').trim()} ${String(e?.lastName || '').trim()}`.trim().toLowerCase();
+      return code.includes(q) || name.includes(q);
+    });
+  }, [employees, employeeSearchDebounced]);
+
+  const filteredSummaryItems = useMemo(() => {
+    const items = summaryState.data?.items || [];
+    const q = String(employeeSearchDebounced || '').trim().toLowerCase();
+    if (!q) return items;
+    return items.filter((r) => {
+      const code = String(r?.employeeCode || '').toLowerCase();
+      const name = `${String(r?.firstName || '').trim()} ${String(r?.lastName || '').trim()}`.trim().toLowerCase();
+      return code.includes(q) || name.includes(q);
+    });
+  }, [summaryState.data, employeeSearchDebounced]);
 
   const [employeeMetaById, setEmployeeMetaById] = useState({});
 
@@ -417,7 +448,7 @@ export function AttendancePage() {
       <PageHeader
         title={title}
         subtitle="Monthly"
-        right={
+        actions={
           <div className="flex flex-col sm:flex-row gap-2">
             <button
               type="button"
@@ -465,6 +496,16 @@ export function AttendancePage() {
                       setMonth(e.target.value);
                       refreshMonth();
                     }}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-600">Employee</label>
+                  <input
+                    className="mt-1 w-full rounded-md border-slate-300 text-sm"
+                    value={employeeSearch}
+                    onChange={(e) => setEmployeeSearch(e.target.value)}
+                    placeholder="Search by name or code"
                   />
                 </div>
 
@@ -521,7 +562,7 @@ export function AttendancePage() {
                   <div>
                     <div className="text-sm font-semibold text-slate-900">Monthly View</div>
                     <div className="mt-1 text-xs text-slate-500">
-                      {employees.length} employees · {days.length} days
+                      {filteredEmployees.length} employees · {days.length} days
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -533,7 +574,7 @@ export function AttendancePage() {
                   </div>
                 </div>
 
-                {employees.length === 0 ? (
+                {filteredEmployees.length === 0 ? (
                   <div className="p-6">
                     <EmptyState title="No active employees" description="Attendance applies to ACTIVE employees only." />
                   </div>
@@ -551,7 +592,7 @@ export function AttendancePage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {employees.map((e) => {
+                        {filteredEmployees.map((e) => {
                           const divisionLabel = e.primaryDivisionId ? divisionsById[e.primaryDivisionId]?.code || '' : '';
                           return (
                             <tr key={e.id} className="hover:bg-slate-50">
@@ -634,7 +675,7 @@ export function AttendancePage() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 bg-white">
-                        {(summaryState.data?.items || []).map((r) => (
+                        {filteredSummaryItems.map((r) => (
                           <tr key={r.employeeId}>
                             <td className="px-4 py-3">
                               <div className="text-sm font-semibold text-slate-900">

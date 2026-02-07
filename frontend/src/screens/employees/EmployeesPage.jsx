@@ -748,7 +748,7 @@ export function EmployeesPage() {
       <PageHeader
         title={title}
         subtitle="Directory"
-        right={
+        actions={
           <div className="flex items-center gap-2">
             <button
               type="button"

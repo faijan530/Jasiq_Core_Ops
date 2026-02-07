@@ -44,6 +44,40 @@ function formatEntity(entityType, entityId) {
   return entityId ? `${entityType}:${entityId.slice(0, 8)}…` : entityType;
 }
 
+function formatAuditTime(value) {
+  if (!value) return "—";
+
+  let s = String(value).trim();
+
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(\.\d+)?$/.test(s)) {
+    s = s.replace(" ", "T");
+  }
+
+  const date = new Date(s);
+  if (Number.isNaN(date.getTime())) return String(value);
+
+  const parts = new Intl.DateTimeFormat("en-IN", {
+    timeZone: "Asia/Kolkata",
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  }).formatToParts(date);
+
+  const get = (type) => parts.find((p) => p.type === type)?.value;
+  const day = get("day");
+  const month = get("month");
+  const year = get("year");
+  const hour = get("hour");
+  const minute = get("minute");
+  const dayPeriod = (get("dayPeriod") || "").toLowerCase();
+
+  if (!day || !month || !year || !hour || !minute || !dayPeriod) return String(value);
+  return `${day} ${month} ${year}, ${hour}:${minute} ${dayPeriod}`;
+}
+
 export function AuditPage() {
   const { bootstrap } = useBootstrap();
   const title = bootstrap?.ui?.screens?.audit?.title || 'Audit Logs';
@@ -55,18 +89,21 @@ export function AuditPage() {
   const [action, setAction] = useState('');
   const [actor, setActor] = useState('');
 
+  const actorBlocked = actor === 'system' || actor === 'service-account';
+
   const cleanedEntityType = entityType.trim();
   const cleanedAction = action.trim();
 
   const path = useMemo(() => {
+    if (actorBlocked) return '';
     const filters = {};
     if (cleanedEntityType) filters.entityType = cleanedEntityType;
     if (cleanedAction) filters.action = cleanedAction;
     if (actor) filters.actorId = actor;
     return buildPath(filters);
-  }, [cleanedEntityType, cleanedAction, actor]);
+  }, [cleanedEntityType, cleanedAction, actor, actorBlocked]);
 
-  const list = usePagedQuery({ path: path || '/api/v1/governance/audit', page, pageSize, enabled: !!path });
+  const list = usePagedQuery({ path: path || '/api/v1/governance/audit', page, pageSize, enabled: !!path && !actorBlocked });
 
   const items = list.data?.items || [];
   const total = list.data?.total || 0;
@@ -147,12 +184,17 @@ export function AuditPage() {
                   </option>
                 ))}
               </select>
+              {actorBlocked ? (
+                <div className="mt-1 text-xs text-slate-500">
+                  Audit logs for System and Service Accounts are not available yet.
+                </div>
+              ) : null}
             </div>
           </div>
           <button
             type="button"
             className="mt-3 w-full md:w-auto px-4 py-2 bg-slate-900 text-white rounded-md text-sm font-medium disabled:bg-slate-400 disabled:cursor-not-allowed hover:bg-slate-800 transition-colors"
-            disabled={!path}
+            disabled={!path || actorBlocked}
             onClick={() => { setPage(1); }}
           >
             Filter
@@ -178,7 +220,7 @@ export function AuditPage() {
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <div className="text-xs font-medium text-slate-500">Time</div>
-                        <div className="mt-1 text-sm text-slate-900">{new Date(a.createdAt).toLocaleString()}</div>
+                        <div className="mt-1 text-sm text-slate-900">{formatAuditTime(a.createdAt ?? a.created_at)}</div>
                       </div>
                       <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                         a.action === 'CREATE' ? 'bg-green-100 text-green-800' :
@@ -208,24 +250,31 @@ export function AuditPage() {
                 ))}
               </div>
 
-              <div className="hidden md:block overflow-x-auto">
-                <Table
-                  columns={[
-                    { key: 'createdAt', header: 'Time', render: (d) => <span className="text-xs text-slate-600">{new Date(d.createdAt).toLocaleString()}</span> },
-                    { key: 'entity', header: 'Entity', render: (d) => <span className="font-mono text-sm">{formatEntity(d.entityType, d.entityId)}</span> },
-                    { key: 'action', header: 'Action', render: (d) => (
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        d.action === 'CREATE' ? 'bg-green-100 text-green-800' :
-                        d.action === 'UPDATE' || d.action === 'ACTIVATE' ? 'bg-blue-100 text-blue-800' :
-                        d.action === 'DELETE' || d.action === 'DEACTIVATE' ? 'bg-red-100 text-red-800' :
-                        'bg-slate-100 text-slate-800'
-                      }`}>{d.action}</span>
-                    )},
-                    { key: 'actor', header: 'Actor', render: (d) => renderActor(d) },
-                    { key: 'request', header: 'Request', render: (d) => <span className="font-mono text-xs">{d.requestId.slice(0, 8)}…</span> }
-                  ]}
-                  rows={items.map((a) => ({ key: a.id, data: a }))}
-                />
+              <div className="hidden md:block">
+                <div className="overflow-x-auto">
+                  <Table
+                    columns={[
+                      { key: 'createdAt', title: 'Time', render: (_v, d) => (
+                        <span className="text-xs text-slate-600">{formatAuditTime(d.createdAt ?? d.created_at)}</span>
+                      )},
+                      { key: 'entity', title: 'Entity', render: (_v, d) => (
+                        <span className="font-mono text-sm">{formatEntity(d.entityType, d.entityId)}</span>
+                      )},
+                      { key: 'action', title: 'Action', render: (_v, d) => (
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          d.action === 'CREATE' ? 'bg-green-100 text-green-800' :
+                          d.action === 'UPDATE' || d.action === 'ACTIVATE' ? 'bg-blue-100 text-blue-800' :
+                          d.action === 'DELETE' || d.action === 'DEACTIVATE' ? 'bg-red-100 text-red-800' :
+                          'bg-slate-100 text-slate-800'
+                        }`}>{d.action}</span>
+                      )},
+                      { key: 'actor', title: 'Actor', render: (_v, d) => renderActor(d) },
+                      { key: 'request', title: 'Request', render: (_v, d) => <span className="font-mono text-xs">{d.requestId.slice(0, 8)}…</span> }
+                    ]}
+                    data={items}
+                    empty="No audit records found"
+                  />
+                </div>
               </div>
             </div>
           )}

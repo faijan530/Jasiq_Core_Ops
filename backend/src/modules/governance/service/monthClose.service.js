@@ -14,6 +14,31 @@ function normalizeMonthEnd(isoDate) {
   return utcEnd.toISOString().slice(0, 10);
 }
 
+export async function listMonthCloses(pool, { offset, limit }) {
+  const res = await pool.query(
+    `SELECT *
+     FROM month_close
+     ORDER BY created_at DESC, id DESC
+     LIMIT $1 OFFSET $2`,
+    [limit, offset]
+  );
+  return res.rows;
+}
+
+export async function countMonthCloses(pool) {
+  const res = await pool.query(
+    `SELECT COUNT(*) as total
+     FROM month_close`
+  );
+  return parseInt(res.rows[0].total, 10);
+}
+
+export async function listMonthClosesPaged(pool, { offset, limit }) {
+  const rows = await listMonthCloses(pool, { offset, limit });
+  const total = await countMonthCloses(pool);
+  return { rows, total };
+}
+
 export async function setMonthCloseStatus(pool, { month, status, actorId, requestId, reason }) {
   const trimmedReason = String(reason || '').trim();
   if (!trimmedReason) throw badRequest('Reason is required');
@@ -35,7 +60,9 @@ export async function setMonthCloseStatus(pool, { month, status, actorId, reques
       status: s,
       closed_at: s === 'CLOSED' ? new Date() : null,
       closed_by: s === 'CLOSED' ? actorId : null,
-      closed_reason: s === 'CLOSED' ? trimmedReason : null
+      closed_reason: s === 'CLOSED' ? trimmedReason : null,
+      opened_at: s === 'OPEN' ? new Date() : null,
+      opened_by: s === 'OPEN' ? actorId : null
     });
 
     await writeAuditLog(client, {
