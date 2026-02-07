@@ -68,6 +68,14 @@ export function LeaveBalancePage() {
   const types = usePagedQuery({ path: '/api/v1/leave/types?includeInactive=true', page: 1, pageSize: 200, enabled: leaveEnabled && canReadTypes });
   const typeItems = types.data?.items || [];
 
+  const leaveTypeById = useMemo(() => {
+    const m = new Map();
+    for (const t of typeItems) {
+      if (t?.id != null) m.set(String(t.id), t);
+    }
+    return m;
+  }, [typeItems]);
+
   // Fetch employees for dropdown
   const employees = usePagedQuery({ path: '/api/v1/employees', page: 1, pageSize: 200, enabled: leaveEnabled && canGrant });
   const employeeItems = employees.data?.items || [];
@@ -103,6 +111,18 @@ export function LeaveBalancePage() {
     }
     return filtered;
   }, [list.data, employeeId, year]);
+
+  const enrichedItems = useMemo(() => {
+    return items.map((x) => {
+      const leaveTypeId = x?.leaveTypeId != null ? String(x.leaveTypeId) : '';
+      const t = leaveTypeId ? leaveTypeById.get(leaveTypeId) : null;
+      return {
+        ...x,
+        leaveTypeCode: x?.leaveTypeCode ?? t?.code,
+        leaveTypeName: x?.leaveTypeName ?? t?.name
+      };
+    });
+  }, [items, leaveTypeById]);
 
   const grantMutation = useMutation(async (payload) => {
     return apiFetch('/api/v1/leave/balances/grant', { method: 'POST', body: payload });
@@ -319,16 +339,16 @@ export function LeaveBalancePage() {
                           );
                         }
                       },
-                      { key: 'type', title: 'Leave Type', render: (_v, d) => <span className="text-sm font-medium text-slate-900">{d.leaveTypeCode} — {d.leaveTypeName}</span> },
+                      { key: 'type', title: 'Leave Type', render: (_v, d) => <span className="text-sm font-medium text-slate-900">{d.leaveTypeCode || '—'} — {d.leaveTypeName || '—'}</span> },
                       { key: 'year', title: 'Year', render: (_v, d) => <span className="text-sm text-slate-700">{d.year}</span> },
                       { key: 'opening', title: 'Opening', render: (_v, d) => <span className="text-sm text-slate-700">{fmtUnits(d.openingBalance)}</span> },
                       { key: 'granted', title: 'Granted', render: (_v, d) => <span className="text-sm text-slate-700">{fmtUnits(d.grantedBalance)}</span> },
                       { key: 'consumed', title: 'Consumed', render: (_v, d) => <span className="text-sm text-slate-700">{fmtUnits(d.consumedBalance)}</span> },
                       { key: 'available', title: 'Available', render: (_v, d) => <span className="text-sm font-semibold text-slate-900">{fmtUnits(d.availableBalance)}</span> }
                     ]}
-                    data={items.map((x) => ({
+                    data={enrichedItems.map((x) => ({
                       employeeId: x.employeeId,
-                      type: `${x.leaveTypeCode} — ${x.leaveTypeName}`,
+                      type: `${x.leaveTypeCode || '—'} — ${x.leaveTypeName || '—'}`,
                       year: x.year,
                       openingBalance: x.openingBalance,
                       grantedBalance: x.grantedBalance,
@@ -341,11 +361,11 @@ export function LeaveBalancePage() {
                 </div>
 
                 <div className="grid grid-cols-1 gap-3 md:hidden">
-                  {items.map((x) => (
+                  {enrichedItems.map((x) => (
                     <div key={x.id} className="rounded-xl border border-slate-200 bg-white p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0 flex-1">
-                          <div className="text-sm font-semibold text-slate-900 truncate">{x.leaveTypeCode} — {x.leaveTypeName}</div>
+                          <div className="text-sm font-semibold text-slate-900 truncate">{x.leaveTypeCode || '—'} — {x.leaveTypeName || '—'}</div>
                           <div className="mt-1 text-xs text-slate-500">Employee: {String(x.employeeId).slice(0, 8)}…</div>
                         </div>
                         <div className="text-sm font-semibold text-slate-900">{fmtUnits(x.availableBalance)}</div>

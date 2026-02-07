@@ -146,12 +146,12 @@ export function LeaveTypePage() {
             ) : (
               <Table
                 columns={[
-                  { key: 'code', header: 'Code', render: (d) => <span className="font-mono text-sm text-slate-900">{d.code}</span> },
-                  { key: 'name', header: 'Name', render: (d) => <span className="text-sm font-medium text-slate-900">{d.name}</span> },
+                  { key: 'code', title: 'Code', render: (_v, d) => <span className="font-mono text-sm text-slate-900">{d.code}</span> },
+                  { key: 'name', title: 'Name', render: (_v, d) => <span className="text-sm font-medium text-slate-900">{d.name}</span> },
                   {
                     key: 'flags',
-                    header: 'Flags',
-                    render: (d) => (
+                    title: 'Flags',
+                    render: (_v, d) => (
                       <div className="flex flex-wrap gap-2">
                         <span className={cx('text-xs px-2 py-1 rounded-full', d.isPaid ? 'bg-emerald-50 text-emerald-800' : 'bg-slate-100 text-slate-800')}>
                           {d.isPaid ? 'Paid' : 'Unpaid'}
@@ -165,11 +165,11 @@ export function LeaveTypePage() {
                       </div>
                     )
                   },
-                  { key: 'version', header: 'Version', render: (d) => <span className="text-sm text-slate-700">{d.version}</span> },
+                  { key: 'version', title: 'Version', render: (_v, d) => <span className="text-sm text-slate-700">{d.version}</span> },
                   {
                     key: 'action',
-                    header: 'Action',
-                    render: (d) => (
+                    title: 'Action',
+                    render: (_v, d) => (
                       <div className="flex items-center justify-end">
                         {canWrite ? (
                           <button
@@ -184,7 +184,7 @@ export function LeaveTypePage() {
                     )
                   }
                 ]}
-                rows={items.map((x) => ({ key: x.id, data: x }))}
+                data={items}
               />
             )}
           </div>
