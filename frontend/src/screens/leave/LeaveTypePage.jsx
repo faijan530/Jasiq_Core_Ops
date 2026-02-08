@@ -144,33 +144,15 @@ export function LeaveTypePage() {
             {items.length === 0 ? (
               <EmptyState title="No leave types" description="No leave types found." />
             ) : (
-              <Table
-                columns={[
-                  { key: 'code', title: 'Code', render: (_v, d) => <span className="font-mono text-sm text-slate-900">{d.code}</span> },
-                  { key: 'name', title: 'Name', render: (_v, d) => <span className="text-sm font-medium text-slate-900">{d.name}</span> },
-                  {
-                    key: 'flags',
-                    title: 'Flags',
-                    render: (_v, d) => (
-                      <div className="flex flex-wrap gap-2">
-                        <span className={cx('text-xs px-2 py-1 rounded-full', d.isPaid ? 'bg-emerald-50 text-emerald-800' : 'bg-slate-100 text-slate-800')}>
-                          {d.isPaid ? 'Paid' : 'Unpaid'}
-                        </span>
-                        <span className={cx('text-xs px-2 py-1 rounded-full', d.supportsHalfDay ? 'bg-blue-50 text-blue-800' : 'bg-slate-100 text-slate-800')}>
-                          {d.supportsHalfDay ? 'Half-day' : 'Full-day only'}
-                        </span>
-                        <span className={cx('text-xs px-2 py-1 rounded-full', d.isActive ? 'bg-slate-900 text-white' : 'bg-slate-200 text-slate-700')}>
-                          {d.isActive ? 'Active' : 'Inactive'}
-                        </span>
-                      </div>
-                    )
-                  },
-                  { key: 'version', title: 'Version', render: (_v, d) => <span className="text-sm text-slate-700">{d.version}</span> },
-                  {
-                    key: 'action',
-                    title: 'Action',
-                    render: (_v, d) => (
-                      <div className="flex items-center justify-end">
+              <>
+                <div className="space-y-3 sm:hidden">
+                  {items.map((d) => (
+                    <div key={d.id} className="rounded-xl border border-slate-200 bg-white p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="font-mono text-sm text-slate-900 truncate">{d.code}</div>
+                          <div className="mt-1 text-sm font-medium text-slate-900 truncate">{d.name}</div>
+                        </div>
                         {canWrite ? (
                           <button
                             type="button"
@@ -181,11 +163,75 @@ export function LeaveTypePage() {
                           </button>
                         ) : null}
                       </div>
-                    )
-                  }
-                ]}
-                data={items}
-              />
+
+                      <div className="mt-3">
+                        <div className="text-xs text-slate-500">Flags</div>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <span className={cx('text-xs px-2 py-1 rounded-full', d.isPaid ? 'bg-emerald-50 text-emerald-800' : 'bg-slate-100 text-slate-800')}>
+                            {d.isPaid ? 'Paid' : 'Unpaid'}
+                          </span>
+                          <span className={cx('text-xs px-2 py-1 rounded-full', d.supportsHalfDay ? 'bg-blue-50 text-blue-800' : 'bg-slate-100 text-slate-800')}>
+                            {d.supportsHalfDay ? 'Half-day' : 'Full-day only'}
+                          </span>
+                          <span className={cx('text-xs px-2 py-1 rounded-full', d.isActive ? 'bg-slate-900 text-white' : 'bg-slate-200 text-slate-700')}>
+                            {d.isActive ? 'Active' : 'Inactive'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="mt-3">
+                        <div className="text-xs text-slate-500">Version</div>
+                        <div className="mt-1 text-sm text-slate-700">{d.version}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="hidden sm:block">
+                  <Table
+                    columns={[
+                      { key: 'code', title: 'Code', render: (_v, d) => <span className="font-mono text-sm text-slate-900">{d.code}</span> },
+                      { key: 'name', title: 'Name', render: (_v, d) => <span className="text-sm font-medium text-slate-900">{d.name}</span> },
+                      {
+                        key: 'flags',
+                        title: 'Flags',
+                        render: (_v, d) => (
+                          <div className="flex flex-wrap gap-2">
+                            <span className={cx('text-xs px-2 py-1 rounded-full', d.isPaid ? 'bg-emerald-50 text-emerald-800' : 'bg-slate-100 text-slate-800')}>
+                              {d.isPaid ? 'Paid' : 'Unpaid'}
+                            </span>
+                            <span className={cx('text-xs px-2 py-1 rounded-full', d.supportsHalfDay ? 'bg-blue-50 text-blue-800' : 'bg-slate-100 text-slate-800')}>
+                              {d.supportsHalfDay ? 'Half-day' : 'Full-day only'}
+                            </span>
+                            <span className={cx('text-xs px-2 py-1 rounded-full', d.isActive ? 'bg-slate-900 text-white' : 'bg-slate-200 text-slate-700')}>
+                              {d.isActive ? 'Active' : 'Inactive'}
+                            </span>
+                          </div>
+                        )
+                      },
+                      { key: 'version', title: 'Version', render: (_v, d) => <span className="text-sm text-slate-700">{d.version}</span> },
+                      {
+                        key: 'action',
+                        title: 'Action',
+                        render: (_v, d) => (
+                          <div className="flex items-center justify-end">
+                            {canWrite ? (
+                              <button
+                                type="button"
+                                className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                                onClick={() => openEdit(d)}
+                              >
+                                Edit
+                              </button>
+                            ) : null}
+                          </div>
+                        )
+                      }
+                    ]}
+                    data={items}
+                  />
+                </div>
+              </>
             )}
           </div>
         </div>
