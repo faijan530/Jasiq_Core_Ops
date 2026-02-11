@@ -42,7 +42,9 @@ export function Approvals() {
   const { bootstrap } = useBootstrap();
 
   const permissions = bootstrap?.rbac?.permissions || [];
+  const roles = bootstrap?.rbac?.roles || [];
   const canReadQueue = permissions.includes('TIMESHEET_APPROVAL_QUEUE_READ');
+  const isSuperAdmin = roles.includes('SUPER_ADMIN');
 
   const systemConfig = bootstrap?.systemConfig || {};
   const timesheetEnabled = isTruthyConfig(systemConfig?.TIMESHEET_ENABLED?.value ?? systemConfig?.TIMESHEET_ENABLED);
@@ -65,6 +67,47 @@ export function Approvals() {
       return hay.includes(q);
     });
   }, [items, search]);
+
+  const tableColumns = useMemo(() => {
+    const baseColumns = [
+      {
+        key: 'employee',
+        header: 'Employee',
+        render: (d) => (
+          <div>
+            <div className="text-sm font-semibold text-slate-900">{formatName(d)}</div>
+            <div className="mt-1 font-mono text-xs text-slate-600">{d.employeeCode || '—'}</div>
+          </div>
+        )
+      },
+      {
+        key: 'week',
+        header: 'Week',
+        render: (d) => <span className="font-mono text-sm">{d.periodStart} → {d.periodEnd}</span>
+      },
+      { key: 'status', header: 'Status', render: (d) => <StatusBadge status={d.status} /> }
+    ];
+
+    // Only add Action column for non-SuperAdmin users
+    if (!isSuperAdmin) {
+      baseColumns.push({
+        key: 'action',
+        header: 'Action',
+        render: (d) => (
+          <div className="flex items-center justify-end">
+            <Link
+              to={`/timesheet/${d.id}`}
+              className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              View
+            </Link>
+          </div>
+        )
+      });
+    }
+
+    return baseColumns;
+  }, [isSuperAdmin]);
 
   const content = useMemo(() => {
     if (!canReadQueue) return <ForbiddenState />;
@@ -125,38 +168,7 @@ export function Approvals() {
             ) : (
               <div className="hidden md:block">
                 <Table
-                  columns={[
-                    {
-                      key: 'employee',
-                      header: 'Employee',
-                      render: (d) => (
-                        <div>
-                          <div className="text-sm font-semibold text-slate-900">{formatName(d)}</div>
-                          <div className="mt-1 font-mono text-xs text-slate-600">{d.employeeCode || '—'}</div>
-                        </div>
-                      )
-                    },
-                    {
-                      key: 'week',
-                      header: 'Week',
-                      render: (d) => <span className="font-mono text-sm">{d.periodStart} → {d.periodEnd}</span>
-                    },
-                    { key: 'status', header: 'Status', render: (d) => <StatusBadge status={d.status} /> },
-                    {
-                      key: 'action',
-                      header: 'Action',
-                      render: (d) => (
-                        <div className="flex items-center justify-end">
-                          <Link
-                            to={`/timesheet/${d.id}`}
-                            className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                          >
-                            View
-                          </Link>
-                        </div>
-                      )
-                    }
-                  ]}
+                  columns={tableColumns}
                   rows={filtered.map((x) => ({ key: x.id, data: x }))}
                 />
               </div>
@@ -177,12 +189,14 @@ export function Approvals() {
                   <div className="mt-1 font-mono text-sm text-slate-900">{x.periodStart} → {x.periodEnd}</div>
 
                   <div className="mt-3">
-                    <Link
-                      to={`/timesheet/${x.id}`}
-                      className="inline-flex w-full items-center justify-center rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                    >
-                      View
-                    </Link>
+                    {!isSuperAdmin && (
+                      <Link
+                        to={`/timesheet/${x.id}`}
+                        className="inline-flex w-full items-center justify-center rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                      >
+                        View
+                      </Link>
+                    )}
                   </div>
                 </div>
               ))}

@@ -24,13 +24,15 @@ export async function getDivisionByCode(client, code) {
 export async function insertDivision(client, row) {
   await client.query(
     `INSERT INTO division (
-      id, code, name, is_active,
+      id, code, name, type, description, is_active,
       created_at, created_by, updated_at, updated_by, version
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
     [
       row.id,
       row.code,
       row.name,
+      row.type,
+      row.description,
       row.is_active,
       row.created_at,
       row.created_by,

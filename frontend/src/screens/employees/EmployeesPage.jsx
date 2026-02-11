@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 import { apiFetch } from '../../api/client.js';
 import { PageHeader } from '../../components/PageHeader.jsx';
@@ -121,37 +122,33 @@ function Icon({ name, className }) {
 }
 
 function statusBadge(status) {
-  const s = String(status || '').toUpperCase();
+  const raw = String(status || '').toUpperCase();
+  const label = raw === 'ACTIVE' ? 'Active' : raw === 'ON_HOLD' ? 'Locked' : raw === 'EXITED' ? 'Closed' : raw || '—';
   const cls =
-    s === 'ACTIVE'
-      ? 'bg-emerald-50 text-emerald-700'
-      : s === 'ON_HOLD'
-        ? 'bg-amber-50 text-amber-800'
-        : s === 'EXITED'
-          ? 'bg-rose-50 text-rose-700'
-          : 'bg-slate-100 text-slate-800';
-
-  return <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${cls}`}>{s || '—'}</span>;
+    raw === 'ACTIVE'
+      ? 'bg-emerald-50 text-emerald-700 ring-emerald-200'
+      : raw === 'ON_HOLD'
+        ? 'bg-amber-50 text-amber-800 ring-amber-200'
+        : raw === 'EXITED'
+          ? 'bg-rose-50 text-rose-700 ring-rose-200'
+          : 'bg-slate-50 text-slate-700 ring-slate-200';
+  return <span className={cx('inline-flex items-center rounded-full px-2 py-1 text-xs font-semibold ring-1 ring-inset', cls)}>{label}</span>;
 }
 
-function compensationBadge(type) {
-  const s = String(type || '').toUpperCase();
-  const cls =
-    s === 'MONTHLY'
-      ? 'bg-blue-50 text-blue-700'
-      : s === 'HOURLY'
-        ? 'bg-purple-50 text-purple-700'
-        : s === 'ANNUAL'
-          ? 'bg-amber-50 text-amber-800'
-          : 'bg-slate-100 text-slate-800';
-
-  return <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${cls}`}>{s}</span>;
-}
-
-function scopeBadge(scope) {
+function scopeBadge(scope, divisionColor = null) {
   const s = String(scope || '').toUpperCase();
-  const cls = s === 'DIVISION' ? 'bg-blue-100 text-blue-800' : 'bg-slate-100 text-slate-800';
-  return <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${cls}`}>{s || '—'}</span>;
+  if (s === 'COMPANY') {
+    return <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-slate-100 text-slate-700">Shared</span>;
+  }
+  if (s === 'DIVISION') {
+    const color = divisionColor || '#3B82F6';
+    return (
+      <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full border" style={{ borderColor: color, color }}>
+        DIVISION
+      </span>
+    );
+  }
+  return <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-slate-100 text-slate-800">—</span>;
 }
 
 function formatName(e) {
@@ -216,6 +213,7 @@ function FilterRadio({ label, checked, onChange, count, disabled = false }) {
 export function EmployeesPage() {
   const { bootstrap } = useBootstrap();
   const title = bootstrap?.ui?.screens?.employees?.title || 'Employees';
+  const navigate = useNavigate();
 
   const permissions = bootstrap?.rbac?.permissions || [];
   const canWrite = permissions.includes('EMPLOYEE_WRITE');
@@ -229,15 +227,7 @@ export function EmployeesPage() {
   const [scope, setScope] = useState('');
   const [status, setStatus] = useState('');
   const [search, setSearch] = useState('');
-  const [compensationType, setCompensationType] = useState('');
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
-
-  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
-  const [statusOpen, setStatusOpen] = useState(true);
-  const [scopeOpen, setScopeOpen] = useState(true);
-  const [divisionOpen, setDivisionOpen] = useState(true);
-  const [employmentTypeOpen, setEmploymentTypeOpen] = useState(false);
-  const [compTypeOpen, setCompTypeOpen] = useState(true);
 
   const divisions = usePagedQuery({ path: '/api/v1/governance/divisions', page: 1, pageSize: 200, enabled: true });
 
@@ -258,21 +248,15 @@ export function EmployeesPage() {
   const items = list.data?.items || [];
   const total = list.data?.total || 0;
 
-  const filteredByCompensationType = useMemo(() => {
-    if (!compensationType) return items;
-    if (compensationType === 'NONE') return items.filter((e) => !e.compensationType);
-    return items.filter((e) => e.compensationType === compensationType);
-  }, [items, compensationType]);
-
   const filteredBySearch = useMemo(() => {
     const q = String(search || '').trim().toLowerCase();
-    if (!q) return filteredByCompensationType;
-    return filteredByCompensationType.filter((e) => {
+    if (!q) return items;
+    return items.filter((e) => {
       const code = String(e.employeeCode || '').toLowerCase();
       const nm = formatName(e).toLowerCase();
       return code.includes(q) || nm.includes(q);
     });
-  }, [filteredByCompensationType, search]);
+  }, [items, search]);
 
   const counts = useMemo(() => {
     const statusCounts = { ACTIVE: 0, ON_HOLD: 0, EXITED: 0 };
@@ -437,6 +421,9 @@ export function EmployeesPage() {
     setEmployeeModalOpen(true);
   };
 
+  const autoOpenedRef = useRef(false);
+  // Auto-open modal functionality removed - now using page-based flow
+
   const openEditEmployeeFromEmployee = (e) => {
     if (!e) return;
     setEmployeeModalMode('edit');
@@ -554,241 +541,237 @@ export function EmployeesPage() {
     );
   }
 
-  const FilterSidebar = (
+  const ReadOnlyContextPanel = (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm">
       <div className="p-4 border-b border-slate-200">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <div className="text-sm font-semibold text-slate-900">Filters</div>
-            <div className="mt-1 text-xs text-slate-500">Counts reflect the current page.</div>
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className="h-10 w-10 rounded-full bg-slate-900 text-white flex items-center justify-center text-sm font-semibold">
+              {selected ? initialsFromEmployee(selected) : '—'}
+            </div>
+            <div>
+              <div className="text-sm font-semibold text-slate-900">{selected ? formatName(selected) : 'Employee detail'}</div>
+              <div className="mt-1 text-xs text-slate-500">
+                {selected ? `${selected.employeeCode} · ${selected.email || '—'}` : 'Select an employee to view details.'}
+              </div>
+            </div>
           </div>
-          <button
-            type="button"
-            className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
-            onClick={() => {
-              setDivisionId('');
-              setScope('');
-              setStatus('');
-              setSearch('');
-              setPage(1);
-            }}
-          >
-            Clear
-          </button>
         </div>
 
-        <div className="mt-4">
-          <label className="block text-xs font-medium text-slate-600">Search</label>
-          <div className="mt-1 flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2">
-            <Icon name="search" className="text-slate-400" />
-            <input
-              className="w-full border-0 p-0 text-sm focus:ring-0"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by name or code"
-            />
+        {selected ? (
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {statusBadge(selected.status)}
+            {scopeBadge(selected.scope, selected?.scope === 'DIVISION' ? divisionsById[selected?.primaryDivisionId]?.color : null)}
           </div>
-        </div>
+        ) : null}
       </div>
 
       <div className="p-4">
-        <div className="border-t border-slate-100" />
+        {!selectedId ? (
+          <EmptyState title="No employee selected" description="Pick someone from the directory to view employment details." />
+        ) : detailState.status === 'loading' ? (
+          <LoadingState message="Loading employee…" />
+        ) : detailState.status === 'error' ? (
+          detailState.error?.status === 403 ? <ForbiddenState /> : <ErrorState error={detailState.error} />
+        ) : selected ? (
+          <div className="space-y-4">
+            <div>
+              <div className="text-xs font-medium text-slate-500">Employment scope impact</div>
+              <div className="mt-1 text-sm text-slate-700">
+                {selected.scope === 'DIVISION'
+                  ? 'This employee is a DIVISION resource. Costs impact division P&L.'
+                  : 'This employee is a COMPANY resource. Costs roll up to company overhead.'}
+              </div>
+            </div>
 
-        <FilterSection title="Status" open={statusOpen} onToggle={() => setStatusOpen((v) => !v)}>
-          <div className="space-y-1">
-            <FilterRadio
-              label="Any"
-              checked={!status}
-              count={items.length}
-              onChange={() => {
-                setStatus('');
-                setPage(1);
-              }}
-            />
-            <FilterRadio
-              label="Active"
-              checked={status === 'ACTIVE'}
-              count={counts.statusCounts.ACTIVE}
-              onChange={() => {
-                setStatus('ACTIVE');
-                setPage(1);
-              }}
-            />
-            <FilterRadio
-              label="On hold"
-              checked={status === 'ON_HOLD'}
-              count={counts.statusCounts.ON_HOLD}
-              onChange={() => {
-                setStatus('ON_HOLD');
-                setPage(1);
-              }}
-            />
-            <FilterRadio
-              label="Exited"
-              checked={status === 'EXITED'}
-              count={counts.statusCounts.EXITED}
-              onChange={() => {
-                setStatus('EXITED');
-                setPage(1);
-              }}
-            />
-          </div>
-        </FilterSection>
+            <div>
+              <div className="text-xs font-medium text-slate-500">Payroll / P&L impact</div>
+              <div className="mt-1 text-sm text-slate-700">Compensation history must remain append-only for payroll accuracy.</div>
+            </div>
 
-        <FilterSection title="Scope" open={scopeOpen} onToggle={() => setScopeOpen((v) => !v)}>
-          <div className="space-y-1">
-            <FilterRadio
-              label="Any"
-              checked={!scope}
-              count={items.length}
-              onChange={() => {
-                setScope('');
-                setPage(1);
-              }}
-            />
-            <FilterRadio
-              label="Company"
-              checked={scope === 'COMPANY'}
-              count={counts.scopeCounts.COMPANY}
-              onChange={() => {
-                setScope('COMPANY');
-                setPage(1);
-              }}
-            />
-            <FilterRadio
-              label="Division"
-              checked={scope === 'DIVISION'}
-              count={counts.scopeCounts.DIVISION}
-              onChange={() => {
-                setScope('DIVISION');
-                setPage(1);
-              }}
-            />
-          </div>
-        </FilterSection>
+            <div>
+              <div className="text-xs font-medium text-slate-500">Month-close locking</div>
+              <div className="mt-1 text-sm text-slate-700">When the month is closed, employee changes are locked to protect financial reporting.</div>
+            </div>
 
-        <FilterSection title="Division" open={divisionOpen} onToggle={() => setDivisionOpen((v) => !v)}>
-          <div className="space-y-1 max-h-64 overflow-auto pr-1">
-            <FilterRadio
-              label="Any"
-              checked={!divisionId}
-              count={items.length}
-              onChange={() => {
-                setDivisionId('');
-                setPage(1);
-              }}
-            />
-            {(divisions.data?.items || []).map((d) => {
-              const c = counts.divisionCounts[d.id] || 0;
-              return (
-                <FilterRadio
-                  key={d.id}
-                  label={`${d.code} — ${d.name}`}
-                  checked={divisionId === d.id}
-                  count={c}
-                  onChange={() => {
-                    setDivisionId(d.id);
-                    setPage(1);
-                  }}
-                />
-              );
-            })}
+            <div>
+              <div className="text-xs font-medium text-slate-500">Audit notes</div>
+              <div className="mt-1 text-sm text-slate-700">Sensitive actions require a reason and are recorded in Audit Logs.</div>
+            </div>
           </div>
-        </FilterSection>
-
-        <FilterSection title="Employment Type" open={employmentTypeOpen} onToggle={() => setEmploymentTypeOpen((v) => !v)}>
-          <div className="space-y-1">
-            <FilterRadio label="Not available" checked count={0} onChange={() => {}} disabled />
-          </div>
-        </FilterSection>
-
-        <FilterSection title="Compensation Type" open={compTypeOpen} onToggle={() => setCompTypeOpen((v) => !v)}>
-          <div className="space-y-1">
-            <FilterRadio
-              label="All"
-              checked={!compensationType}
-              count={items.length}
-              onChange={() => {
-                setCompensationType('');
-                setPage(1);
-              }}
-            />
-            {['MONTHLY', 'HOURLY', 'ANNUAL'].map((type) => {
-              const count = items.filter((e) => e.compensationType === type).length;
-              return (
-                <FilterRadio
-                  key={type}
-                  label={type}
-                  checked={compensationType === type}
-                  count={count}
-                  onChange={() => {
-                    setCompensationType(type);
-                    setPage(1);
-                  }}
-                />
-              );
-            })}
-            <FilterRadio
-              label="None"
-              checked={compensationType === 'NONE'}
-              count={items.filter((e) => !e.compensationType).length}
-              onChange={() => {
-                setCompensationType('NONE');
-                setPage(1);
-              }}
-            />
-          </div>
-        </FilterSection>
+        ) : null}
       </div>
     </div>
   );
 
   return (
+    <>
     <div className="min-h-screen bg-slate-50">
-      <PageHeader
-        title={title}
-        subtitle="Directory"
-        actions={
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              className="inline-flex lg:hidden items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-              onClick={() => setFilterDrawerOpen(true)}
-            >
-              <Icon name="filter" className="text-slate-600" />
-              Filters
-            </button>
-            {canWrite ? (
-              <button
-                type="button"
-                className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
-                onClick={openCreateEmployee}
-              >
-                Add Employee
-              </button>
-            ) : null}
-          </div>
-        }
-      />
-
-      {filterDrawerOpen ? (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          <div className="absolute inset-0 bg-slate-900/40" onClick={() => setFilterDrawerOpen(false)} />
-          <div className="absolute inset-y-0 left-0 w-full max-w-sm bg-slate-50 p-4">
-            <div className="flex items-center justify-between">
-              <div className="text-sm font-semibold text-slate-900">Filters</div>
-              <button
-                type="button"
-                className="rounded-lg border border-slate-300 bg-white p-2 text-slate-700"
-                onClick={() => setFilterDrawerOpen(false)}
-              >
-                <Icon name="x" />
-              </button>
+      {/* Global Header */}
+      <div className="fixed top-0 left-0 right-0 lg:left-72 z-50 h-16 bg-gradient-to-r from-slate-800 to-slate-900 text-white block sm:block md:block lg:block xl:block">
+        <div className="mx-auto max-w-7xl h-full px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center justify-between w-full">
+            <div className="flex items-center gap-2">
+              <img 
+                src="/image.png" 
+                alt="JASIQ" 
+                className="h-10 w-auto object-contain rounded-lg shadow-sm ring-1 ring-white/10 hover:shadow-md transition-shadow"
+              />
+              <span className="text-sm font-semibold tracking-wide whitespace-nowrap">LABS</span>
             </div>
-            <div className="mt-4">{FilterSidebar}</div>
+            <div className="hidden sm:flex text-sm text-slate-300 whitespace-nowrap">
+              <span className="text-white">Governance</span>
+              <span className="mx-2">·</span>
+              <span className="text-amber-400">Employees</span>
+            </div>
           </div>
         </div>
-      ) : null}
+      </div>
+
+      {/* Persistent Page Header */}
+      <div className="pt-16 sm:pt-16 lg:pt-16 bg-white border-b border-slate-200">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 className="text-xl font-semibold text-slate-900">Employees</h1>
+              <p className="text-sm text-slate-600">Employment records and financial scope</p>
+            </div>
+            <div className="flex items-center gap-2">
+              {canWrite ? (
+                <button
+                  type="button"
+                  className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
+                  onClick={() => navigate('/admin/employees/add')}
+                >
+                  Add Employee
+                </button>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white border-b border-slate-200">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-3">
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="min-w-[240px] flex-1">
+              <label className="block text-xs font-medium text-slate-600">Search</label>
+              <div className="mt-1 flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2">
+                <Icon name="search" className="text-slate-400" />
+                <input
+                  className="w-full border-0 p-0 text-sm focus:ring-0"
+                  value={search}
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                    setPage(1);
+                  }}
+                  placeholder="Search by name or Employee ID"
+                />
+              </div>
+            </div>
+
+            <div className="min-w-[180px]">
+              <label className="block text-xs font-medium text-slate-600">Employment Scope</label>
+              <div className="relative mt-1">
+                <select
+                  className="w-full appearance-none rounded-xl border border-slate-300 bg-white px-3 py-2 pr-9 text-sm text-slate-700"
+                  value={scope}
+                  onChange={(e) => {
+                    setScope(e.target.value);
+                    setPage(1);
+                  }}
+                >
+                  <option value="">All</option>
+                  <option value="COMPANY">Company (Shared)</option>
+                  <option value="DIVISION">DIVISION</option>
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-slate-400">
+                  <Icon name="chevron" />
+                </div>
+              </div>
+            </div>
+
+            <div className="min-w-[160px]">
+              <label className="block text-xs font-medium text-slate-600">Status</label>
+              <div className="relative mt-1">
+                <select
+                  className="w-full appearance-none rounded-xl border border-slate-300 bg-white px-3 py-2 pr-9 text-sm text-slate-700"
+                  value={status}
+                  onChange={(e) => {
+                    setStatus(e.target.value);
+                    setPage(1);
+                  }}
+                >
+                  <option value="">All</option>
+                  <option value="ACTIVE">Active</option>
+                  <option value="ON_HOLD">Locked</option>
+                  <option value="EXITED">Closed</option>
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-slate-400">
+                  <Icon name="chevron" />
+                </div>
+              </div>
+            </div>
+
+            <div className="min-w-[220px]">
+              <label className="block text-xs font-medium text-slate-600">Division</label>
+              <div className="relative mt-1">
+                <select
+                  className="w-full appearance-none rounded-xl border border-slate-300 bg-white px-3 py-2 pr-9 text-sm text-slate-700"
+                  value={divisionId}
+                  onChange={(e) => {
+                    setDivisionId(e.target.value);
+                    setPage(1);
+                  }}
+                >
+                  <option value="">All</option>
+                  {(divisions.data?.items || []).map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.code} — {d.name}
+                    </option>
+                  ))}
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-slate-400">
+                  <Icon name="chevron" />
+                </div>
+              </div>
+            </div>
+
+            <div className="min-w-[200px]">
+              <label className="block text-xs font-medium text-slate-600">Employment Type</label>
+              <div className="relative mt-1">
+                <select
+                  className="w-full appearance-none rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 pr-9 text-sm text-slate-500"
+                  value=""
+                  onChange={() => {}}
+                  disabled
+                >
+                  <option value="">Not available</option>
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-slate-300">
+                  <Icon name="chevron" />
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <button
+                type="button"
+                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                onClick={() => {
+                  setDivisionId('');
+                  setScope('');
+                  setStatus('');
+                  setSearch('');
+                  setPage(1);
+                }}
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {selectedId && mobileDetailOpen ? (
         <div className="fixed inset-0 z-50 bg-slate-50 xl:hidden">
@@ -805,326 +788,14 @@ export function EmployeesPage() {
               <div className="w-[68px]" />
             </div>
           </div>
-          <div className="p-4">
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm">
-              <div className="p-4 border-b border-slate-200">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex items-start gap-3">
-                    <div className="h-10 w-10 rounded-full bg-slate-900 text-white flex items-center justify-center text-sm font-semibold">
-                      {selected ? initialsFromEmployee(selected) : '—'}
-                    </div>
-                    <div>
-                      <div className="text-sm font-semibold text-slate-900">{selected ? formatName(selected) : 'Employee detail'}</div>
-                      <div className="mt-1 text-xs text-slate-500">
-                        {selected ? `${selected.employeeCode} · ${selected.email || '—'}` : 'Select an employee to view details.'}
-                      </div>
-                    </div>
-                  </div>
-
-                  {selected ? (
-                    <div className="flex flex-col sm:flex-row gap-2">
-                      {canWrite ? (
-                        <button
-                          type="button"
-                          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:bg-slate-50"
-                          disabled={selectedExited || updateMutation.status === 'loading'}
-                          onClick={openEditEmployee}
-                        >
-                          Edit Profile
-                        </button>
-                      ) : null}
-
-                      {canWrite ? (
-                        <button
-                          type="button"
-                          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:bg-slate-50"
-                          disabled={selectedExited || changeScopeMutation.status === 'loading'}
-                          onClick={openScopeModal}
-                        >
-                          Change Scope
-                        </button>
-                      ) : null}
-
-                      {canWrite ? (
-                        <button
-                          type="button"
-                          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:bg-slate-50"
-                          disabled={selectedExited || changeStatusMutation.status === 'loading'}
-                          onClick={openStatusModal}
-                        >
-                          Change Status
-                        </button>
-                      ) : null}
-                    </div>
-                  ) : null}
-                </div>
-
-                {selected ? (
-                  <div className="mt-3 flex flex-wrap items-center gap-2">
-                    {statusBadge(selected.status)}
-                    {selected.compensationType ? compensationBadge(selected.compensationType) : null}
-                    {scopeBadge(selected.scope)}
-                    {selected.scope === 'DIVISION' ? (
-                      <span className="text-xs text-slate-600">{formatDivisionLabel(divisionsById, selected.primaryDivisionId)}</span>
-                    ) : null}
-                  </div>
-                ) : null}
-
-                {selectedExited ? (
-                  <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-                    Status is EXITED. Write actions are disabled.
-                  </div>
-                ) : null}
-
-                <div className="mt-4">
-                  <div className="flex flex-wrap gap-2">
-                    {[
-                      { id: 'profile', label: 'Profile' },
-                      { id: 'scope', label: 'Scope History' },
-                      { id: 'compensation', label: 'Compensation' },
-                      { id: 'documents', label: 'Documents' }
-                    ].map((t) => (
-                      <button
-                        key={t.id}
-                        type="button"
-                        className={cx(
-                          'rounded-lg px-3 py-2 text-sm font-medium',
-                          activeTab === t.id ? 'bg-slate-900 text-white' : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50',
-                          !selected ? 'opacity-50 cursor-not-allowed' : ''
-                        )}
-                        onClick={() => setActiveTab(t.id)}
-                        disabled={!selected}
-                      >
-                        {t.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-4">
-                {!selectedId ? (
-                  <EmptyState title="No employee selected" description="Pick someone from the directory to view profile, history, compensation and documents." />
-                ) : detailState.status === 'loading' ? (
-                  <LoadingState label="Loading employee…" />
-                ) : detailState.status === 'error' ? (
-                  detailState.error?.status === 403 ? <ForbiddenState /> : <ErrorState error={detailState.error} />
-                ) : selected ? (
-                  <>
-                    {activeTab === 'profile' ? (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="rounded-2xl border border-slate-200 p-4">
-                          <div className="text-xs font-medium text-slate-500">Employee Code</div>
-                          <div className="mt-1 font-mono text-sm text-slate-900">{selected.employeeCode}</div>
-                        </div>
-                        <div className="rounded-2xl border border-slate-200 p-4">
-                          <div className="text-xs font-medium text-slate-500">Name</div>
-                          <div className="mt-1 text-sm font-semibold text-slate-900">{formatName(selected)}</div>
-                        </div>
-                        <div className="rounded-2xl border border-slate-200 p-4">
-                          <div className="text-xs font-medium text-slate-500">Email</div>
-                          <div className="mt-1 text-sm text-slate-900">{selected.email || '—'}</div>
-                        </div>
-                        <div className="rounded-2xl border border-slate-200 p-4">
-                          <div className="text-xs font-medium text-slate-500">Phone</div>
-                          <div className="mt-1 text-sm text-slate-900">{selected.phone || '—'}</div>
-                        </div>
-                      </div>
-                    ) : null}
-
-                    {activeTab === 'scope' ? (
-                      <div>
-                        <div className="text-sm font-semibold text-slate-900">Scope History</div>
-                        <div className="mt-2 grid grid-cols-1 gap-3">
-                          {(detailState.data?.scopeHistory || []).length === 0 ? (
-                            <EmptyState title="No scope history" />
-                          ) : (
-                            (detailState.data?.scopeHistory || []).map((h) => (
-                              <div key={h.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                                <div className="flex items-start justify-between gap-3">
-                                  <div>
-                                    <div className="text-xs font-medium text-slate-500">Scope</div>
-                                    <div className="mt-1 flex items-center gap-2">
-                                      {scopeBadge(h.scope)}
-                                      {h.scope === 'DIVISION' ? (
-                                        <span className="text-xs text-slate-600">{formatDivisionLabel(divisionsById, h.primaryDivisionId)}</span>
-                                      ) : null}
-                                    </div>
-                                  </div>
-                                  <div className="text-right">
-                                    <div className="text-xs font-medium text-slate-500">Effective</div>
-                                    <div className="mt-1 text-xs text-slate-700">
-                                      {new Date(h.effectiveFrom).toLocaleString()} — {h.effectiveTo ? new Date(h.effectiveTo).toLocaleString() : 'Active'}
-                                    </div>
-                                  </div>
-                                </div>
-                                <div className="mt-3">
-                                  <div className="text-xs font-medium text-slate-500">Reason</div>
-                                  <div className="mt-1 text-sm text-slate-900">{h.reason}</div>
-                                </div>
-                              </div>
-                            ))
-                          )}
-                        </div>
-                      </div>
-                    ) : null}
-
-                    {activeTab === 'compensation' ? (
-                      <div>
-                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                          <div>
-                            <div className="text-sm font-semibold text-slate-900">Compensation</div>
-                            <div className="mt-1 text-xs text-slate-500">Append-only versions. Effective dates must not overlap.</div>
-                          </div>
-                          {canCompWrite ? (
-                            <button
-                              type="button"
-                              className="w-full sm:w-auto rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:bg-slate-400"
-                              disabled={!selected || selectedExited || addCompMutation.status === 'loading'}
-                              onClick={openCompModal}
-                            >
-                              Add Version
-                            </button>
-                          ) : null}
-                        </div>
-
-                        <div className="mt-3">
-                          {compState.status === 'loading' ? (
-                            <LoadingState label="Loading compensation…" />
-                          ) : compState.status === 'error' ? (
-                            <ErrorState error={compState.error} />
-                          ) : (compState.data?.items || []).length === 0 ? (
-                            <EmptyState title="No compensation versions" />
-                          ) : (
-                            <div className="grid grid-cols-1 gap-3">
-                              {(compState.data?.items || []).map((c) => (
-                                <div key={c.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                                  <div className="flex items-start justify-between gap-3">
-                                    <div>
-                                      <div className="text-xs font-medium text-slate-500">Amount</div>
-                                      <div className="mt-1 text-sm font-semibold text-slate-900">
-                                        {c.currency} {Number(c.amount).toFixed(2)} ({c.frequency})
-                                      </div>
-                                    </div>
-                                    <div className="text-right">
-                                      <div className="text-xs font-medium text-slate-500">Effective</div>
-                                      <div className="mt-1 text-xs text-slate-700">
-                                        {String(c.effectiveFrom)} — {c.effectiveTo ? String(c.effectiveTo) : 'Active'}
-                                      </div>
-                                    </div>
-                                  </div>
-                                  <div className="mt-3">
-                                    <div className="text-xs font-medium text-slate-500">Reason</div>
-                                    <div className="mt-1 text-sm text-slate-900">{c.reason}</div>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ) : null}
-
-                    {activeTab === 'documents' ? (
-                      <div>
-                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                          <div>
-                            <div className="text-sm font-semibold text-slate-900">Documents</div>
-                            <div className="mt-1 text-xs text-slate-500">Metadata only. Downloads use signed URLs.</div>
-                          </div>
-                          {canDocWrite ? (
-                            <button
-                              type="button"
-                              className="w-full sm:w-auto rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:bg-slate-400"
-                              disabled={!selected || selectedExited || uploadDocMutation.status === 'loading'}
-                              onClick={openDocModal}
-                            >
-                              Upload Metadata
-                            </button>
-                          ) : null}
-                        </div>
-
-                        <div className="mt-3">
-                          {docState.status === 'loading' ? (
-                            <LoadingState label="Loading documents…" />
-                          ) : docState.status === 'error' ? (
-                            <ErrorState error={docState.error} />
-                          ) : (docState.data?.items || []).length === 0 ? (
-                            <EmptyState title="No documents" />
-                          ) : (
-                            <div className="grid grid-cols-1 gap-3">
-                              {(docState.data?.items || []).map((d) => (
-                                <div key={d.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                                  <div className="flex items-start justify-between gap-3">
-                                    <div className="min-w-0">
-                                      <div className="flex items-center gap-2">
-                                        <div className="text-sm font-semibold text-slate-900 truncate">{d.fileName}</div>
-                                        {d.isActive ? (
-                                          <span className="inline-flex rounded-full bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700">Active</span>
-                                        ) : (
-                                          <span className="inline-flex rounded-full bg-rose-50 px-2 py-1 text-xs font-semibold text-rose-700">Inactive</span>
-                                        )}
-                                      </div>
-                                      <div className="mt-1 text-xs text-slate-500">{d.documentType}</div>
-                                    </div>
-                                    <button
-                                      type="button"
-                                      className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:bg-slate-50"
-                                      disabled={!d.isActive || downloadDocMutation.status === 'loading'}
-                                      onClick={async () => {
-                                        const payload = await downloadDocMutation.run({ id: selectedId, docId: d.id });
-                                        const url = payload?.url;
-                                        if (url) {
-                                          window.open(url, '_blank', 'noopener,noreferrer');
-                                        }
-                                      }}
-                                    >
-                                      <Icon name="download" />
-                                      Download
-                                    </button>
-                                  </div>
-                                  <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
-                                    <div>
-                                      <div className="text-xs font-medium text-slate-500">MIME</div>
-                                      <div className="mt-1 text-xs text-slate-700">{d.mimeType || '—'}</div>
-                                    </div>
-                                    <div>
-                                      <div className="text-xs font-medium text-slate-500">Size</div>
-                                      <div className="mt-1 text-xs text-slate-700">{typeof d.sizeBytes === 'number' ? `${d.sizeBytes} bytes` : '—'}</div>
-                                    </div>
-                                    <div>
-                                      <div className="text-xs font-medium text-slate-500">Uploaded</div>
-                                      <div className="mt-1 text-xs text-slate-700">{d.uploadedAt ? new Date(d.uploadedAt).toLocaleString() : '—'}</div>
-                                    </div>
-                                    <div>
-                                      <div className="text-xs font-medium text-slate-500">Uploaded By</div>
-                                      <div className="mt-1 text-xs text-slate-700">{d.uploadedBy ? String(d.uploadedBy).slice(0, 8) + '…' : '—'}</div>
-                                    </div>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ) : null}
-                  </>
-                ) : null}
-              </div>
-            </div>
-          </div>
+          <div className="p-4">{ReadOnlyContextPanel}</div>
         </div>
       ) : null}
 
+      {/* Main Content */}
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pb-8">
-          <div className="hidden lg:block lg:col-span-4 xl:col-span-3">
-            <div className="sticky top-6">{FilterSidebar}</div>
-          </div>
-
-          <div className="lg:col-span-8 xl:col-span-9">
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm">
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 pb-8 pt-6">
+          <div className="xl:col-span-8 bg-white rounded-2xl border border-slate-200 shadow-sm">
                 <div className="p-4 border-b border-slate-200">
                   <div className="flex items-start justify-between gap-4">
                     <div>
@@ -1143,9 +814,11 @@ export function EmployeesPage() {
                   </div>
                 ) : (
                   <div>
-                    <div className="md:hidden p-3 space-y-2">
+                    <div className="sm:hidden p-3 space-y-2">
                       {filteredBySearch.map((e) => {
                         const isSelected = selectedId === e.id;
+                        const division = divisionsById[e.primaryDivisionId];
+                        const divisionColor = division?.color || '#3B82F6';
                         return (
                           <button
                             key={e.id}
@@ -1165,92 +838,93 @@ export function EmployeesPage() {
                                 <div className="h-10 w-10 rounded-full bg-slate-900 text-white flex items-center justify-center text-sm font-semibold">
                                   {initialsFromEmployee(e)}
                                 </div>
-                                <div>
+                                <div className="flex-1">
                                   <div className="text-sm font-semibold text-slate-900">{formatName(e)}</div>
-                                  <div className="mt-1 flex flex-wrap items-center gap-2">
-                                    <span className="font-mono text-xs text-slate-600">{e.employeeCode}</span>
+                                  <div className="mt-1 font-mono text-xs text-slate-500">{e.employeeCode}</div>
+                                  <div className="mt-1 text-xs text-slate-500">{e.email || '—'}</div>
+                                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                                    {scopeBadge(e.scope, divisionColor)}
                                     {statusBadge(e.status)}
-                                    {scopeBadge(e.scope)}
-                                    {e.compensationType ? compensationBadge(e.compensationType) : null}
                                   </div>
-                                  <div className="mt-1 text-xs text-slate-500">{formatDivisionLabel(divisionsById, e.primaryDivisionId)}</div>
+                                  <div className="mt-1 text-xs text-slate-600">
+                                    {e.scope === 'COMPANY' ? '' : formatDivisionLabel(divisionsById, e.primaryDivisionId)}
+                                  </div>
+                                  <div className="mt-1 text-xs text-slate-600">
+                                    {e.designation || '—'}
+                                  </div>
                                 </div>
                               </div>
+                              <button
+                                type="button"
+                                className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 shadow-sm"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  navigate(`/admin/employees/profile/${e.id}`);
+                                }}
+                              >
+                                View
+                              </button>
                             </div>
                           </button>
                         );
                       })}
                     </div>
 
-                    <div className="hidden md:block">
+                    <div className="hidden sm:block">
                       <div className="overflow-x-auto">
                         <table className="min-w-full divide-y divide-slate-200">
                           <thead className="bg-slate-50">
                             <tr>
-                              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Avatar</th>
-                              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Code</th>
+                              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Employee ID</th>
                               <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Name</th>
-                              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Status</th>
-                              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Compensation</th>
                               <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Scope</th>
                               <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Division</th>
-                              <th className="px-4 py-3 text-right text-xs font-semibold text-slate-600">Actions</th>
+                              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Designation</th>
+                              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Status</th>
+                              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Joined On</th>
+                              <th className="px-4 py-3 text-right text-xs font-semibold text-slate-600">Action</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100 bg-white">
                             {filteredBySearch.map((e) => {
                               const isSelected = selectedId === e.id;
                               const exited = e.status === 'EXITED';
+                              const division = divisionsById[e.primaryDivisionId];
+                              const divisionColor = division?.color || '#3B82F6';
                               return (
                                 <tr key={e.id} className={isSelected ? 'bg-slate-50' : ''}>
                                   <td className="px-4 py-3">
-                                    <button
-                                      type="button"
-                                      className="flex items-center gap-3 text-left"
-                                      onClick={() => {
-                                        setSelectedId(e.id);
-                                        setActiveTab('profile');
-                                        setMobileDetailOpen(true);
-                                      }}
-                                    >
-                                      <div className="h-9 w-9 rounded-full bg-slate-900 text-white flex items-center justify-center text-sm font-semibold">
-                                        {initialsFromEmployee(e)}
-                                      </div>
-                                    </button>
-                                  </td>
-                                  <td className="px-4 py-3">
-                                    <span className="font-mono text-sm text-slate-900">{e.employeeCode}</span>
+                                    <span className="font-mono text-sm text-slate-500">{e.employeeCode}</span>
                                   </td>
                                   <td className="px-4 py-3">
                                     <div className="text-sm font-semibold text-slate-900">{formatName(e)}</div>
                                     <div className="text-xs text-slate-500">{e.email || '—'}</div>
                                   </td>
+                                  <td className="px-4 py-3">{scopeBadge(e.scope, divisionColor)}</td>
+                                  <td className="px-4 py-3">
+                                    <span className="text-sm text-slate-700">
+                                      {e.scope === 'COMPANY' ? '' : formatDivisionLabel(divisionsById, e.primaryDivisionId)}
+                                    </span>
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    <span className="text-sm text-slate-700">{e.designation || '—'}</span>
+                                  </td>
                                   <td className="px-4 py-3">{statusBadge(e.status)}</td>
                                   <td className="px-4 py-3">
-                                    {e.compensationType ? compensationBadge(e.compensationType) : <span className="text-xs text-slate-400">—</span>}
-                                  </td>
-                                  <td className="px-4 py-3">{scopeBadge(e.scope)}</td>
-                                  <td className="px-4 py-3">
-                                    <span className="text-sm text-slate-700">{formatDivisionLabel(divisionsById, e.primaryDivisionId)}</span>
+                                    <span className="text-sm text-slate-700">
+                                      {e.createdAt ? new Date(e.createdAt).toLocaleDateString() : '—'}
+                                    </span>
                                   </td>
                                   <td className="px-4 py-3 text-right">
-                                    {canWrite ? (
-                                      <button
-                                        type="button"
-                                        className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:bg-slate-50"
-                                        disabled={exited}
-                                        onClick={() => {
-                                          setSelectedId(e.id);
-                                          setActiveTab('profile');
-                                          openEditEmployeeFromEmployee(e);
-                                        }}
-                                      >
-                                        <Icon name="edit" />
-                                        Edit
-                                      </button>
-                                    ) : (
-                                      <span className="text-xs text-slate-400">—</span>
-                                    )}
+                                    <button
+                                      type="button"
+                                      className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                                      onClick={() => {
+                                        navigate(`/admin/employees/profile/${e.id}`);
+                                      }}
+                                    >
+                                      View
+                                    </button>
                                   </td>
                                 </tr>
                               );
@@ -1283,321 +957,13 @@ export function EmployeesPage() {
                     </div>
                   </div>
                 )}
-              </div>
+          </div>
 
-              <div className="hidden xl:block bg-white rounded-2xl border border-slate-200 shadow-sm">
-                <div className="p-4 border-b border-slate-200">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-start gap-3">
-                      <div className="h-10 w-10 rounded-full bg-slate-900 text-white flex items-center justify-center text-sm font-semibold">
-                        {selected ? initialsFromEmployee(selected) : '—'}
-                      </div>
-                      <div>
-                        <div className="text-sm font-semibold text-slate-900">{selected ? formatName(selected) : 'Employee detail'}</div>
-                        <div className="mt-1 text-xs text-slate-500">
-                          {selected ? `${selected.employeeCode} · ${selected.email || '—'}` : 'Select an employee to view details.'}
-                        </div>
-                      </div>
-                    </div>
-
-                    {selected ? (
-                      <div className="flex flex-col sm:flex-row gap-2">
-                        {canWrite ? (
-                          <button
-                            type="button"
-                            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:bg-slate-50"
-                            disabled={selectedExited || updateMutation.status === 'loading'}
-                            onClick={openEditEmployee}
-                          >
-                            Edit Profile
-                          </button>
-                        ) : null}
-
-                        {canWrite ? (
-                          <button
-                            type="button"
-                            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:bg-slate-50"
-                            disabled={selectedExited || changeScopeMutation.status === 'loading'}
-                            onClick={openScopeModal}
-                          >
-                            Change Scope
-                          </button>
-                        ) : null}
-
-                        {canWrite ? (
-                          <button
-                            type="button"
-                            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:bg-slate-50"
-                            disabled={selectedExited || changeStatusMutation.status === 'loading'}
-                            onClick={openStatusModal}
-                          >
-                            Change Status
-                          </button>
-                        ) : null}
-                      </div>
-                    ) : null}
-                  </div>
-
-                  {selected ? (
-                    <div className="mt-3 flex flex-wrap items-center gap-2">
-                      {statusBadge(selected.status)}
-                      {selected.compensationType ? compensationBadge(selected.compensationType) : null}
-                      {scopeBadge(selected.scope)}
-                      {selected.scope === 'DIVISION' ? (
-                        <span className="text-xs text-slate-600">{formatDivisionLabel(divisionsById, selected.primaryDivisionId)}</span>
-                      ) : null}
-                    </div>
-                  ) : null}
-
-                  {selectedExited ? (
-                    <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-                      Status is EXITED. Write actions are disabled.
-                    </div>
-                  ) : null}
-
-                  <div className="mt-4">
-                    <div className="flex flex-wrap gap-2">
-                      {[
-                        { id: 'profile', label: 'Profile' },
-                        { id: 'scope', label: 'Scope History' },
-                        { id: 'compensation', label: 'Compensation' },
-                        { id: 'documents', label: 'Documents' }
-                      ].map((t) => (
-                        <button
-                          key={t.id}
-                          type="button"
-                          className={cx(
-                            'rounded-lg px-3 py-2 text-sm font-medium',
-                            activeTab === t.id ? 'bg-slate-900 text-white' : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50',
-                            !selected ? 'opacity-50 cursor-not-allowed' : ''
-                          )}
-                          onClick={() => setActiveTab(t.id)}
-                          disabled={!selected}
-                        >
-                          {t.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-4">
-                  {!selectedId ? (
-                    <EmptyState title="No employee selected" description="Pick someone from the directory to view profile, history, compensation and documents." />
-                  ) : detailState.status === 'loading' ? (
-                    <LoadingState label="Loading employee…" />
-                  ) : detailState.status === 'error' ? (
-                    detailState.error?.status === 403 ? <ForbiddenState /> : <ErrorState error={detailState.error} />
-                  ) : selected ? (
-                    <>
-                      {activeTab === 'profile' ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div className="rounded-2xl border border-slate-200 p-4">
-                            <div className="text-xs font-medium text-slate-500">Employee Code</div>
-                            <div className="mt-1 font-mono text-sm text-slate-900">{selected.employeeCode}</div>
-                          </div>
-                          <div className="rounded-2xl border border-slate-200 p-4">
-                            <div className="text-xs font-medium text-slate-500">Name</div>
-                            <div className="mt-1 text-sm font-semibold text-slate-900">{formatName(selected)}</div>
-                          </div>
-                          <div className="rounded-2xl border border-slate-200 p-4">
-                            <div className="text-xs font-medium text-slate-500">Email</div>
-                            <div className="mt-1 text-sm text-slate-900">{selected.email || '—'}</div>
-                          </div>
-                          <div className="rounded-2xl border border-slate-200 p-4">
-                            <div className="text-xs font-medium text-slate-500">Phone</div>
-                            <div className="mt-1 text-sm text-slate-900">{selected.phone || '—'}</div>
-                          </div>
-                        </div>
-                      ) : null}
-
-                    {activeTab === 'scope' ? (
-                      <div>
-                        <div className="text-sm font-semibold text-slate-900">Scope History</div>
-                        <div className="mt-2 grid grid-cols-1 gap-3">
-                          {(detailState.data?.scopeHistory || []).length === 0 ? (
-                            <EmptyState title="No scope history" />
-                          ) : (
-                            (detailState.data?.scopeHistory || []).map((h) => (
-                              <div key={h.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                                <div className="flex items-start justify-between gap-3">
-                                  <div>
-                                    <div className="text-xs font-medium text-slate-500">Scope</div>
-                                    <div className="mt-1 flex items-center gap-2">
-                                      {scopeBadge(h.scope)}
-                                      {h.scope === 'DIVISION' ? (
-                                        <span className="text-xs text-slate-600">{formatDivisionLabel(divisionsById, h.primaryDivisionId)}</span>
-                                      ) : null}
-                                    </div>
-                                  </div>
-                                  <div className="text-right">
-                                    <div className="text-xs font-medium text-slate-500">Effective</div>
-                                    <div className="mt-1 text-xs text-slate-700">
-                                      {new Date(h.effectiveFrom).toLocaleString()} — {h.effectiveTo ? new Date(h.effectiveTo).toLocaleString() : 'Active'}
-                                    </div>
-                                  </div>
-                                </div>
-                                <div className="mt-3">
-                                  <div className="text-xs font-medium text-slate-500">Reason</div>
-                                  <div className="mt-1 text-sm text-slate-900">{h.reason}</div>
-                                </div>
-                              </div>
-                            ))
-                          )}
-                        </div>
-                      </div>
-                    ) : null}
-
-                    {activeTab === 'compensation' ? (
-                      <div>
-                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                          <div>
-                            <div className="text-sm font-semibold text-slate-900">Compensation</div>
-                            <div className="mt-1 text-xs text-slate-500">Append-only versions. Effective dates must not overlap.</div>
-                          </div>
-                          {canCompWrite ? (
-                            <button
-                              type="button"
-                              className="w-full sm:w-auto rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:bg-slate-400"
-                              disabled={!selected || selectedExited || addCompMutation.status === 'loading'}
-                              onClick={openCompModal}
-                            >
-                              Add Version
-                            </button>
-                          ) : null}
-                        </div>
-
-                        <div className="mt-3">
-                          {compState.status === 'loading' ? (
-                            <LoadingState label="Loading compensation…" />
-                          ) : compState.status === 'error' ? (
-                            <ErrorState error={compState.error} />
-                          ) : (compState.data?.items || []).length === 0 ? (
-                            <EmptyState title="No compensation versions" />
-                          ) : (
-                            <div className="grid grid-cols-1 gap-3">
-                              {(compState.data?.items || []).map((c) => (
-                                <div key={c.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                                  <div className="flex items-start justify-between gap-3">
-                                    <div>
-                                      <div className="text-xs font-medium text-slate-500">Amount</div>
-                                      <div className="mt-1 text-sm font-semibold text-slate-900">
-                                        {c.currency} {Number(c.amount).toFixed(2)} ({c.frequency})
-                                      </div>
-                                    </div>
-                                    <div className="text-right">
-                                      <div className="text-xs font-medium text-slate-500">Effective</div>
-                                      <div className="mt-1 text-xs text-slate-700">
-                                        {String(c.effectiveFrom)} — {c.effectiveTo ? String(c.effectiveTo) : 'Active'}
-                                      </div>
-                                    </div>
-                                  </div>
-                                  <div className="mt-3">
-                                    <div className="text-xs font-medium text-slate-500">Reason</div>
-                                    <div className="mt-1 text-sm text-slate-900">{c.reason}</div>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ) : null}
-
-                    {activeTab === 'documents' ? (
-                      <div>
-                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                          <div>
-                            <div className="text-sm font-semibold text-slate-900">Documents</div>
-                            <div className="mt-1 text-xs text-slate-500">Metadata only. Downloads use signed URLs.</div>
-                          </div>
-                          {canDocWrite ? (
-                            <button
-                              type="button"
-                              className="w-full sm:w-auto rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:bg-slate-400"
-                              disabled={!selected || selectedExited || uploadDocMutation.status === 'loading'}
-                              onClick={openDocModal}
-                            >
-                              Upload Metadata
-                            </button>
-                          ) : null}
-                        </div>
-
-                        <div className="mt-3">
-                          {docState.status === 'loading' ? (
-                            <LoadingState label="Loading documents…" />
-                          ) : docState.status === 'error' ? (
-                            <ErrorState error={docState.error} />
-                          ) : (docState.data?.items || []).length === 0 ? (
-                            <EmptyState title="No documents" />
-                          ) : (
-                            <div className="grid grid-cols-1 gap-3">
-                              {(docState.data?.items || []).map((d) => (
-                                <div key={d.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                                  <div className="flex items-start justify-between gap-3">
-                                    <div className="min-w-0">
-                                      <div className="flex items-center gap-2">
-                                        <div className="text-sm font-semibold text-slate-900 truncate">{d.fileName}</div>
-                                        {d.isActive ? (
-                                          <span className="inline-flex rounded-full bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700">Active</span>
-                                        ) : (
-                                          <span className="inline-flex rounded-full bg-rose-50 px-2 py-1 text-xs font-semibold text-rose-700">Inactive</span>
-                                        )}
-                                      </div>
-                                      <div className="mt-1 text-xs text-slate-500">{d.documentType}</div>
-                                    </div>
-                                    <button
-                                      type="button"
-                                      className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:bg-slate-50"
-                                      disabled={!d.isActive || downloadDocMutation.status === 'loading'}
-                                      onClick={async () => {
-                                        const payload = await downloadDocMutation.run({ id: selectedId, docId: d.id });
-                                        const url = payload?.url;
-                                        if (url) {
-                                          window.open(url, '_blank', 'noopener,noreferrer');
-                                        }
-                                      }}
-                                    >
-                                      <Icon name="download" />
-                                      Download
-                                    </button>
-                                  </div>
-                                  <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
-                                    <div>
-                                      <div className="text-xs font-medium text-slate-500">MIME</div>
-                                      <div className="mt-1 text-xs text-slate-700">{d.mimeType || '—'}</div>
-                                    </div>
-                                    <div>
-                                      <div className="text-xs font-medium text-slate-500">Size</div>
-                                      <div className="mt-1 text-xs text-slate-700">{typeof d.sizeBytes === 'number' ? `${d.sizeBytes} bytes` : '—'}</div>
-                                    </div>
-                                    <div>
-                                      <div className="text-xs font-medium text-slate-500">Uploaded</div>
-                                      <div className="mt-1 text-xs text-slate-700">{d.uploadedAt ? new Date(d.uploadedAt).toLocaleString() : '—'}</div>
-                                    </div>
-                                    <div>
-                                      <div className="text-xs font-medium text-slate-500">Uploaded By</div>
-                                      <div className="mt-1 text-xs text-slate-700">{d.uploadedBy ? String(d.uploadedBy).slice(0, 8) + '…' : '—'}</div>
-                                    </div>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ) : null}
-                  </>
-                ) : null}
-              </div>
-            </div>
+          <div className="hidden xl:block xl:col-span-4">
+            <div className="sticky top-6">{ReadOnlyContextPanel}</div>
           </div>
         </div>
       </div>
-
-      </div>
-
-      {/* Create/Edit Employee Modal */}
       {employeeModalOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
@@ -1634,9 +1000,9 @@ export function EmployeesPage() {
                   onChange={(e) => setFormStatus(e.target.value)}
                   disabled={employeeModalMode !== 'create'}
                 >
-                  <option value="ACTIVE">ACTIVE</option>
-                  <option value="ON_HOLD">ON_HOLD</option>
-                  <option value="EXITED">EXITED</option>
+                  <option value="ACTIVE">Active</option>
+                  <option value="ON_HOLD">Locked</option>
+                  <option value="EXITED">Closed</option>
                 </select>
                 {employeeModalMode !== 'create' ? (
                   <div className="mt-1 text-xs text-slate-500">Use Change Status for lifecycle transitions.</div>
@@ -1907,9 +1273,9 @@ export function EmployeesPage() {
               <div>
                 <label className="block text-sm font-medium text-slate-700">Status</label>
                 <select className="mt-1 w-full rounded-md border-slate-300 text-sm" value={statusNext} onChange={(e) => setStatusNext(e.target.value)}>
-                  <option value="ACTIVE">ACTIVE</option>
-                  <option value="ON_HOLD">ON_HOLD</option>
-                  <option value="EXITED">EXITED</option>
+                  <option value="ACTIVE">Active</option>
+                  <option value="ON_HOLD">Locked</option>
+                  <option value="EXITED">Closed</option>
                 </select>
               </div>
               <div className="md:col-span-2">
@@ -2135,5 +1501,6 @@ export function EmployeesPage() {
         </div>
       ) : null}
     </div>
+    </>
   );
 }

@@ -1,0 +1,13 @@
+BEGIN;
+
+ALTER TABLE division
+  ADD COLUMN IF NOT EXISTS type VARCHAR(20) NOT NULL DEFAULT 'INTERNAL',
+  ADD COLUMN IF NOT EXISTS description TEXT;
+
+ALTER TABLE division
+  DROP CONSTRAINT IF EXISTS division_type_check;
+
+ALTER TABLE division
+  ADD CONSTRAINT division_type_check CHECK (type IN ('REVENUE','INTERNAL'));
+
+COMMIT;

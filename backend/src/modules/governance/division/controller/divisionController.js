@@ -11,6 +11,8 @@ import { createDivision, getDivision, listDivisionsPaged, setDivisionActive } fr
 const createSchema = Joi.object({
   code: Joi.string().max(20).required(),
   name: Joi.string().max(100).required(),
+  type: Joi.string().valid('REVENUE', 'INTERNAL').default('INTERNAL'),
+  description: Joi.string().allow('', null),
   reason: Joi.string().allow('', null)
 });
 
@@ -47,6 +49,8 @@ export function divisionController({ pool }) {
       const created = await createDivision(pool, {
         code: body.code,
         name: body.name,
+        type: body.type,
+        description: body.description,
         actorId: req.auth.userId,
         requestId: req.requestId,
         reason: body.reason

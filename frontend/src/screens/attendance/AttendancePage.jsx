@@ -56,12 +56,30 @@ export function AttendancePage() {
   const permissions = bootstrap?.rbac?.permissions || [];
   const canRead = permissions.includes('ATTENDANCE_READ');
   const canWrite = permissions.includes('ATTENDANCE_WRITE');
-  const canBulk = permissions.includes('ATTENDANCE_BULK_WRITE');
-  const canOverride = permissions.includes('ATTENDANCE_OVERRIDE');
+  const roles = bootstrap?.rbac?.roles || [];
+  const isManager = roles.includes('MANAGER');
+  const isHrAdmin = roles.includes('HR_ADMIN');
+  const isFinanceAdmin = roles.includes('FINANCE_ADMIN');
+  const isFounder = roles.includes('FOUNDER');
+  const isSuperAdmin = roles.includes('SUPER_ADMIN');
+
+  const mode = isHrAdmin
+    ? 'hr'
+    : isManager
+      ? 'manager'
+      : isFinanceAdmin
+        ? 'finance'
+        : isFounder || isSuperAdmin
+          ? 'readonly'
+          : 'readonly';
 
   const [month, setMonth] = useState('');
   const [divisionId, setDivisionId] = useState('');
   const [view, setView] = useState('monthly');
+
+  useEffect(() => {
+    setView('monthly');
+  }, [mode]);
 
   const [employeeSearch, setEmployeeSearch] = useState('');
   const [employeeSearchDebounced, setEmployeeSearchDebounced] = useState('');
@@ -308,109 +326,42 @@ export function AttendancePage() {
     return apiFetch('/api/v1/attendance/mark', { method: 'POST', body: payload });
   });
 
-  const bulkMutation = useMutation(async (payload) => {
-    return apiFetch('/api/v1/attendance/bulk-mark', { method: 'POST', body: payload });
-  });
-
   const [markOpen, setMarkOpen] = useState(false);
   const [markEmployee, setMarkEmployee] = useState(null);
   const [markDate, setMarkDate] = useState('');
   const [markSelectedCellDate, setMarkSelectedCellDate] = useState('');
+  const [markOldStatus, setMarkOldStatus] = useState('');
   const [markStatus, setMarkStatus] = useState('PRESENT');
-  const [markSource, setMarkSource] = useState('HR');
-  const [markNote, setMarkNote] = useState('');
   const [markReason, setMarkReason] = useState('');
-  const [markConfirmOpen, setMarkConfirmOpen] = useState(false);
 
   const openMark = (employee, dateIso) => {
     const existing = recordMap.get(`${employee.id}:${dateIso}`);
     setMarkEmployee(employee);
     setMarkDate(dateIso);
     setMarkSelectedCellDate(dateIso);
+    setMarkOldStatus(existing?.status || '');
     setMarkStatus(existing?.status || 'PRESENT');
-    setMarkSource(existing?.source || 'HR');
-    setMarkNote(existing?.note || '');
     setMarkReason('');
     setMarkOpen(true);
   };
 
-  const requiresConfirm = markStatus === 'ABSENT' || markStatus === 'LEAVE';
-
   const doSubmitMark = async () => {
+    if (!markReason.trim()) return;
     console.assert(/^\d{4}-\d{2}-\d{2}$/.test(markDate), 'Invalid attendanceDate');
     console.assert(markDate === markSelectedCellDate, 'Modal date mismatch (must submit clicked cell date)');
     const payload = {
       employeeId: markEmployee.id,
       attendanceDate: markDate,
       status: markStatus,
-      source: markSource,
-      note: markNote.trim() || null,
-      reason: markReason.trim() || null
+      source: 'HR',
+      note: null,
+      reason: markReason.trim()
     };
 
     console.assert(payload.attendanceDate === markSelectedCellDate, 'Payload date mismatch (must submit clicked cell date)');
 
     await markMutation.run(payload);
     setMarkOpen(false);
-    setMarkConfirmOpen(false);
-    refreshMonth();
-  };
-
-  const [bulkOpen, setBulkOpen] = useState(false);
-  const [bulkDate, setBulkDate] = useState('');
-  const [bulkSource, setBulkSource] = useState('HR');
-  const [bulkItems, setBulkItems] = useState([]);
-  const [bulkResult, setBulkResult] = useState(null);
-
-  useEffect(() => {
-    if (!month) {
-      setBulkDate('');
-      return;
-    }
-    const [year, monthNum] = month.split('-').map(Number);
-    setBulkDate(`${year}-${String(monthNum).padStart(2, '0')}-01`);
-  }, [month]);
-
-  const openBulk = () => {
-    if (!month) return;
-    const dateIso = bulkDate || (() => {
-      const [year, monthNum] = month.split('-').map(Number);
-      return `${year}-${String(monthNum).padStart(2, '0')}-01`;
-    })();
-    const next = (employees || []).map((e) => {
-      const existing = recordMap.get(`${e.id}:${dateIso}`);
-      return {
-        employeeId: e.id,
-        employeeCode: e.employeeCode,
-        firstName: e.firstName,
-        lastName: e.lastName,
-        status: existing?.status || 'PRESENT',
-        note: existing?.note || '',
-        reason: ''
-      };
-    });
-
-    setBulkItems(next);
-    setBulkResult(null);
-    setBulkOpen(true);
-  };
-
-  const submitBulk = async () => {
-    if (!month) return;
-    console.assert(/^\d{4}-\d{2}-\d{2}$/.test(bulkDate), 'Invalid attendanceDate');
-    const payload = {
-      attendanceDate: bulkDate,
-      source: bulkSource,
-      items: bulkItems.map((x) => ({
-        employeeId: x.employeeId,
-        status: x.status,
-        note: x.note.trim() || null,
-        reason: x.reason.trim() || null
-      }))
-    };
-
-    const result = await bulkMutation.run(payload);
-    setBulkResult(result);
     refreshMonth();
   };
 
@@ -449,31 +400,33 @@ export function AttendancePage() {
         title={title}
         subtitle="Monthly"
         actions={
-          <div className="flex flex-col sm:flex-row gap-2">
-            <button
-              type="button"
-              className={cx(
-                'rounded-lg px-3 py-2 text-sm font-medium',
-                view === 'monthly' ? 'bg-slate-900 text-white' : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
-              )}
-              onClick={() => setView('monthly')}
-            >
-              Monthly
-            </button>
-            <button
-              type="button"
-              className={cx(
-                'rounded-lg px-3 py-2 text-sm font-medium',
-                view === 'summary' ? 'bg-slate-900 text-white' : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
-              )}
-              onClick={() => {
-                setView('summary');
-                refreshSummary();
-              }}
-            >
-              Summary
-            </button>
-          </div>
+          mode === 'hr' ? (
+            <div className="flex flex-col sm:flex-row gap-2">
+              <button
+                type="button"
+                className={cx(
+                  'rounded-lg px-3 py-2 text-sm font-medium',
+                  view === 'monthly' ? 'bg-slate-900 text-white' : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+                )}
+                onClick={() => setView('monthly')}
+              >
+                Monthly
+              </button>
+              <button
+                type="button"
+                className={cx(
+                  'rounded-lg px-3 py-2 text-sm font-medium',
+                  view === 'summary' ? 'bg-slate-900 text-white' : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+                )}
+                onClick={() => {
+                  setView('summary');
+                  refreshSummary();
+                }}
+              >
+                Overview
+              </button>
+            </div>
+          ) : null
         }
       />
 
@@ -509,48 +462,49 @@ export function AttendancePage() {
                   />
                 </div>
 
-                <div>
-                  <label className="block text-xs font-medium text-slate-600">Division</label>
-                  <select
-                    className="mt-1 w-full rounded-md border-slate-300 text-sm"
-                    value={divisionId}
-                    onChange={(e) => {
-                      setDivisionId(e.target.value);
-                      refreshMonth();
-                      refreshSummary();
-                    }}
-                    disabled={divisions.status === 'error' || (divisions.data?.items || []).length === 0}
-                  >
-                    <option value="">All</option>
-                    {(divisions.data?.items || []).map((d) => (
-                      <option key={d.id} value={d.id}>
-                        {d.code} — {d.name}
-                      </option>
-                    ))}
-                  </select>
-                  {divisions.status === 'error' ? <div className="mt-1 text-xs text-rose-700">Divisions unavailable.</div> : null}
-                </div>
+                {mode === 'manager' ? null : (
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600">Division</label>
+                    <select
+                      className="mt-1 w-full rounded-md border-slate-300 text-sm"
+                      value={divisionId}
+                      onChange={(e) => {
+                        setDivisionId(e.target.value);
+                        refreshMonth();
+                        refreshSummary();
+                      }}
+                      disabled={divisions.status === 'error' || (divisions.data?.items || []).length === 0}
+                    >
+                      <option value="">All</option>
+                      {(divisions.data?.items || []).map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.code} — {d.name}
+                        </option>
+                      ))}
+                    </select>
+                    {divisions.status === 'error' ? <div className="mt-1 text-xs text-rose-700">Divisions unavailable.</div> : null}
+                  </div>
+                )}
 
                 <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
                   <div className="text-xs font-medium text-slate-600">Editability</div>
                   <div className="mt-1 text-xs text-slate-600">
-                    {isMonthClosed ? 'Month is CLOSED. Read-only.' : canWrite ? 'Month is OPEN. You can mark attendance.' : 'Read-only.'}
+                    {isMonthClosed
+                      ? 'Month is LOCKED. Read-only.'
+                      : mode === 'hr' && canWrite
+                        ? 'Month is OPEN. HR can correct attendance with a reason.'
+                        : 'Read-only.'}
                   </div>
                 </div>
 
-                {view === 'monthly' ? (
-                  <div className="space-y-2">
-                    <button
-                      type="button"
-                      className="w-full rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:bg-slate-400"
-                      disabled={!canBulk || isMonthClosed}
-                      onClick={openBulk}
-                    >
-                      Bulk Mark
-                    </button>
-                    {!canBulk ? <div className="text-xs text-slate-500">Requires ATTENDANCE_BULK_WRITE.</div> : null}
+                <div className="rounded-xl border border-slate-200 bg-white p-3">
+                  <div className="text-xs font-semibold text-slate-900">Attendance</div>
+                  <div className="mt-2 space-y-2 text-xs text-slate-600">
+                    <div>Attendance is recorded as factual daily status.</div>
+                    <div>Leave days are auto-synced and read-only.</div>
+                    <div>Locked months cannot be edited.</div>
                   </div>
-                ) : null}
+                </div>
               </div>
             </div>
           </div>
@@ -560,12 +514,24 @@ export function AttendancePage() {
               <div className="bg-white rounded-2xl border border-slate-200 shadow-sm">
                 <div className="p-4 border-b border-slate-200 flex items-start justify-between gap-4">
                   <div>
-                    <div className="text-sm font-semibold text-slate-900">Monthly View</div>
+                    <div className="text-sm font-semibold text-slate-900">
+                      {mode === 'hr'
+                        ? 'Attendance Overview'
+                        : mode === 'manager'
+                          ? 'Team Attendance'
+                          : 'Attendance'}
+                    </div>
                     <div className="mt-1 text-xs text-slate-500">
                       {filteredEmployees.length} employees · {days.length} days
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
+                    {isMonthClosed ? (
+                      <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-900">
+                        <span aria-hidden>🔒</span>
+                        Month locked
+                      </span>
+                    ) : null}
                     <div className="hidden sm:flex items-center gap-2 text-xs text-slate-600">
                       <span className="inline-flex h-3 w-3 rounded bg-emerald-200" /> Present
                       <span className="inline-flex h-3 w-3 rounded bg-rose-200" /> Absent
@@ -614,24 +580,33 @@ export function AttendancePage() {
                               {days.map((dateIso) => {
                                 const rec = recordMap.get(`${e.id}:${dateIso}`);
                                 const status = rec?.status || '';
-                                const editable = canEditMonth && isAttendanceEditable({ employeeId: e.id, attendanceDate: dateIso });
+                                const editable = canEditMonth && mode === 'hr' && isAttendanceEditable({ employeeId: e.id, attendanceDate: dateIso });
                                 const disabled = !editable;
                                 const reason = getCellDisabledReason({ employeeId: e.id, attendanceDate: dateIso });
                                 return (
                                   <td key={dateIso} className="border-b border-slate-100 px-2 py-2 text-center">
-                                    <button
-                                      type="button"
-                                      className={cx(
-                                        'w-12 h-9 rounded-lg border text-xs font-semibold',
-                                        disabled ? disabledCellClass() : statusCellClass(status),
-                                        disabled ? 'cursor-not-allowed' : 'hover:shadow-sm'
-                                      )}
-                                      disabled={disabled}
-                                      onClick={disabled ? undefined : () => openMark(e, dateIso)}
-                                      title={disabled ? reason || 'Not allowed' : status ? `${status}` : '—'}
-                                    >
-                                      {status ? status[0] : '—'}
-                                    </button>
+                                    {mode === 'hr' ? (
+                                      <button
+                                        type="button"
+                                        className={cx(
+                                          'w-12 h-9 rounded-lg border text-xs font-semibold',
+                                          disabled ? disabledCellClass() : statusCellClass(status),
+                                          disabled ? 'cursor-not-allowed' : 'hover:shadow-sm'
+                                        )}
+                                        disabled={disabled}
+                                        onClick={disabled ? undefined : () => openMark(e, dateIso)}
+                                        title={disabled ? reason || 'Not allowed' : status ? `${status}` : '—'}
+                                      >
+                                        {status ? status[0] : '—'}
+                                      </button>
+                                    ) : (
+                                      <div
+                                        className={cx('w-12 h-9 inline-flex items-center justify-center rounded-lg border text-xs font-semibold', statusCellClass(status))}
+                                        title={status ? `${status}` : '—'}
+                                      >
+                                        {status ? status[0] : '—'}
+                                      </div>
+                                    )}
                                   </td>
                                 );
                               })}
@@ -646,8 +621,8 @@ export function AttendancePage() {
             ) : (
               <div className="bg-white rounded-2xl border border-slate-200 shadow-sm">
                 <div className="p-4 border-b border-slate-200">
-                  <div className="text-sm font-semibold text-slate-900">Monthly Summary</div>
-                  <div className="mt-1 text-xs text-slate-500">Read-only aggregation for payroll reference.</div>
+                  <div className="text-sm font-semibold text-slate-900">Monthly attendance totals</div>
+                  <div className="mt-1 text-xs text-slate-500">Read-only aggregation for the selected month.</div>
                 </div>
 
                 {summaryState.status === 'loading' ? (
@@ -671,7 +646,7 @@ export function AttendancePage() {
                           <th className="px-4 py-3 text-right text-xs font-semibold text-slate-600">Present</th>
                           <th className="px-4 py-3 text-right text-xs font-semibold text-slate-600">Absent</th>
                           <th className="px-4 py-3 text-right text-xs font-semibold text-slate-600">Leave</th>
-                          <th className="px-4 py-3 text-right text-xs font-semibold text-slate-600">Working Days</th>
+                          <th className="px-4 py-3 text-right text-xs font-semibold text-slate-600">Days</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 bg-white">
@@ -698,30 +673,44 @@ export function AttendancePage() {
         </div>
       </div>
 
-      {markOpen ? (
+      {mode === 'hr' && markOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
             className="absolute inset-0 bg-slate-900/40"
             onClick={() => {
               if (markMutation.status === 'loading') return;
               setMarkOpen(false);
-              setMarkConfirmOpen(false);
             }}
           />
           <div className="relative w-full max-w-lg rounded-xl bg-white border border-slate-200 shadow-sm p-5">
-            <div className="text-base font-semibold text-slate-900">Mark Attendance</div>
-            <div className="mt-1 text-sm text-slate-600">
-              {markEmployee ? `${markEmployee.employeeCode} · ${markEmployee.firstName} ${markEmployee.lastName}` : '—'}
+            <div className="text-base font-semibold text-slate-900">Edit Attendance</div>
+
+            <div className="mt-3 grid grid-cols-1 gap-3">
+              <div>
+                <div className="text-xs font-medium text-slate-600">Employee</div>
+                <div className="mt-1 text-sm font-semibold text-slate-900">
+                  {markEmployee ? `${markEmployee.employeeCode} · ${markEmployee.firstName} ${markEmployee.lastName}` : '—'}
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <div className="text-xs font-medium text-slate-600">Date</div>
+                  <div className="mt-1 text-sm text-slate-900">{markDate || '—'}</div>
+                </div>
+                <div>
+                  <div className="text-xs font-medium text-slate-600">Old status</div>
+                  <div className="mt-1 text-sm text-slate-900">{markOldStatus || '—'}</div>
+                </div>
+              </div>
             </div>
-            <div className="mt-3 text-xs text-slate-500">Date: {markDate}</div>
 
             {isMonthClosed ? (
-              <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Month is CLOSED. Read-only.</div>
+              <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Month is LOCKED. Read-only.</div>
             ) : null}
 
             <div className="mt-4 grid grid-cols-1 gap-3">
               <div>
-                <label className="block text-sm font-medium text-slate-700">Status</label>
+                <label className="block text-sm font-medium text-slate-700">New status</label>
                 <select
                   className="mt-1 w-full rounded-md border-slate-300 text-sm"
                   value={markStatus}
@@ -735,41 +724,18 @@ export function AttendancePage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700">Source</label>
-                <select
+                <label className="block text-sm font-medium text-slate-700">Reason</label>
+                <input
                   className="mt-1 w-full rounded-md border-slate-300 text-sm"
-                  value={markSource}
-                  onChange={(e) => setMarkSource(e.target.value)}
+                  value={markReason}
+                  onChange={(e) => setMarkReason(e.target.value)}
                   disabled={isMonthClosed}
-                >
-                  <option value="HR">HR</option>
-                  <option value="SYSTEM">SYSTEM</option>
-                  <option value="SELF">SELF</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700">Note (optional)</label>
-                <textarea
-                  className="mt-1 w-full h-24 rounded-md border-slate-300 text-sm"
-                  value={markNote}
-                  onChange={(e) => setMarkNote(e.target.value)}
-                  disabled={isMonthClosed}
+                  placeholder="Required"
                 />
+                {!isMonthClosed && !markReason.trim() ? (
+                  <div className="mt-1 text-xs text-rose-700">Reason is required.</div>
+                ) : null}
               </div>
-
-              {canOverride ? (
-                <div>
-                  <label className="block text-sm font-medium text-slate-700">Reason (required for override)</label>
-                  <input
-                    className="mt-1 w-full rounded-md border-slate-300 text-sm"
-                    value={markReason}
-                    onChange={(e) => setMarkReason(e.target.value)}
-                    disabled={isMonthClosed}
-                    placeholder="Required when updating an existing record"
-                  />
-                </div>
-              ) : null}
             </div>
 
             {markMutation.status === 'error' ? (
@@ -785,7 +751,6 @@ export function AttendancePage() {
                 disabled={markMutation.status === 'loading'}
                 onClick={() => {
                   setMarkOpen(false);
-                  setMarkConfirmOpen(false);
                 }}
               >
                 Cancel
@@ -793,222 +758,12 @@ export function AttendancePage() {
               <button
                 type="button"
                 className="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:bg-slate-400"
-                disabled={markMutation.status === 'loading' || isMonthClosed || !markEmployee || !markDate}
-                onClick={() => {
-                  if (requiresConfirm) {
-                    setMarkConfirmOpen(true);
-                    return;
-                  }
-                  doSubmitMark();
-                }}
+                disabled={markMutation.status === 'loading' || isMonthClosed || !markEmployee || !markDate || !markReason.trim()}
+                onClick={doSubmitMark}
               >
                 {markMutation.status === 'loading' ? 'Saving…' : 'Confirm'}
               </button>
             </div>
-
-            {markConfirmOpen ? (
-              <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3">
-                <div className="text-sm font-semibold text-amber-900">Confirm {markStatus}</div>
-                <div className="mt-1 text-xs text-amber-900">This will mark the employee as {markStatus} for {markDate}.</div>
-                <div className="mt-3 flex items-center justify-end gap-2">
-                  <button
-                    type="button"
-                    className="rounded-md border border-amber-300 bg-white px-3 py-2 text-sm text-amber-900 hover:bg-amber-50"
-                    onClick={() => setMarkConfirmOpen(false)}
-                    disabled={markMutation.status === 'loading'}
-                  >
-                    Back
-                  </button>
-                  <button
-                    type="button"
-                    className="rounded-md bg-amber-600 px-3 py-2 text-sm font-medium text-white disabled:bg-amber-300"
-                    onClick={doSubmitMark}
-                    disabled={markMutation.status === 'loading'}
-                  >
-                    Confirm
-                  </button>
-                </div>
-              </div>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
-
-      {bulkOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="absolute inset-0 bg-slate-900/40"
-            onClick={() => {
-              if (bulkMutation.status === 'loading') return;
-              setBulkOpen(false);
-            }}
-          />
-          <div className="relative w-full max-w-4xl rounded-xl bg-white border border-slate-200 shadow-sm p-5">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <div className="text-base font-semibold text-slate-900">Bulk Mark Attendance</div>
-                <div className="mt-1 text-sm text-slate-600">Max batch size: 500</div>
-              </div>
-              <button
-                type="button"
-                className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100"
-                onClick={() => setBulkOpen(false)}
-                disabled={bulkMutation.status === 'loading'}
-              >
-                Close
-              </button>
-            </div>
-
-            <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div>
-                <label className="block text-sm font-medium text-slate-700">Date</label>
-                <input
-                  type="date"
-                  className="mt-1 w-full rounded-md border-slate-300 text-sm"
-                  value={bulkDate}
-                  onChange={(e) => setBulkDate(e.target.value)}
-                  disabled={isMonthClosed}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700">Source</label>
-                <select
-                  className="mt-1 w-full rounded-md border-slate-300 text-sm"
-                  value={bulkSource}
-                  onChange={(e) => setBulkSource(e.target.value)}
-                  disabled={isMonthClosed}
-                >
-                  <option value="HR">HR</option>
-                  <option value="SYSTEM">SYSTEM</option>
-                  <option value="SELF">SELF</option>
-                </select>
-              </div>
-              <div className="flex items-end">
-                <button
-                  type="button"
-                  className="w-full rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:bg-slate-400"
-                  disabled={bulkMutation.status === 'loading' || isMonthClosed}
-                  onClick={submitBulk}
-                >
-                  {bulkMutation.status === 'loading' ? 'Submitting…' : 'Submit'}
-                </button>
-              </div>
-            </div>
-
-            {isMonthClosed ? (
-              <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Month is CLOSED. Read-only.</div>
-            ) : null}
-
-            {bulkMutation.status === 'error' ? (
-              <div className="mt-3">
-                <ErrorState error={bulkMutation.error} />
-              </div>
-            ) : null}
-
-            <div className="mt-4 overflow-auto border border-slate-200 rounded-lg">
-              <table className="min-w-full divide-y divide-slate-200">
-                <thead className="bg-slate-50">
-                  <tr>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-slate-600">Employee</th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-slate-600">Status</th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-slate-600">Note</th>
-                    <th className="px-3 py-2 text-left text-xs font-semibold text-slate-600">Reason (override)</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 bg-white">
-                  {bulkItems.map((x) => (
-                    <tr key={x.employeeId}>
-                      <td className="px-3 py-2 text-sm text-slate-900">
-                        <div className="font-semibold">{x.employeeCode}</div>
-                        <div className="text-xs text-slate-500">
-                          {x.firstName} {x.lastName}
-                        </div>
-                      </td>
-                      <td className="px-3 py-2">
-                        <select
-                          className="w-full rounded-md border-slate-300 text-sm"
-                          value={x.status}
-                          onChange={(e) => {
-                            const v = e.target.value;
-                            setBulkItems((prev) => prev.map((p) => (p.employeeId === x.employeeId ? { ...p, status: v } : p)));
-                          }}
-                          disabled={isMonthClosed}
-                        >
-                          <option value="PRESENT">PRESENT</option>
-                          <option value="ABSENT">ABSENT</option>
-                          <option value="LEAVE">LEAVE</option>
-                        </select>
-                      </td>
-                      <td className="px-3 py-2">
-                        <input
-                          className="w-full rounded-md border-slate-300 text-sm"
-                          value={x.note}
-                          onChange={(e) => {
-                            const v = e.target.value;
-                            setBulkItems((prev) => prev.map((p) => (p.employeeId === x.employeeId ? { ...p, note: v } : p)));
-                          }}
-                          disabled={isMonthClosed}
-                        />
-                      </td>
-                      <td className="px-3 py-2">
-                        <input
-                          className="w-full rounded-md border-slate-300 text-sm"
-                          value={x.reason}
-                          onChange={(e) => {
-                            const v = e.target.value;
-                            setBulkItems((prev) => prev.map((p) => (p.employeeId === x.employeeId ? { ...p, reason: v } : p)));
-                          }}
-                          disabled={isMonthClosed}
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {bulkResult ? (
-              <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
-                <div className="text-sm font-semibold text-slate-900">Result</div>
-                <div className="mt-2 grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div className="rounded-lg bg-white border border-slate-200 p-3">
-                    <div className="text-xs font-medium text-slate-500">Created</div>
-                    <div className="mt-1 text-lg font-semibold text-slate-900">{(bulkResult.items || []).filter((i) => i.outcome === 'CREATED').length}</div>
-                  </div>
-                  <div className="rounded-lg bg-white border border-slate-200 p-3">
-                    <div className="text-xs font-medium text-slate-500">Updated</div>
-                    <div className="mt-1 text-lg font-semibold text-slate-900">{(bulkResult.items || []).filter((i) => i.outcome === 'UPDATED').length}</div>
-                  </div>
-                  <div className="rounded-lg bg-white border border-slate-200 p-3">
-                    <div className="text-xs font-medium text-slate-500">Failed</div>
-                    <div className="mt-1 text-lg font-semibold text-rose-700">{(bulkResult.items || []).filter((i) => i.outcome === 'FAILED').length}</div>
-                  </div>
-                </div>
-
-                {(bulkResult.items || []).filter((i) => i.outcome === 'FAILED').length > 0 ? (
-                  <div className="mt-3 overflow-auto max-h-56">
-                    <table className="min-w-full divide-y divide-slate-200">
-                      <thead className="bg-white">
-                        <tr>
-                          <th className="px-3 py-2 text-left text-xs font-semibold text-slate-600">Employee</th>
-                          <th className="px-3 py-2 text-left text-xs font-semibold text-slate-600">Error</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                        {(bulkResult.items || [])
-                          .filter((i) => i.outcome === 'FAILED')
-                          .map((i) => (
-                            <tr key={`${i.employeeId}:${i.attendanceDate}`}>
-                              <td className="px-3 py-2 text-xs font-mono text-slate-700">{String(i.employeeId).slice(0, 8)}…</td>
-                              <td className="px-3 py-2 text-xs text-rose-700">{i.error || 'Failed'}</td>
-                            </tr>
-                          ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
           </div>
         </div>
       ) : null}

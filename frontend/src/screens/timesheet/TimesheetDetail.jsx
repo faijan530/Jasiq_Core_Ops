@@ -80,6 +80,7 @@ export function TimesheetDetail() {
   const { bootstrap } = useBootstrap();
 
   const permissions = bootstrap?.rbac?.permissions || [];
+  const roles = bootstrap?.rbac?.roles || [];
   const canRead = permissions.includes('TIMESHEET_READ');
   const canSubmit = permissions.includes('TIMESHEET_SUBMIT');
   const canApproveL1 = permissions.includes('TIMESHEET_APPROVE_L1');
@@ -87,6 +88,8 @@ export function TimesheetDetail() {
   const canWorklogWrite = permissions.includes('TIMESHEET_WORKLOG_WRITE');
   const canReadMonthClose = permissions.includes('GOV_MONTH_CLOSE_READ');
   const canReadAudit = permissions.includes('GOV_AUDIT_READ');
+  const isSuperAdmin = roles.includes('SUPER_ADMIN');
+  const isManager = roles.includes('MANAGER') || roles.includes('SUPERADMIN') || roles.includes('FOUNDER');
 
   const systemConfig = bootstrap?.systemConfig || {};
   const features = bootstrap?.features?.flags || {};
@@ -221,12 +224,13 @@ export function TimesheetDetail() {
       canWorklogWrite &&
       !isMonthClosed &&
       String(header.status || '').toUpperCase() !== 'SUBMITTED' &&
-      String(header.status || '').toUpperCase() !== 'APPROVED'
+      String(header.status || '').toUpperCase() !== 'APPROVED' &&
+      !isSuperAdmin
   );
 
-  const canShowApprove = Boolean((canApproveL1 || canApproveL2) && header && String(header.status || '').toUpperCase() === 'SUBMITTED' && !isMonthClosed);
+  const canShowApprove = Boolean((canApproveL1 || canApproveL2) && header && String(header.status || '').toUpperCase() === 'SUBMITTED' && !isMonthClosed && !isSuperAdmin);
 
-  const canShowSubmit = Boolean(canSubmit && header && String(header.status || '').toUpperCase() === 'DRAFT' && !isMonthClosed);
+  const canShowSubmit = Boolean(canSubmit && header && String(header.status || '').toUpperCase() === 'DRAFT' && !isMonthClosed && !isSuperAdmin);
 
   const backPath = permissions.includes('TIMESHEET_APPROVAL_QUEUE_READ') ? '/timesheet/approvals' : '/timesheet/my';
 

@@ -41,7 +41,10 @@ export function MyTimesheet() {
   const { bootstrap } = useBootstrap();
 
   const permissions = bootstrap?.rbac?.permissions || [];
+  const roles = bootstrap?.rbac?.roles || [];
   const canRead = permissions.includes('TIMESHEET_READ');
+  const isSuperAdmin = roles.includes('SUPER_ADMIN');
+  const isManager = roles.includes('MANAGER');
 
   const systemConfig = bootstrap?.systemConfig || {};
   const timesheetEnabled = isTruthyConfig(systemConfig?.TIMESHEET_ENABLED?.value ?? systemConfig?.TIMESHEET_ENABLED);

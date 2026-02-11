@@ -5,7 +5,10 @@ import { useBootstrap } from '../state/bootstrap.jsx';
 import { LoginPage } from './LoginPage.jsx';
 import { AdminLoginPage } from './AdminLoginPage.jsx';
 import { BootstrapSignupPage } from './BootstrapSignupPage.jsx';
+import { SetPasswordPage } from './SetPasswordPage.jsx';
 import { AdminLayout } from './AdminLayout.jsx';
+import { EmployeeLayout } from './EmployeeLayout.jsx';
+import { EmployeeRedirect } from './EmployeeRedirect.jsx';
 import { NotFoundPage } from './NotFoundPage.jsx';
 import { ForbiddenState } from '../components/States.jsx';
 import { LoadingState } from '../components/States.jsx';
@@ -17,6 +20,8 @@ import { MonthClosePage } from '../screens/monthClose/MonthClosePage.jsx';
 import { AuditPage } from '../screens/audit/AuditPage.jsx';
 import { SystemConfigPage } from '../screens/systemConfig/SystemConfigPage.jsx';
 import { EmployeesPage } from '../screens/employees/EmployeesPage.jsx';
+import { EmployeeProfilePage } from '../screens/employees/EmployeeProfilePage.jsx';
+import { CreateEmployeePage } from '../screens/employees/CreateEmployeePage.jsx';
 import { AttendancePage } from '../screens/attendance/AttendancePage.jsx';
 
 import { MyTimesheet } from '../screens/timesheet/MyTimesheet.jsx';
@@ -27,6 +32,17 @@ import { EmployeeLeavePage } from '../screens/leave/EmployeeLeavePage.jsx';
 import { ApplyLeavePage } from '../screens/leave/ApplyLeavePage.jsx';
 import { LeaveRequestDetailPage } from '../screens/leave/LeaveRequestDetailPage.jsx';
 import { LeaveApprovalPage } from '../screens/leave/LeaveApprovalPage.jsx';
+import { LeaveOverviewPage } from '../screens/leave/LeaveOverviewPage.jsx';
+import { MyLeavePage } from '../screens/leave/MyLeavePage.jsx';
+import { TeamLeavePage } from '../screens/leave/TeamLeavePage.jsx';
+
+// Employee pages
+import { EmployeeDashboard } from '../screens/employee/EmployeeDashboard.jsx';
+import { EmployeeProfile } from '../screens/employee/EmployeeProfile.jsx';
+import { EmployeeAttendance } from '../screens/employee/EmployeeAttendance.jsx';
+import { EmployeeTimesheets } from '../screens/employee/EmployeeTimesheets.jsx';
+import { EmployeeLeave } from '../screens/employee/EmployeeLeave.jsx';
+import { EmployeeDocuments } from '../screens/employee/EmployeeDocuments.jsx';
 import { LeaveTypePage } from '../screens/leave/LeaveTypePage.jsx';
 import { LeaveBalancePage } from '../screens/leave/LeaveBalancePage.jsx';
 import { AdminManagementPage } from '../screens/admin/AdminManagementPage.jsx';
@@ -39,10 +55,10 @@ function resolveScreenComponentByPath(path) {
   if (path === '/admin/audit') return <AuditPage />;
   if (path === '/admin/system-config') return <SystemConfigPage />;
   if (path === '/admin/employees') return <EmployeesPage />;
+  if (path === '/admin/employees/add') return <EmployeesPage autoOpenCreate />;
   if (path === '/admin/attendance') return <AttendancePage />;
   if (path === '/admin/admin-management') return <AdminManagementPage />;
-  if (path === '/timesheet/my') return <MyTimesheet />;
-  if (path === '/timesheet/approvals') return <Approvals />;
+  // Timesheets routes are handled separately in routing, not via navItems
   if (path === '/leave/my') return <EmployeeLeavePage />;
   if (path === '/leave/approvals') return <LeaveApprovalPage />;
   if (path === '/leave/types') return <LeaveTypePage />;
@@ -138,22 +154,60 @@ export function AppRouter() {
     );
   }
 
-  const navItems = bootstrap?.navigation?.items || [];
+  const navItems = bootstrap?.navigation?.items || [
+    { id: 'divisions', label: 'Divisions', path: '/admin/divisions' },
+    { id: 'projects', label: 'Projects', path: '/admin/projects' },
+    { id: 'rbac', label: 'RBAC', path: '/admin/rbac' },
+    { id: 'employees', label: 'Employees', path: '/admin/employees' },
+    { id: 'admin-management', label: 'Admin Management', path: '/admin/admin-management' }
+  ];
   const defaultPath = navItems[0]?.path || '/admin/divisions';
+  const roles = bootstrap?.rbac?.roles || [];
+  const permissions = bootstrap?.rbac?.permissions || [];
+  const isEmployee = roles.includes('EMPLOYEE');
+  const canReadApprovals = permissions.includes('TIMESHEET_APPROVAL_QUEUE_READ');
 
   return (
     <Routes>
-      <Route element={<AdminLayout />}>
+      {/* Public password setup route - accessible without login */}
+      <Route path="/set-password" element={<SetPasswordPage />} />
+      
+      {/* Role-based redirect after login */}
+      <Route path="/" element={<EmployeeRedirect />} />
+      
+      {/* Admin routes - block for EMPLOYEE role */}
+      <Route element={isEmployee ? <ForbiddenState /> : <AdminLayout />}>
         <Route index element={<Navigate to={defaultPath} replace />} />
         {navItems.map((item) => {
           const element = resolveScreenComponentByPath(item.path);
           if (!element) return null;
           return <Route key={item.id} path={item.path} element={element} />;
         })}
+        <Route path="/admin/employees/add" element={<CreateEmployeePage />} />
+        <Route path="/admin/employees/profile/:employeeId" element={<EmployeeProfilePage />} />
+        <Route path="/admin/timesheet/my" element={<MyTimesheet />} />
+        <Route path="/admin/timesheet/team" element={<Approvals />} />
         <Route path="/timesheet/:id" element={<TimesheetDetail />} />
         <Route path="/leave/apply" element={<ApplyLeavePage />} />
         <Route path="/leave/requests/:id" element={<LeaveRequestDetailPage />} />
+        <Route path="/leave/approvals" element={<LeaveApprovalPage />} />
+        <Route path="/leave/overview" element={<LeaveOverviewPage />} />
+        <Route path="/leave/my" element={<MyLeavePage />} />
+        <Route path="/leave/team" element={<TeamLeavePage />} />
         <Route path="*" element={<NotFoundPage />} />
+      </Route>
+
+      {/* Employee routes - only for EMPLOYEE role */}
+      <Route element={<EmployeeLayout />}>
+        <Route path="/employee/dashboard" element={<EmployeeDashboard />} />
+        <Route path="/employee/profile" element={<EmployeeProfile />} />
+        <Route path="/employee/attendance" element={<EmployeeAttendance />} />
+        <Route path="/employee/timesheets" element={<EmployeeTimesheets />} />
+        <Route path="/employee/leave" element={<EmployeeLeave />} />
+        <Route path="/employee/documents" element={<EmployeeDocuments />} />
+        <Route path="/timesheet/my" element={<MyTimesheet />} />
+        <Route path="/timesheet/approvals" element={<Approvals />} />
+        <Route path="/timesheet/:id" element={<TimesheetDetail />} />
       </Route>
     </Routes>
   );

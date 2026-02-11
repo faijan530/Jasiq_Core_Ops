@@ -31,6 +31,16 @@ export function employeeRoutes({ pool }) {
   );
 
   router.get(
+    '/eligible-managers',
+    requirePermission({
+      pool,
+      permissionCode: 'EMPLOYEE_READ',
+      getDivisionId: async (req) => (req.query?.divisionId ? String(req.query.divisionId) : null)
+    }),
+    controller.getEligibleReportingManagers
+  );
+
+  router.get(
     '/:id',
     requirePermission({
       pool,

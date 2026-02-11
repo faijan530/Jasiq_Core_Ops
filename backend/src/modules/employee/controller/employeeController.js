@@ -19,6 +19,7 @@ import {
   createEmployee,
   getEmployeeDocumentForDownload,
   getEmployeeWithScopeHistory,
+  getEligibleReportingManagers,
   listEmployeeCompensation,
   listEmployeeDocumentsService,
   listEmployeesPaged,
@@ -72,6 +73,12 @@ export function employeeController({ pool }) {
       res.json(toEmployeeDetailDto(payload));
     }),
 
+    getEligibleReportingManagers: asyncHandler(async (req, res) => {
+      const divisionId = req.query.divisionId ? String(req.query.divisionId) : null;
+      const managers = await getEligibleReportingManagers(pool, { divisionId });
+      res.json({ items: managers });
+    }),
+
     create: asyncHandler(async (req, res) => {
       const body = validate(createEmployeeSchema, req.body);
       const idempotencyKey = cleanIdempotencyKey(req.header('x-idempotency-key'));
@@ -80,11 +87,13 @@ export function employeeController({ pool }) {
         employeeCode: body.employeeCode,
         firstName: body.firstName,
         lastName: body.lastName,
+        designation: body.designation || null,
         email: body.email || null,
         phone: body.phone || null,
         status: body.status,
         scope: body.scope,
         primaryDivisionId: body.primaryDivisionId || null,
+        reportingManagerId: body.reportingManagerId || null,
         actorId: req.auth.userId,
         requestId: req.requestId,
         reason: body.reason,
@@ -96,11 +105,14 @@ export function employeeController({ pool }) {
         employeeCode: created.employee_code,
         firstName: created.first_name,
         lastName: created.last_name,
+        designation: created.designation,
         email: created.email,
         phone: created.phone,
         status: created.status,
         scope: created.scope,
         primaryDivisionId: created.primary_division_id,
+        reportingManagerId: created.reporting_manager_id,
+        reportingManagerName: created.reporting_manager_name,
         updatedAt: created.updated_at
       } : null });
     }),
@@ -113,7 +125,9 @@ export function employeeController({ pool }) {
         lastName: body.lastName,
         email: body.email,
         phone: body.phone,
+        roles: body.roles,
         actorId: req.auth.userId,
+        actorSystemRoles: req.authorization?.roles || [],
         requestId: req.requestId,
         reason: body.reason
       });

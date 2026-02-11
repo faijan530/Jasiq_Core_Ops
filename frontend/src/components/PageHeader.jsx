@@ -1,10 +1,19 @@
 import React from 'react';
 
-export function PageHeader({ title, subtitle, actions, breadcrumbs }) {
+export function PageHeader({ title, subtitle, actions, breadcrumbs, variant }) {
+  const isDivisions = variant === 'divisions';
   return (
-    <div className="bg-white/95 backdrop-blur-sm border border-white/20 rounded-2xl shadow-lg p-6 mb-6 relative overflow-hidden">
-      <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-500/5 to-purple-500/5"></div>
-      <div className="relative z-10">
+    <div
+      className={
+        isDivisions
+          ? 'bg-white border-b border-slate-200 p-6 mb-6'
+          : 'bg-white/95 backdrop-blur-sm border border-white/20 rounded-2xl shadow-lg p-6 mb-6 relative overflow-hidden'
+      }
+    >
+      {!isDivisions ? (
+        <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-500/5 to-purple-500/5"></div>
+      ) : null}
+      <div className={isDivisions ? '' : 'relative z-10'}>
         {breadcrumbs && (
           <nav className="flex mb-4" aria-label="Breadcrumb">
             <ol className="inline-flex items-center space-x-1 text-sm">

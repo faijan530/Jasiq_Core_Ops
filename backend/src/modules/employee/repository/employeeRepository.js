@@ -1,5 +1,12 @@
 export async function getEmployeeById(client, id) {
-  const res = await client.query('SELECT * FROM employee WHERE id = $1', [id]);
+  const res = await client.query(
+    `SELECT e.*, 
+            CONCAT(m.first_name, ' ', m.last_name) AS reporting_manager_name
+     FROM employee e
+     LEFT JOIN employee m ON e.reporting_manager_id = m.id
+     WHERE e.id = $1`, 
+    [id]
+  );
   return res.rows[0] || null;
 }
 
@@ -46,20 +53,22 @@ export async function listEmployees(client, { divisionId, scope, status, offset,
 export async function insertEmployee(client, row) {
   await client.query(
     `INSERT INTO employee (
-      id, employee_code, first_name, last_name, email, phone,
-      status, scope, primary_division_id, idempotency_key,
+      id, employee_code, first_name, last_name, designation, email, phone,
+      status, scope, primary_division_id, reporting_manager_id, idempotency_key,
       created_at, created_by, updated_at, updated_by, version
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
     [
       row.id,
       row.employee_code,
       row.first_name,
       row.last_name,
+      row.designation,
       row.email,
       row.phone,
       row.status,
       row.scope,
       row.primary_division_id,
+      row.reporting_manager_id,
       row.idempotency_key,
       row.created_at,
       row.created_by,
@@ -100,6 +109,18 @@ export async function updateEmployeeScope(client, { id, scope, primaryDivisionId
     [id, scope, primaryDivisionId || null, actorId]
   );
   return res.rows[0] || null;
+}
+
+export async function getEligibleReportingManagers(client, { divisionId }) {
+  const res = await client.query(
+    `SELECT id, first_name, last_name, designation
+     FROM employee
+     WHERE status = 'ACTIVE'
+       AND ($1::uuid IS NULL OR primary_division_id = $1)
+     ORDER BY first_name ASC, last_name ASC`,
+    [divisionId || null]
+  );
+  return res.rows;
 }
 
 export async function updateEmployeeStatus(client, { id, status, actorId }) {
@@ -198,6 +219,68 @@ export async function closeActiveEmployeeCompensationVersion(client, { employeeI
      WHERE employee_id = $1 AND effective_to IS NULL`,
     [employeeId, effectiveTo]
   );
+}
+
+export async function getUserIdByEmployeeId(client, employeeId) {
+  const res = await client.query('SELECT id FROM "user" WHERE employee_id = $1', [employeeId]);
+  return res.rows[0]?.id || null;
+}
+
+export async function listRoleIdsByNames(client, roleNames) {
+  const names = Array.isArray(roleNames) ? roleNames.map((x) => String(x)) : [];
+  if (names.length === 0) return [];
+
+  const res = await client.query(
+    `SELECT id, name
+     FROM role
+     WHERE name = ANY($1::text[])`,
+    [names]
+  );
+
+  return res.rows;
+}
+
+export async function listUserRoleNames(client, userId) {
+  const res = await client.query(
+    `SELECT r.name
+     FROM user_role ur
+     JOIN role r ON r.id = ur.role_id
+     WHERE ur.user_id = $1`,
+    [userId]
+  );
+
+  return res.rows.map((r) => r.name);
+}
+
+export async function replaceUserFunctionalCompanyRoles(client, { userId, functionalRoleNames }) {
+  const desired = Array.isArray(functionalRoleNames)
+    ? functionalRoleNames.map((x) => String(x))
+    : [];
+
+  const functionalNames = ['EMPLOYEE', 'MANAGER', 'HR_ADMIN', 'FINANCE_ADMIN'];
+  const functionalRoleRows = await listRoleIdsByNames(client, functionalNames);
+  const functionalRoleIds = functionalRoleRows.map((r) => r.id);
+
+  await client.query(
+    `DELETE FROM user_role
+     WHERE user_id = $1
+       AND scope = 'COMPANY'
+       AND division_id IS NULL
+       AND role_id = ANY($2::uuid[])`,
+    [userId, functionalRoleIds]
+  );
+
+  const desiredRows = await listRoleIdsByNames(client, desired);
+  const desiredIds = desiredRows.map((r) => r.id);
+
+  for (const roleId of desiredIds) {
+    await client.query(
+      `INSERT INTO user_role (id, user_id, role_id, scope, division_id)
+       VALUES (gen_random_uuid(), $1, $2, 'COMPANY', NULL)
+       ON CONFLICT DO NOTHING`,
+      [userId, roleId]
+    );
+  }
 }
 
 export async function insertEmployeeCompensationVersion(client, row) {

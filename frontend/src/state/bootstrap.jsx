@@ -7,6 +7,8 @@ const BootstrapContext = createContext(null);
 function normalizeBootstrap(payload) {
   const navigationItems = payload?.navigation?.items || [];
   const permissions = payload?.rbac?.permissions || [];
+  const roles = payload?.rbac?.roles || [];
+  const userRole = roles[0]; // Get primary role
   const systemConfig = payload?.systemConfig || {};
 
   const enabledRaw = systemConfig?.TIMESHEET_ENABLED?.value ?? systemConfig?.TIMESHEET_ENABLED;
@@ -36,6 +38,44 @@ function normalizeBootstrap(payload) {
   const merged = [...navigationItems];
   const existingPaths = new Set(merged.map((i) => i.path));
 
+  // Role-based Leave menu configuration
+  const leaveMenuByRole = {
+    SUPER_ADMIN: [
+      { label: "Overview", path: "/leave/overview" }
+    ],
+    FOUNDER: [
+      { label: "Overview", path: "/leave/overview" }
+    ],
+    HR_ADMIN: [
+      { label: "Overview", path: "/leave/overview" }
+    ],
+    FINANCE_ADMIN: [
+      { label: "Overview", path: "/leave/overview" }
+    ],
+    MANAGER: [
+      { label: "Team", path: "/leave/team" }
+    ],
+    EMPLOYEE: [
+      { label: "My Leave", path: "/leave/my" }
+    ]
+  };
+
+  // Add role-based Leave menu items
+  if (leaveEnabled && userRole && leaveMenuByRole[userRole]) {
+    leaveMenuByRole[userRole].forEach((item, index) => {
+      const itemId = `leave${userRole}${index}`;
+      if (!existingPaths.has(item.path)) {
+        merged.push({
+          id: itemId,
+          label: item.label,
+          path: item.path,
+          requiredPermission: 'LEAVE_REQUEST_READ' // Basic permission check
+        });
+        existingPaths.add(item.path);
+      }
+    });
+  }
+
   if (timesheetEnabled && canReadTimesheet && !existingPaths.has('/timesheet/my')) {
     merged.push({
       id: 'timesheetMy',
@@ -54,41 +94,7 @@ function normalizeBootstrap(payload) {
     });
   }
 
-  if (leaveEnabled && canReadLeaveRequests && !existingPaths.has('/leave/my')) {
-    merged.push({
-      id: 'leaveMy',
-      label: 'My Leave',
-      path: '/leave/my',
-      requiredPermission: 'LEAVE_REQUEST_READ'
-    });
-  }
-
-  if (leaveEnabled && canReadLeaveRequests && (canApproveLeaveL1 || canApproveLeaveL2) && !existingPaths.has('/leave/approvals')) {
-    merged.push({
-      id: 'leaveApprovals',
-      label: 'Leave Approvals',
-      path: '/leave/approvals',
-      requiredPermission: 'LEAVE_REQUEST_READ'
-    });
-  }
-
-  if (leaveEnabled && canReadLeaveTypes && !existingPaths.has('/leave/types')) {
-    merged.push({
-      id: 'leaveTypes',
-      label: 'Leave Types',
-      path: '/leave/types',
-      requiredPermission: 'LEAVE_TYPE_READ'
-    });
-  }
-
-  if (leaveEnabled && canReadLeaveBalances && !existingPaths.has('/leave/balances')) {
-    merged.push({
-      id: 'leaveBalances',
-      label: 'Leave Balances',
-      path: '/leave/balances',
-      requiredPermission: 'LEAVE_BALANCE_READ'
-    });
-  }
+  // Remove old static Leave menu items - now handled by role-based configuration above
 
   if (canManageAdmins && !existingPaths.has('/admin/admin-management')) {
     merged.push({

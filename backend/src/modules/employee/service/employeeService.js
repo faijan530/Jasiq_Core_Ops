@@ -23,14 +23,18 @@ import {
   getEmployeeById,
   getEmployeeByIdempotencyKey,
   getEmployeeDocumentById,
+  getEligibleReportingManagers as getEligibleReportingManagersRepo,
+  getUserIdByEmployeeId,
   insertEmployee,
   insertEmployeeCompensationVersion,
   insertEmployeeDocument,
   insertEmployeeScopeHistory,
+  listUserRoleNames,
   listEmployeeCompensationVersions,
   listEmployeeDocuments,
   listEmployees,
   listEmployeeScopeHistory,
+  replaceUserFunctionalCompanyRoles,
   updateEmployeeProfile,
   updateEmployeeScope,
   updateEmployeeStatus
@@ -42,7 +46,7 @@ function dayBeforeIso(date) {
   return d.toISOString().slice(0, 10);
 }
 
-export async function createEmployee(pool, { employeeCode, firstName, lastName, email, phone, status, scope, primaryDivisionId, actorId, requestId, reason, idempotencyKey }) {
+export async function createEmployee(pool, { employeeCode, firstName, lastName, designation, email, phone, status, scope, primaryDivisionId, reportingManagerId, actorId, requestId, reason, idempotencyKey }) {
   return withTransaction(pool, async (client) => {
     if (idempotencyKey) {
       const existingByKey = await getEmployeeByIdempotencyKey(client, idempotencyKey);
@@ -54,17 +58,38 @@ export async function createEmployee(pool, { employeeCode, firstName, lastName, 
 
     assertEmployeeScope({ scope, primaryDivisionId });
 
+    // Validate that employee cannot report to themselves
+    if (reportingManagerId) {
+      // Check if the reporting manager exists and is active
+      const manager = await getEmployeeById(client, reportingManagerId);
+      if (!manager) {
+        throw badRequest('Reporting manager not found');
+      }
+      if (manager.status !== 'ACTIVE') {
+        throw badRequest('Reporting manager must be an active employee');
+      }
+      
+      // For division scope, ensure manager is in the same division
+      if (scope === 'DIVISION' && primaryDivisionId) {
+        if (manager.primary_division_id !== primaryDivisionId) {
+          throw badRequest('Reporting manager must be in the same division');
+        }
+      }
+    }
+
     const now = new Date();
     const employee = {
       id: crypto.randomUUID(),
       employee_code: employeeCode,
       first_name: firstName,
       last_name: lastName,
+      designation: designation || null,
       email: email || null,
       phone: phone || null,
       status,
       scope,
       primary_division_id: primaryDivisionId || null,
+      reporting_manager_id: reportingManagerId || null,
       idempotency_key: idempotencyKey || null,
       created_at: now,
       created_by: actorId,
@@ -98,34 +123,103 @@ export async function createEmployee(pool, { employeeCode, firstName, lastName, 
         employee_code: employee.employee_code,
         first_name: employee.first_name,
         last_name: employee.last_name,
+        designation: employee.designation,
         email: employee.email,
         phone: employee.phone,
         status: employee.status,
         scope: employee.scope,
-        primary_division_id: employee.primary_division_id
+        primary_division_id: employee.primary_division_id,
+        reporting_manager_id: employee.reporting_manager_id
       },
       actorId,
       actorRole: null,
       reason: reason || null
     });
 
-    return await getEmployeeById(client, employee.id);
+    const createdEmployee = await getEmployeeById(client, employee.id);
+
+    // Send onboarding email after successful employee creation
+    // Email sending disabled - remove this comment to re-enable
+    console.log('Email sending skipped for employee:', createdEmployee.employee_code);
+    /*
+    if (createdEmployee && createdEmployee.email) {
+      // Don't block the response for email sending
+      sendEmployeeOnboardingEmail({
+        employeeEmail: createdEmployee.email,
+        firstName: createdEmployee.first_name,
+        lastName: createdEmployee.last_name,
+        employeeCode: createdEmployee.employee_code
+      }).catch(error => {
+        console.error('Failed to send onboarding email:', error);
+      });
+    }
+    */
+
+    return createdEmployee;
   });
 }
 
-export async function updateEmployee(pool, { id, firstName, lastName, email, phone, actorId, requestId, reason }) {
+export async function updateEmployee(pool, { id, firstName, lastName, email, phone, roles, actorId, actorSystemRoles, requestId, reason }) {
   return withTransaction(pool, async (client) => {
     const before = await getEmployeeById(client, id);
     if (!before) throw notFound('Employee not found');
+
+    const desiredRolesRaw = Array.isArray(roles) ? roles.map((r) => String(r).trim()).filter(Boolean) : null;
+    const functionalAllowed = new Set(['EMPLOYEE', 'MANAGER', 'HR_ADMIN', 'FINANCE_ADMIN']);
+    const desiredFunctionalRoles = desiredRolesRaw
+      ? Array.from(new Set(desiredRolesRaw.filter((r) => functionalAllowed.has(r))))
+      : null;
+
+    if (desiredFunctionalRoles && !desiredFunctionalRoles.includes('EMPLOYEE')) {
+      desiredFunctionalRoles.push('EMPLOYEE');
+    }
+
+    if (desiredFunctionalRoles && desiredFunctionalRoles.length === 0) {
+      throw badRequest('At least one functional role is required');
+    }
+
+    const systemRoles = Array.isArray(actorSystemRoles) ? actorSystemRoles.map((r) => String(r)) : [];
+    const canEditHrFinance = systemRoles.includes('SUPER_ADMIN') || systemRoles.includes('ADMIN');
+
+    if (desiredFunctionalRoles) {
+      const touchesRestricted = desiredFunctionalRoles.includes('HR_ADMIN') || desiredFunctionalRoles.includes('FINANCE_ADMIN');
+      if (touchesRestricted && !canEditHrFinance) {
+        throw badRequest('Not allowed to assign HR_ADMIN or FINANCE_ADMIN');
+      }
+    }
 
     const after = await updateEmployeeProfile(client, {
       id,
       firstName: typeof firstName === 'string' && firstName !== '' ? firstName : null,
       lastName: typeof lastName === 'string' && lastName !== '' ? lastName : null,
-      email: typeof email === 'string' ? (email === '' ? null : email) : null,
-      phone: typeof phone === 'string' ? (phone === '' ? null : phone) : null,
+      email: typeof email === 'string' && email !== '' ? email : null,
+      phone: typeof phone === 'string' && phone !== '' ? phone : null,
       actorId
     });
+
+    let beforeFunctionalRoles = null;
+    let afterFunctionalRoles = null;
+
+    if (desiredFunctionalRoles) {
+      const userId = await getUserIdByEmployeeId(client, id);
+      if (!userId) throw badRequest('Employee user account not found');
+
+      const beforeUserRoles = await listUserRoleNames(client, userId);
+      beforeFunctionalRoles = beforeUserRoles.filter((r) => functionalAllowed.has(r)).sort();
+
+      const isRemovingRestricted =
+        (beforeFunctionalRoles.includes('HR_ADMIN') && !desiredFunctionalRoles.includes('HR_ADMIN')) ||
+        (beforeFunctionalRoles.includes('FINANCE_ADMIN') && !desiredFunctionalRoles.includes('FINANCE_ADMIN'));
+
+      if (isRemovingRestricted && !canEditHrFinance) {
+        throw badRequest('Not allowed to remove HR_ADMIN or FINANCE_ADMIN');
+      }
+
+      await replaceUserFunctionalCompanyRoles(client, { userId, functionalRoleNames: desiredFunctionalRoles });
+
+      const afterUserRoles = await listUserRoleNames(client, userId);
+      afterFunctionalRoles = afterUserRoles.filter((r) => functionalAllowed.has(r)).sort();
+    }
 
     await writeAuditLog(client, {
       requestId,
@@ -137,14 +231,16 @@ export async function updateEmployee(pool, { id, firstName, lastName, email, pho
         first_name: before.first_name,
         last_name: before.last_name,
         email: before.email,
-        phone: before.phone
+        phone: before.phone,
+        functional_roles: beforeFunctionalRoles
       },
       afterData: {
         id: after.id,
         first_name: after.first_name,
         last_name: after.last_name,
         email: after.email,
-        phone: after.phone
+        phone: after.phone,
+        functional_roles: afterFunctionalRoles
       },
       actorId,
       actorRole: null,
@@ -362,10 +458,25 @@ export async function getEmployeeWithScopeHistory(pool, { id }) {
   const employee = await getEmployeeById(pool, id);
   if (!employee) return null;
 
+  let functionalRoles = [];
+  let systemRoles = [];
+
+  const functionalAllowed = new Set(['EMPLOYEE', 'MANAGER', 'HR_ADMIN', 'FINANCE_ADMIN']);
+  const systemRoleSet = new Set(['SUPER_ADMIN', 'ADMIN', 'COREOPS_ADMIN']);
+
+  const userId = await getUserIdByEmployeeId(pool, id);
+  if (userId) {
+    const roleNames = await listUserRoleNames(pool, userId);
+    functionalRoles = roleNames.filter((r) => functionalAllowed.has(r)).sort();
+    systemRoles = roleNames.filter((r) => systemRoleSet.has(r)).sort();
+  }
+
   const history = await listEmployeeScopeHistory(pool, id);
   return {
     employee,
-    scopeHistory: history
+    scopeHistory: history,
+    functionalRoles,
+    systemRoles
   };
 }
 
@@ -377,6 +488,17 @@ export async function listEmployeesPaged(pool, { divisionId, scope, status, offs
   });
 
   return { rows, total };
+}
+
+export async function getEligibleReportingManagers(pool, { divisionId }) {
+  return withTransaction(pool, async (client) => {
+    const rows = await getEligibleReportingManagersRepo(client, { divisionId });
+    return rows.map(row => ({
+      id: row.id,
+      name: `${row.first_name} ${row.last_name}`.trim(),
+      designation: row.designation
+    }));
+  });
 }
 
 export async function listEmployeeCompensation(pool, { employeeId }) {
@@ -394,9 +516,13 @@ export async function getEmployeeDocumentForDownload(pool, { employeeId, docId }
   return row;
 }
 
-export function toEmployeeDetailDto({ employee, scopeHistory }) {
+export function toEmployeeDetailDto({ employee, scopeHistory, functionalRoles, systemRoles }) {
   return {
-    item: toEmployeeDto(employee),
+    item: {
+      ...toEmployeeDto(employee),
+      functionalRoles: Array.isArray(functionalRoles) ? functionalRoles : [],
+      systemRoles: Array.isArray(systemRoles) ? systemRoles : []
+    },
     scopeHistory: (scopeHistory || []).map(toEmployeeScopeHistoryDto)
   };
 }

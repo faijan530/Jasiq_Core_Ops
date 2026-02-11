@@ -4,6 +4,7 @@ export const createEmployeeSchema = Joi.object({
   employeeCode: Joi.string().trim().max(30).required(),
   firstName: Joi.string().trim().max(100).required(),
   lastName: Joi.string().trim().max(100).required(),
+  designation: Joi.string().trim().max(100).allow('', null),
   email: Joi.string().trim().max(200).allow('', null),
   phone: Joi.string().trim().max(50).allow('', null),
   status: Joi.string().valid('ACTIVE', 'ON_HOLD', 'EXITED').required(),
@@ -16,6 +17,7 @@ export const createEmployeeSchema = Joi.object({
     }),
     otherwise: Joi.string().allow(null, '')
   }),
+  reportingManagerId: Joi.string().uuid().allow(null, ''),
   reason: Joi.string().allow('', null)
 });
 
@@ -24,6 +26,7 @@ export const updateEmployeeSchema = Joi.object({
   lastName: Joi.string().trim().max(100).allow('', null),
   email: Joi.string().trim().max(200).allow('', null),
   phone: Joi.string().trim().max(50).allow('', null),
+  roles: Joi.array().items(Joi.string().valid('EMPLOYEE', 'MANAGER', 'HR_ADMIN', 'FINANCE_ADMIN')).min(1),
   reason: Joi.string().allow('', null)
 });
 
