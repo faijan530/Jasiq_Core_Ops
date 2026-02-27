@@ -1,0 +1,7 @@
+export const EXPENSE_PAYMENT_METHOD = {
+  BANK_TRANSFER: 'BANK_TRANSFER',
+  UPI: 'UPI',
+  CASH: 'CASH',
+  CARD: 'CARD',
+  OTHER: 'OTHER'
+};

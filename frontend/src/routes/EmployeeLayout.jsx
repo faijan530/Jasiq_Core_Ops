@@ -1,325 +1,190 @@
-import React, { useState } from 'react';
-import { NavLink, Outlet, useLocation } from 'react-router-dom';
-import { useBootstrap } from '../state/bootstrap.jsx';
+import React, { useState, useEffect } from 'react';
+import { Outlet, useLocation } from 'react-router-dom';
+import { useMediaQuery } from '../hooks/useMediaQuery.js';
+
+import { EmployeeSidebar } from './EmployeeSidebar.jsx';
+
+// Page title mapping for employee
+const getPageTitle = (pathname) => {
+  const titleMap = {
+    '/employee/dashboard': 'Dashboard',
+    '/employee/timesheets': 'My Timesheets',
+    '/employee/attendance': 'My Attendance',
+    '/employee/leave': 'Leave Management',
+    '/employee/profile': 'My Profile',
+    '/employee/payroll': 'My Payroll',
+    '/employee/notifications': 'Notifications',
+    '/employee/payslips': 'My Payslips',
+    '/employee/expenses': 'My Expenses',
+    '/employee/expenses/create': 'Create Expense'
+  };
+  
+  // Check for exact matches first
+  if (titleMap[pathname]) return titleMap[pathname];
+  
+  // Check for dynamic routes
+  if (pathname.startsWith('/employee/timesheets/')) return 'Timesheet Details';
+  if (pathname.startsWith('/employee/leave/')) return 'Leave Details';
+  if (pathname.startsWith('/employee/expenses/')) return 'Expense Detail';
+  
+  return 'Employee Portal';
+};
+
+const getPageIcon = (pathname) => {
+  if (pathname.startsWith('/employee/dashboard')) return (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+    </svg>
+  );
+  if (pathname.startsWith('/employee/timesheets')) return (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+    </svg>
+  );
+  if (pathname.startsWith('/employee/attendance')) return (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  );
+  if (pathname.startsWith('/employee/leave')) return (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+    </svg>
+  );
+  if (pathname.startsWith('/employee/profile')) return (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+    </svg>
+  );
+  if (pathname.startsWith('/employee/payroll')) return (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  );
+  return (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+    </svg>
+  );
+};
 
 export function EmployeeLayout() {
-  const { bootstrap, setToken } = useBootstrap();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [timesheetsExpanded, setTimesheetsExpanded] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const location = useLocation();
-  const permissions = bootstrap?.rbac?.permissions || [];
-  const roles = bootstrap?.rbac?.roles || [];
-  const canReadTimesheet = permissions.includes('TIMESHEET_READ');
-  const canReadApprovals = permissions.includes('TIMESHEET_APPROVAL_QUEUE_READ');
-  const isManager = roles.includes('MANAGER') || roles.includes('SUPER_ADMIN') || roles.includes('FOUNDER');
+  const isMobile = useMediaQuery('(max-width: 1023px)');
+  const isTablet = useMediaQuery('(min-width: 768px) and (max-width: 1023px)');
+  
+  const pageTitle = getPageTitle(location.pathname);
+  const pageIcon = getPageIcon(location.pathname);
 
-  const handleLogout = async () => {
-    try {
-      // Minimal logout: clear token and redirect
-      setToken(null);
-      window.location.href = '/';
-    } catch (err) {
-      // Continue with logout even if API call fails
+  // Close sidebar when route changes on mobile
+  useEffect(() => {
+    if (isMobile) {
+      setIsSidebarOpen(false);
     }
+  }, [location.pathname, isMobile]);
+
+  const handleSidebarClose = () => {
+    setIsSidebarOpen(false);
   };
 
-  const navItems = [
-    { id: 'dashboard', label: 'Dashboard', path: '/employee/dashboard', icon: '🏠' },
-    { id: 'profile', label: 'My Profile', path: '/employee/profile', icon: '👤' },
-    { id: 'attendance', label: 'Attendance', path: '/employee/attendance', icon: '📅' },
-    { id: 'leave', label: 'Leave', path: '/employee/leave', icon: '✈️' },
-    { id: 'documents', label: 'Documents', path: '/employee/documents', icon: '📁' },
-  ];
-
-  const myTimesheetsItem = { id: 'timesheets-my', label: 'My Timesheets', path: '/timesheet/my' };
-  const teamTimesheetsItem = { id: 'timesheets-team', label: 'Team Timesheets', path: '/timesheet/approvals' };
-
-  if (!bootstrap) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-        <div className="text-center">
-          <div className="w-8 h-8 border-2 border-slate-200 rounded-full animate-spin border-t-slate-600 mx-auto mb-2"></div>
-          <p className="text-slate-600">Loading…</p>
-        </div>
-      </div>
-    );
-  }
+  const handleSidebarToggle = () => {
+    setIsSidebarOpen(!isSidebarOpen);
+  };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex">
-      {/* Mobile menu overlay */}
-      {mobileMenuOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
-          onClick={() => setMobileMenuOpen(false)}
-        />
+    <div className="min-h-screen flex flex-col">
+      {/* Desktop Sidebar - Fixed */}
+      <aside className="hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:left-0 lg:z-40 lg:w-64 lg:bg-white lg:border-r lg:border-slate-200">
+        <EmployeeSidebar />
+      </aside>
+
+      {/* Mobile Sidebar Overlay */}
+      {isSidebarOpen && (
+        <>
+          {/* Overlay */}
+          <div 
+            className="fixed inset-0 bg-black/40 z-40 lg:hidden" 
+            onClick={handleSidebarClose}
+          />
+          {/* Mobile Sidebar */}
+          <div className="fixed left-0 top-0 h-full w-64 bg-white transform transition-transform duration-300 ease-in-out z-50 lg:hidden">
+            <EmployeeSidebar mobile onClose={handleSidebarClose} />
+          </div>
+        </>
       )}
 
-      {/* Mobile sidebar */}
-      <div className={`fixed top-0 left-0 h-full w-64 bg-white border-r border-slate-200 shadow-lg transform transition-transform z-50 lg:hidden ${
-        mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
-      }`}>
-        <div className="h-full flex flex-col">
-          {/* Mobile header */}
-          <div className="p-4 border-b border-slate-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-lg font-bold text-slate-900">JASIQ CoreOps™</h1>
-                <p className="text-xs text-slate-600">Employee Portal</p>
-              </div>
+      {/* Main Content Area */}
+      <div className="flex flex-col flex-1 lg:ml-64 min-w-0">
+        {/* Sticky Header - Fixed positioning */}
+        <header className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-blue-600 via-blue-700 to-blue-800 text-white shadow-xl border-b border-blue-700/50 backdrop-blur-md lg:left-64">
+          <div className="flex items-center justify-between h-16 px-4 sm:px-6 lg:px-8">
+            {/* Left: Mobile menu + Page title */}
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+              {/* Mobile menu button */}
               <button
-                onClick={() => setMobileMenuOpen(false)}
-                className="p-2 rounded-lg hover:bg-slate-100"
+                onClick={handleSidebarToggle}
+                className="lg:hidden p-2.5 rounded-xl hover:bg-white/10 transition-all duration-200 active:scale-95 shadow-md hover:shadow-lg"
+                aria-label="Open menu"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
                 </svg>
               </button>
-            </div>
-          </div>
-
-          {/* Mobile navigation */}
-          <nav className="flex-1 p-2">
-            {navItems.map((item) => (
-              <NavLink
-                key={item.id}
-                to={item.path}
-                onClick={() => setMobileMenuOpen(false)}
-                className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-colors ${
-                    isActive
-                      ? 'bg-slate-100 text-slate-900 font-medium'
-                      : 'text-slate-700 hover:bg-slate-100'
-                  }`
-                }
-              >
-                <span className="text-lg">{item.icon}</span>
-                {item.label}
-              </NavLink>
-            ))}
-            {canReadTimesheet || canReadApprovals ? (
-              <div className="space-y-1">
-                {/* Parent: Timesheets */}
-                <button
-                  type="button"
-                  onClick={() => setTimesheetsExpanded(!timesheetsExpanded)}
-                  className={`w-full flex items-center justify-between px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
-                    location.pathname.startsWith('/timesheet')
-                      ? 'bg-slate-100 text-slate-900'
-                      : 'text-slate-700 hover:bg-slate-100'
-                  }`}
-                >
-                  <span className="flex items-center gap-3">
-                    <span className="text-lg">📊</span>
-                    Timesheets
-                  </span>
-                  <svg
-                    className={`w-4 h-4 transition-transform ${timesheetsExpanded ? '' : '-rotate-90'}`}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-                {/* Children */}
-                {timesheetsExpanded && (
-                  <div className="pl-4 space-y-1">
-                    {canReadTimesheet ? (
-                      <NavLink
-                        to={myTimesheetsItem.path}
-                        onClick={() => setMobileMenuOpen(false)}
-                        className={({ isActive }) =>
-                          `block px-3 py-2 text-sm rounded-lg transition-colors ${
-                            isActive
-                              ? 'bg-slate-100 text-slate-900 font-medium'
-                              : 'text-slate-600 hover:bg-slate-100'
-                          }`
-                        }
-                      >
-                        {myTimesheetsItem.label}
-                      </NavLink>
-                    ) : null}
-                    {canReadApprovals && isManager ? (
-                      <NavLink
-                        to={teamTimesheetsItem.path}
-                        onClick={() => setMobileMenuOpen(false)}
-                        className={({ isActive }) =>
-                          `block px-3 py-2 text-sm rounded-lg transition-colors ${
-                            isActive
-                              ? 'bg-slate-100 text-slate-900 font-medium'
-                              : 'text-slate-600 hover:bg-slate-100'
-                          }`
-                        }
-                      >
-                        {teamTimesheetsItem.label}
-                      </NavLink>
-                    ) : null}
-                  </div>
-                )}
+              
+              {/* Page title with icon */}
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="p-2 rounded-lg bg-white/10 backdrop-blur-sm flex-shrink-0 shadow-inner">
+                  {pageIcon}
+                </div>
+                <div className="min-w-0">
+                  <h1 className="text-lg font-bold tracking-tight text-white truncate">{pageTitle}</h1>
+                  {!isMobile && (
+                    <p className="text-xs text-blue-100 mt-0.5 font-medium">Employee Portal</p>
+                  )}
+                </div>
               </div>
-            ) : null}
-            <div className="border-t border-slate-200 mt-4 pt-2">
-              <NavLink
-                to="/help"
-                onClick={() => setMobileMenuOpen(false)}
-                className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-colors ${
-                    isActive
-                      ? 'bg-slate-100 text-slate-900 font-medium'
-                      : 'text-slate-700 hover:bg-slate-100'
-                  }`
-                }
-              >
-                <span className="text-lg">❓</span>
-                Help / Policies
-              </NavLink>
-              <button
-                onClick={handleLogout}
-                className="w-full flex items-center gap-3 px-3 py-2 text-sm text-left rounded-lg text-red-600 hover:bg-red-50 transition-colors"
-              >
-                <span className="text-lg">🚪</span>
-                Logout
-              </button>
             </div>
-          </nav>
-        </div>
-      </div>
-
-      {/* Desktop sidebar */}
-      <div className="hidden lg:flex lg:flex-shrink-0">
-        <div className="w-64 bg-white border-r border-slate-200 flex flex-col">
-          {/* Desktop header */}
-          <div className="p-4 border-b border-slate-200">
-            <h1 className="text-lg font-bold text-slate-900">JASIQ CoreOps™</h1>
-            <p className="text-xs text-slate-600">Employee Portal</p>
-          </div>
-
-          {/* Desktop navigation */}
-          <nav className="flex-1 p-2">
-            {navItems.map((item) => (
-              <NavLink
-                key={item.id}
-                to={item.path}
-                className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-colors ${
-                    isActive
-                      ? 'bg-slate-100 text-slate-900 font-medium'
-                      : 'text-slate-700 hover:bg-slate-100'
-                  }`
-                }
-              >
-                <span className="text-lg">{item.icon}</span>
-                {item.label}
-              </NavLink>
-            ))}
-            {canReadTimesheet || canReadApprovals ? (
-              <div className="space-y-1">
-                {/* Parent: Timesheets */}
-                <button
-                  type="button"
-                  onClick={() => setTimesheetsExpanded(!timesheetsExpanded)}
-                  className={`w-full flex items-center justify-between px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
-                    location.pathname.startsWith('/timesheet')
-                      ? 'bg-slate-100 text-slate-900'
-                      : 'text-slate-700 hover:bg-slate-100'
-                  }`}
-                >
-                  <span className="flex items-center gap-3">
-                    <span className="text-lg">📊</span>
-                    Timesheets
-                  </span>
-                  <svg
-                    className={`w-4 h-4 transition-transform ${timesheetsExpanded ? '' : '-rotate-90'}`}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-                {/* Children */}
-                {timesheetsExpanded && (
-                  <div className="pl-4 space-y-1">
-                    {canReadTimesheet ? (
-                      <NavLink
-                        to={myTimesheetsItem.path}
-                        className={({ isActive }) =>
-                          `block px-3 py-2 text-sm rounded-lg transition-colors ${
-                            isActive
-                              ? 'bg-slate-100 text-slate-900 font-medium'
-                              : 'text-slate-600 hover:bg-slate-100'
-                          }`
-                        }
-                      >
-                        {myTimesheetsItem.label}
-                      </NavLink>
-                    ) : null}
-                    {canReadApprovals && isManager ? (
-                      <NavLink
-                        to={teamTimesheetsItem.path}
-                        className={({ isActive }) =>
-                          `block px-3 py-2 text-sm rounded-lg transition-colors ${
-                            isActive
-                              ? 'bg-slate-100 text-slate-900 font-medium'
-                              : 'text-slate-600 hover:bg-slate-100'
-                          }`
-                        }
-                      >
-                        {teamTimesheetsItem.label}
-                      </NavLink>
-                    ) : null}
+            
+            {/* Right: Brand/Logo - Enhanced for all screen sizes */}
+            <div className="flex items-center gap-4 flex-shrink-0">
+              {/* Tablet: Compact logo */}
+              {isTablet && (
+                <div className="flex items-center gap-2 bg-white/10 px-3 py-2 rounded-xl backdrop-blur-sm">
+                  <div className="w-8 h-8 bg-gradient-to-br from-white to-blue-100 rounded-lg flex items-center justify-center shadow-lg">
+                    <span className="text-blue-700 font-bold text-sm">JC</span>
                   </div>
-                )}
-              </div>
-            ) : null}
-            <div className="border-t border-slate-200 mt-4 pt-2">
-              <NavLink
-                to="/help"
-                className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-colors ${
-                    isActive
-                      ? 'bg-slate-100 text-slate-900 font-medium'
-                      : 'text-slate-700 hover:bg-slate-100'
-                  }`
-                }
-              >
-                <span className="text-lg">❓</span>
-                Help / Policies
-              </NavLink>
-              <button
-                onClick={handleLogout}
-                className="w-full flex items-center gap-3 px-3 py-2 text-sm text-left rounded-lg text-red-600 hover:bg-red-50 transition-colors"
-              >
-                <span className="text-lg">🚪</span>
-                Logout
-              </button>
+                  <span className="text-sm font-semibold text-white">CoreOps</span>
+                </div>
+              )}
+              {/* Desktop: Full logo with details */}
+              {!isMobile && !isTablet && (
+                <div className="flex items-center gap-3 bg-white/10 px-4 py-2 rounded-xl backdrop-blur-sm">
+                  <div className="w-9 h-9 bg-gradient-to-br from-white to-blue-100 rounded-xl flex items-center justify-center shadow-lg">
+                    <span className="text-blue-700 font-bold">JC</span>
+                  </div>
+                  <div>
+                    <div className="text-sm font-bold text-white">JASIQ CoreOps</div>
+                    <div className="text-xs text-blue-100 font-medium">Employee Portal</div>
+                  </div>
+                </div>
+              )}
+              {/* Mobile: Minimal logo */}
+              {isMobile && !isTablet && (
+                <div className="w-10 h-10 bg-gradient-to-br from-white to-blue-100 rounded-xl flex items-center justify-center shadow-lg">
+                  <span className="text-blue-700 font-bold text-sm">JC</span>
+                </div>
+              )}
             </div>
-          </nav>
-        </div>
-      </div>
-
-      {/* Main content */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Mobile top bar */}
-        <div className="lg:hidden bg-white border-b border-slate-200 px-4 py-3">
-          <div className="flex items-center justify-between">
-            <button
-              onClick={() => setMobileMenuOpen(true)}
-              className="p-2 rounded-lg hover:bg-slate-100"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            </button>
-            <h1 className="text-lg font-semibold text-slate-900">JASIQ CoreOps™</h1>
-            <div className="w-9"></div>
           </div>
-        </div>
+        </header>
 
-        {/* Page content */}
-        <main className="flex-1 overflow-auto">
-          <Outlet />
+        {/* Scrollable Content Area */}
+        <main className="flex-1 overflow-y-auto bg-gradient-to-br from-blue-50 via-white to-blue-50 pt-16">
+          <div className="w-full px-4 py-6 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+            <Outlet />
+          </div>
         </main>
       </div>
     </div>

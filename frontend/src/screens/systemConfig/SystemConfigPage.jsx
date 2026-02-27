@@ -1,7 +1,6 @@
 import React, { useMemo, useState } from 'react';
 
 import { apiFetch } from '../../api/client.js';
-import { PageHeader } from '../../components/PageHeader.jsx';
 import { Table } from '../../components/Table.jsx';
 import { EmptyState, ErrorState, ForbiddenState, LoadingState } from '../../components/States.jsx';
 import { useMutation } from '../../hooks/useMutation.js';
@@ -88,97 +87,53 @@ export function SystemConfigPage() {
     return scopeMap[key] || 'Company-wide';
   };
 
-  const getStatus = (key) => {
-    // In a real implementation, this would come from the backend
-    // For now, we'll simulate some statuses
-    const lockedConfigs = ['FINANCE_LOCK_DATE', 'MONTH_CLOSE_ENABLED'];
-    if (lockedConfigs.includes(key)) return { text: 'Locked', color: 'text-red-700 bg-red-50' };
-    
-    const readonlyConfigs = ['AUDIT_RETENTION_DAYS'];
-    if (readonlyConfigs.includes(key)) return { text: 'Read-only', color: 'text-amber-700 bg-amber-50' };
-    
-    return { text: 'Open', color: 'text-slate-700 bg-slate-50' };
-  };
-
   if (list.status === 'loading' && !list.data) {
-    return (
-      <div className="min-h-screen bg-slate-50">
-        <PageHeader title={title} />
-        <LoadingState />
-      </div>
-    );
+    return <LoadingState />;
   }
 
   if (list.status === 'error') {
     if (list.error?.status === 403) {
-      return (
-        <div className="min-h-screen bg-slate-50">
-          <PageHeader title={title} />
-          <ForbiddenState />
-        </div>
-      );
+      return <ForbiddenState />;
     }
 
-    return (
-      <div className="min-h-screen bg-slate-50">
-        <PageHeader title={title} />
-        <ErrorState error={list.error} />
-      </div>
-    );
+    return <ErrorState error={list.error} />;
   }
 
   const items = list.data?.items || [];
 
   return (
-    <div className="min-h-screen bg-slate-50 relative z-[9999]">
-      {/* Global Header */}
-      <div className="fixed top-0 left-0 right-0 lg:left-72 z-50 h-16 bg-gradient-to-r from-slate-800 to-slate-900 text-white block sm:block md:block lg:block xl:block">
-        <div className="mx-auto max-w-7xl h-full px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-3">
-          <div className="flex min-w-0 items-center justify-between w-full">
-            <div className="flex items-center gap-2">
-              <img 
-                src="/image.png" 
-                alt="JASIQ" 
-                className="h-10 w-auto object-contain rounded-lg shadow-sm ring-1 ring-white/10 hover:shadow-md transition-shadow"
-              />
-              <span className="text-sm font-semibold tracking-wide whitespace-nowrap">LABS</span>
-            </div>
-            <div className="hidden sm:flex text-sm text-slate-300 whitespace-nowrap">
-              <span className="text-white">Governance</span>
-              <span className="mx-2">·</span>
-              <span className="text-amber-400">System Configuration</span>
+    <>
+    <div className="max-w-6xl mx-auto space-y-5">
+      <div className="text-center space-y-1">
+        <h1 className="text-2xl font-semibold">
+          {title}
+        </h1>
+        <p className="text-sm text-gray-500">
+          Central system behavior, enforced across all modules
+        </p>
+      </div>
+
+      {/* Critical System Banner */}
+      <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start gap-3">
+        <svg className="w-5 h-5 text-amber-600 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+        </svg>
+        <div>
+          <p className="text-sm font-medium text-amber-800">System Configuration is critical.</p>
+          <p className="text-xs text-amber-700 mt-1">Changes affect system-wide behavior and are permanently audited.</p>
+        </div>
+      </div>
+
+      <div className="w-full px-4 py-4 shadow-sm mb-6 relative z-10">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <div className="text-sm font-semibold text-slate-900">Governance Access</div>
+            <div className="mt-1 text-sm text-slate-600">
+              {canWrite ? 'You can request configuration changes.' : 'Read-only: GOV_SYSTEM_CONFIG_WRITE is required to request changes.'}
             </div>
           </div>
         </div>
       </div>
-
-      <div className="pt-32 sm:pt-32 lg:pt-16">
-        <PageHeader title={title} subtitle="Central system behavior, enforced across all modules" />
-
-        {/* Critical System Banner */}
-        <div className="mx-4 mt-4 mb-2 md:mx-6 lg:mx-8">
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start gap-3">
-            <svg className="w-5 h-5 text-amber-600 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-            </svg>
-            <div>
-              <p className="text-sm font-medium text-amber-800">System Configuration is critical.</p>
-              <p className="text-xs text-amber-700 mt-1">Changes affect system-wide behavior and are permanently audited.</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="mx-4 md:mx-6 lg:mx-8">
-          <div className="w-full px-4 py-4 shadow-sm mb-6 relative z-10">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div>
-                <div className="text-sm font-semibold text-slate-900">Governance Access</div>
-                <div className="mt-1 text-sm text-slate-600">
-                  {canWrite ? 'You can request configuration changes.' : 'Read-only: GOV_SYSTEM_CONFIG_WRITE is required to request changes.'}
-                </div>
-              </div>
-            </div>
-          </div>
 
           <div className="bg-white rounded-lg border border-slate-200 shadow-sm">
             <div className="p-4 border-b border-slate-200">
@@ -193,7 +148,6 @@ export function SystemConfigPage() {
               <div className="p-4">
                 <div className="grid grid-cols-1 gap-3 md:hidden">
                   {items.map((c) => {
-                    const status = getStatus(c.key);
                     return (
                       <div 
                         key={c.key} 
@@ -206,11 +160,6 @@ export function SystemConfigPage() {
                             <div className="mt-1 font-mono text-xs text-slate-500">{c.key}</div>
                             <div className="mt-2 text-sm text-slate-700">{formatValue(c.value)}</div>
                             <div className="mt-1 text-xs text-slate-600">{getScope(c.key)}</div>
-                          </div>
-                          <div className="ml-3">
-                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${status.color}`}>
-                              {status.text}
-                            </span>
                           </div>
                         </div>
                         <div className="mt-3">
@@ -258,18 +207,6 @@ export function SystemConfigPage() {
                         )
                       },
                       { 
-                        key: 'status', 
-                        title: 'Status', 
-                        render: (_v, d) => {
-                          const status = getStatus(d.key);
-                          return (
-                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${status.color}`}>
-                              {status.text}
-                            </span>
-                          );
-                        }
-                      },
-                      { 
                         key: 'action', 
                         title: 'Action', 
                         render: (_v, d) => (
@@ -288,16 +225,13 @@ export function SystemConfigPage() {
                       value: c.value,
                       description: c.description,
                       config: formatConfigName(c.key),
-                      scope: getScope(c.key),
-                      status: getStatus(c.key)
+                      scope: getScope(c.key)
                     }))}
                   />
                 </div>
               </div>
             )}
           </div>
-        </div>
-      </div>
 
       {/* Detail Drawer */}
       {detailDrawerOpen && selectedConfig ? (
@@ -354,55 +288,11 @@ export function SystemConfigPage() {
                     <li>• Affects all system operations</li>
                   </ul>
                 </div>
-
-                {/* Governance State */}
-                <div className="mb-6">
-                  <h3 className="text-sm font-medium text-slate-900 mb-2">Governance State</h3>
-                  <div className="bg-slate-50 p-3 rounded-md">
-                    <div className="flex items-center justify-between">
-                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatus(selectedConfig.key).color}`}>
-                        {getStatus(selectedConfig.key).text}
-                      </span>
-                      {getStatus(selectedConfig.key).text === 'Locked' && (
-                        <span className="text-xs text-slate-500">Month Close in progress</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Change History */}
-                <div className="mb-6">
-                  <h3 className="text-sm font-medium text-slate-900 mb-2">Change History</h3>
-                  <div className="space-y-2">
-                    <div className="bg-slate-50 p-3 rounded-md">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-medium text-slate-900">System Admin</span>
-                        <span className="text-xs text-slate-500">2 days ago</span>
-                      </div>
-                      <div className="text-xs text-slate-700 mt-1">Updated configuration value</div>
-                    </div>
-                    <div className="bg-slate-50 p-3 rounded-md">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-medium text-slate-900">System Admin</span>
-                        <span className="text-xs text-slate-500">1 week ago</span>
-                      </div>
-                      <div className="text-xs text-slate-700 mt-1">Initial configuration</div>
-                    </div>
-                  </div>
-                  <div className="mt-3">
-                    <a 
-                      href="/admin/audit" 
-                      className="text-xs text-indigo-600 hover:text-indigo-800"
-                    >
-                      View full Audit Logs →
-                    </a>
-                  </div>
-                </div>
               </div>
 
               {/* Drawer Footer */}
               <div className="px-6 py-4 border-t border-slate-200">
-                {canWrite && getStatus(selectedConfig.key).text !== 'Locked' ? (
+                {canWrite ? (
                   <button
                     type="button"
                     className="w-full px-4 py-2 bg-slate-900 text-white rounded-md text-sm font-medium hover:bg-slate-800 transition-colors"
@@ -418,9 +308,9 @@ export function SystemConfigPage() {
                     type="button"
                     className="w-full px-4 py-2 bg-slate-100 text-slate-400 rounded-md text-sm font-medium cursor-not-allowed"
                     disabled
-                    title={getStatus(selectedConfig.key).text === 'Locked' ? 'Configuration is locked during Month Close' : 'Insufficient permissions'}
+                    title={'Insufficient permissions'}
                   >
-                    {getStatus(selectedConfig.key).text === 'Locked' ? 'Configuration Locked' : 'Edit Not Available'}
+                    Edit Not Available
                   </button>
                 )}
               </div>
@@ -523,5 +413,6 @@ export function SystemConfigPage() {
         </div>
       ) : null}
     </div>
+    </>
   );
 }

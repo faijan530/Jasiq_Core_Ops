@@ -1,0 +1,37 @@
+BEGIN;
+
+INSERT INTO permission (id, code, description) VALUES
+  ('11111111-1111-1111-1111-111111111680', 'EXPENSE_CATEGORY_READ', 'Read expense categories'),
+  ('11111111-1111-1111-1111-111111111681', 'EXPENSE_CATEGORY_WRITE', 'Create/update expense categories'),
+  ('11111111-1111-1111-1111-111111111682', 'EXPENSE_CREATE', 'Create expense drafts'),
+  ('11111111-1111-1111-1111-111111111683', 'EXPENSE_UPDATE', 'Update expense drafts'),
+  ('11111111-1111-1111-1111-111111111684', 'EXPENSE_READ', 'Read expenses'),
+  ('11111111-1111-1111-1111-111111111685', 'EXPENSE_SUBMIT', 'Submit expense for approval'),
+  ('11111111-1111-1111-1111-111111111686', 'EXPENSE_APPROVE', 'Approve expense'),
+  ('11111111-1111-1111-1111-111111111687', 'EXPENSE_REJECT', 'Reject expense'),
+  ('11111111-1111-1111-1111-111111111688', 'EXPENSE_MARK_PAID', 'Mark expense paid (append-only payments)'),
+  ('11111111-1111-1111-1111-111111111689', 'EXPENSE_RECEIPT_UPLOAD', 'Upload expense receipt metadata'),
+  ('11111111-1111-1111-1111-111111111690', 'EXPENSE_RECEIPT_READ', 'Read/download expense receipts'),
+  ('11111111-1111-1111-1111-111111111691', 'EXPENSE_MONTH_CLOSE_OVERRIDE', 'Override month close for expenses')
+ON CONFLICT (code) DO NOTHING;
+
+INSERT INTO role_permission (role_id, permission_id)
+SELECT '22222222-2222-2222-2222-222222222222', p.id
+FROM permission p
+WHERE p.code IN (
+  'EXPENSE_CATEGORY_READ','EXPENSE_CATEGORY_WRITE',
+  'EXPENSE_CREATE','EXPENSE_UPDATE','EXPENSE_READ',
+  'EXPENSE_SUBMIT','EXPENSE_APPROVE','EXPENSE_REJECT',
+  'EXPENSE_MARK_PAID','EXPENSE_RECEIPT_UPLOAD','EXPENSE_RECEIPT_READ',
+  'EXPENSE_MONTH_CLOSE_OVERRIDE'
+)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO system_config (key, value, description) VALUES
+  ('EXPENSE_ENABLED', 'true', 'Enable expense module'),
+  ('EXPENSE_ALLOW_BACKDATED', 'false', 'Allow backdated expenses'),
+  ('EXPENSE_BACKDATE_LIMIT_DAYS', '0', 'Max backdate days for expenses'),
+  ('EXPENSE_DIVISION_SCOPED', 'false', 'If true, division_id is mandatory for expenses')
+ON CONFLICT (key) DO NOTHING;
+
+COMMIT;

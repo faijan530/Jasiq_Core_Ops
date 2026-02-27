@@ -15,5 +15,16 @@ export async function listLeaveRequestsUsecase(pool, { query }) {
   const rows = await listLeaveRequests(pool, { employeeId, status, divisionId, offset, limit });
   const total = await countLeaveRequests(pool, { employeeId, status, divisionId });
 
+  if (status === 'PENDING_L2') {
+    console.log('[leave.list] PENDING_L2', {
+      employeeId,
+      divisionId,
+      offset,
+      limit,
+      rows: rows.length,
+      total
+    });
+  }
+
   return pagedResponse({ items: rows, total, page, pageSize });
 }

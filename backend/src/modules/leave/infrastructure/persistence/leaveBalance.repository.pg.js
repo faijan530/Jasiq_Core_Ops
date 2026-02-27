@@ -30,9 +30,22 @@ export async function listLeaveBalances(client, { employeeId, year }) {
        lb.version,
        lt.code AS leave_type_code,
        lt.name AS leave_type_name,
-       lt.is_paid AS leave_type_is_paid
+       lt.is_paid AS leave_type_is_paid,
+       e.employee_code,
+       e.first_name,
+       e.last_name,
+       -- Get the latest audit reason for this balance
+       (
+         SELECT al.reason
+         FROM audit_log al
+         WHERE al.entity_type = 'LEAVE_BALANCE'
+           AND al.entity_id = lb.id
+         ORDER BY al.created_at DESC
+         LIMIT 1
+       ) AS reason
      FROM leave_balance lb
      JOIN leave_type lt ON lt.id = lb.leave_type_id
+     JOIN employee e ON e.id = lb.employee_id
      WHERE ($1::uuid IS NULL OR lb.employee_id = $1)
        AND ($2::int IS NULL OR lb.year = $2)
      ORDER BY lb.year DESC, lt.code ASC`,

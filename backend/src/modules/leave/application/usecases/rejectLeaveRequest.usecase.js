@@ -16,7 +16,11 @@ export async function rejectLeaveRequestUsecase(pool, { id, reason, actorId, req
   return withTransaction(pool, async (client) => {
     const before = await getLeaveRequestById(client, { id, forUpdate: true });
     if (!before) throw badRequest('Leave request not found');
-    if (before.status !== 'SUBMITTED') throw badRequest('Leave request is not SUBMITTED');
+    
+    // Allow rejection from PENDING_L1, PENDING_L2, or legacy SUBMITTED (mapped to PENDING_L1)
+    if (!['PENDING_L1', 'PENDING_L2', 'SUBMITTED'].includes(before.status)) {
+      throw badRequest('Leave request is not pending approval');
+    }
 
     const required = cfg.approvalLevels === 1 ? 'LEAVE_APPROVE_L1' : (before.approved_l1_at ? 'LEAVE_APPROVE_L2' : 'LEAVE_APPROVE_L1');
     await assertActorCanAccessEmployee(client, { actorId, permissionCode: required, employeeId: before.employee_id });

@@ -14,6 +14,8 @@ import {
   toEmployeeScopeHistoryDto
 } from '../domain/employee.js';
 
+import bcrypt from 'bcryptjs';
+
 import {
   closeActiveEmployeeCompensationVersion,
   closeActiveEmployeeScopeHistory,
@@ -28,12 +30,16 @@ import {
   insertEmployee,
   insertEmployeeCompensationVersion,
   insertEmployeeDocument,
+  insertEmployeeUserAccount,
+  ensureEmployeeUserRole,
+  assignUserRole,
   insertEmployeeScopeHistory,
   listUserRoleNames,
   listEmployeeCompensationVersions,
   listEmployeeDocuments,
   listEmployees,
   listEmployeeScopeHistory,
+  getUserByEmail,
   replaceUserFunctionalCompanyRoles,
   updateEmployeeProfile,
   updateEmployeeScope,
@@ -46,7 +52,7 @@ function dayBeforeIso(date) {
   return d.toISOString().slice(0, 10);
 }
 
-export async function createEmployee(pool, { employeeCode, firstName, lastName, designation, email, phone, status, scope, primaryDivisionId, reportingManagerId, actorId, requestId, reason, idempotencyKey }) {
+export async function createEmployee(pool, { employeeCode, firstName, lastName, designation, email, phone, password, status, scope, primaryDivisionId, reportingManagerId, role, actorId, requestId, reason, idempotencyKey }) {
   return withTransaction(pool, async (client) => {
     if (idempotencyKey) {
       const existingByKey = await getEmployeeByIdempotencyKey(client, idempotencyKey);
@@ -78,6 +84,7 @@ export async function createEmployee(pool, { employeeCode, firstName, lastName, 
     }
 
     const now = new Date();
+
     const employee = {
       id: crypto.randomUUID(),
       employee_code: employeeCode,
@@ -136,7 +143,35 @@ export async function createEmployee(pool, { employeeCode, firstName, lastName, 
       reason: reason || null
     });
 
+    if (!employee.email) throw badRequest('Employee email is required');
+    if (!password) throw badRequest('Password is required');
+
+    const existingUser = await getUserByEmail(client, employee.email);
+    if (existingUser) throw conflict('An employee with this email already exists. Please use a different email address.');
+
+    const hashedPassword = await bcrypt.hash(String(password), 10);
+
+    const createdUser = await insertEmployeeUserAccount(client, {
+      id: crypto.randomUUID(),
+      email: employee.email,
+      password: hashedPassword,
+      role: role || 'EMPLOYEE', // Use provided role or default to EMPLOYEE
+      active: true,
+      employee_id: employee.id,
+      password_setup_token: null,
+      password_setup_expiry: null,
+      account_activated: true,
+      must_change_password: true
+    });
+
+    if (createdUser?.id) {
+      // Assign the specific role that was selected during creation
+      await assignUserRole(client, { userId: createdUser.id, roleName: role });
+    }
+
     const createdEmployee = await getEmployeeById(client, employee.id);
+
+    return createdEmployee;
 
     // Send onboarding email after successful employee creation
     // Email sending disabled - remove this comment to re-enable
@@ -155,7 +190,6 @@ export async function createEmployee(pool, { employeeCode, firstName, lastName, 
     }
     */
 
-    return createdEmployee;
   });
 }
 

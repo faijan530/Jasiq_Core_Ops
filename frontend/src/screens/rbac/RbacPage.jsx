@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
 
-import { PageHeader } from '../../components/PageHeader.jsx';
-import { Table } from '../../components/Table.jsx';
 import { EmptyState, ErrorState, ForbiddenState, LoadingState } from '../../components/States.jsx';
 import { usePagedQuery } from '../../hooks/usePagedQuery.js';
 import { useBootstrap } from '../../state/bootstrap.jsx';
+import { Table } from '../../components/Table.jsx';
 
 export function RbacPage() {
   const { bootstrap } = useBootstrap();
@@ -18,136 +17,60 @@ export function RbacPage() {
   const active = tab === 'roles' ? roles : perms;
 
   if (active.status === 'loading' && !active.data) {
-    return (
-      <div className="min-h-screen bg-slate-100">
-        {/* Global Header - matching ProjectsPage and DivisionsPage */}
-        <div className="fixed top-0 left-0 right-0 lg:left-72 z-50 h-16 bg-gradient-to-r from-slate-800 to-slate-900 text-white block sm:block md:block lg:block xl:block">
-          <div className="mx-auto max-w-7xl h-full px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <img 
-                src="/image.png" 
-                alt="JASIQ" 
-                className="h-10 w-auto object-contain rounded-lg shadow-sm ring-1 ring-white/10 hover:shadow-md transition-shadow"
-              />
-              <span className="text-sm font-semibold tracking-wide whitespace-nowrap">LABS</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="pt-32 sm:pt-32 lg:pt-16">
-          <PageHeader title={title} variant="divisions" />
-          <LoadingState />
-        </div>
-      </div>
-    );
+    return <LoadingState />;
   }
 
   if (active.status === 'error') {
     if (active.error?.status === 403) {
-      return (
-        <div className="min-h-screen bg-slate-100">
-          {/* Global Header - matching ProjectsPage and DivisionsPage */}
-          <div className="fixed top-0 left-0 right-0 lg:left-72 z-50 h-16 bg-gradient-to-r from-slate-800 to-slate-900 text-white block sm:block md:block lg:block xl:block">
-            <div className="mx-auto max-w-7xl h-full px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <img 
-                  src="/image.png" 
-                  alt="JASIQ" 
-                  className="h-10 w-auto object-contain rounded-lg shadow-sm ring-1 ring-white/10 hover:shadow-md transition-shadow"
-                />
-                <span className="text-sm font-semibold tracking-wide whitespace-nowrap">LABS</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="pt-32 sm:pt-32 lg:pt-16">
-            <PageHeader title={title} variant="divisions" />
-            <ForbiddenState />
-          </div>
-        </div>
-      );
+      return <ForbiddenState />;
     }
 
-    return (
-      <div className="min-h-screen bg-slate-100">
-        {/* Global Header - matching ProjectsPage and DivisionsPage */}
-        <div className="fixed top-0 left-0 right-0 lg:left-72 z-50 h-16 bg-gradient-to-r from-slate-800 to-slate-900 text-white block sm:block md:block lg:block xl:block">
-          <div className="mx-auto max-w-7xl h-full px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <img 
-                src="/image.png" 
-                alt="JASIQ" 
-                className="h-10 w-auto object-contain rounded-lg shadow-sm ring-1 ring-white/10 hover:shadow-md transition-shadow"
-              />
-              <span className="text-sm font-semibold tracking-wide whitespace-nowrap">LABS</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="pt-32 sm:pt-32 lg:pt-16">
-          <PageHeader title={title} variant="divisions" />
-          <ErrorState error={active.error} />
-        </div>
-      </div>
-    );
+    return <ErrorState error={active.error} />;
   }
 
   const items = active.data?.items || [];
 
   return (
-    <div className="min-h-screen bg-slate-100">
-      {/* Global Header - matching ProjectsPage and DivisionsPage */}
-      <div className="fixed top-0 left-0 right-0 lg:left-72 z-50 h-16 bg-gradient-to-r from-slate-800 to-slate-900 text-white block sm:block md:block lg:block xl:block">
-        <div className="mx-auto max-w-7xl h-full px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <img 
-              src="/image.png" 
-              alt="JASIQ" 
-              className="h-10 w-auto object-contain rounded-lg shadow-sm ring-1 ring-white/10 hover:shadow-md transition-shadow"
-            />
-            <span className="text-sm font-semibold tracking-wide whitespace-nowrap">LABS</span>
-          </div>
-        </div>
+    <div className="max-w-6xl mx-auto space-y-5">
+      <div className="text-center space-y-1">
+        <h1 className="text-2xl font-semibold">
+          Role & Permission Viewer
+        </h1>
+        <p className="text-sm text-gray-500">
+          Viewer only (Phase 0)
+        </p>
       </div>
 
-      <div className="pt-32 sm:pt-32 lg:pt-16">
-        <PageHeader
-          title="Role & Permission Viewer"
-          subtitle="Viewer only (Phase 0)"
-          variant="divisions"
-        />
-
-        <div className="mx-4 md:mx-6 lg:mx-8">
-          {/* Tab Navigation - matching Divisions/Projects style */}
-          <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm mb-6">
-            <div className="flex items-center justify-between">
-              <div className="text-sm font-semibold text-slate-900">Browse</div>
-            </div>
-            <div className="mt-3 flex gap-2">
-              <button
-                type="button"
-                className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-                  tab === 'roles'
-                    ? 'bg-slate-900 text-white shadow-sm'
-                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                }`}
-                onClick={() => setTab('roles')}
-              >
-                Roles
-              </button>
-              <button
-                type="button"
-                className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-                  tab === 'permissions'
-                    ? 'bg-slate-900 text-white shadow-sm'
-                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                }`}
-                onClick={() => setTab('permissions')}
-              >
-                Permissions
-              </button>
-            </div>
-          </div>
+      {/* Tab Navigation - matching Divisions/Projects style */}
+      <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+        <div className="flex items-center justify-between">
+          <div className="text-sm font-semibold text-slate-900">Browse</div>
+        </div>
+        <div className="mt-3 flex gap-2">
+          <button
+            type="button"
+            className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+              tab === 'roles'
+                ? 'bg-slate-900 text-white shadow-sm'
+                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+            }`}
+            onClick={() => setTab('roles')}
+          >
+            Roles
+          </button>
+          <button
+            type="button"
+            className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+              tab === 'permissions'
+                ? 'bg-slate-900 text-white shadow-sm'
+                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+            }`}
+            onClick={() => setTab('permissions')}
+          >
+            Permissions
+          </button>
+        </div>
+      </div>
 
           {/* Content Area - matching Divisions/Projects card style */}
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
@@ -221,8 +144,6 @@ export function RbacPage() {
               </div>
             )}
           </div>
-        </div>
-      </div>
     </div>
   );
 }

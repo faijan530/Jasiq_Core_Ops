@@ -19,17 +19,20 @@ export function toLeaveTypeDto(row) {
 export function toLeaveBalanceDto(row) {
   return {
     id: row.id,
-    employeeId: row.employee_id,
-    leaveTypeId: row.leave_type_id,
+    employee: {
+      id: row.employee_id,
+      code: row.employee_code,
+      name: `${row.first_name} ${row.last_name}`.trim()
+    },
+    leaveType: {
+      code: row.leave_type_code,
+      name: row.leave_type_name
+    },
     year: row.year,
-    openingBalance: Number(row.opening_balance || 0),
     grantedBalance: Number(row.granted_balance || 0),
     consumedBalance: Number(row.consumed_balance || 0),
     availableBalance: Number(row.available_balance || 0),
-    leaveTypeCode: row.leave_type_code,
-    leaveTypeName: row.leave_type_name,
-    leaveTypeIsPaid: row.leave_type_is_paid,
-    version: row.version,
+    reason: row.reason,
     updatedAt: row.updated_at
   };
 }

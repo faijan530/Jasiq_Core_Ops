@@ -1,15 +1,26 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useBootstrap } from '../../state/bootstrap.jsx';
 import { apiFetch } from '../../api/client.js';
 
 export function CreateEmployeePage() {
   const { bootstrap } = useBootstrap();
   const navigate = useNavigate();
+  const location = useLocation();
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Determine the correct back path based on current route
+  const getBackPath = () => {
+    if (location.pathname.startsWith('/hr')) {
+      return '/hr/employees';
+    }
+    return '/super-admin/employees';
+  };
   const [reportingManagers, setReportingManagers] = useState([]);
   const [isLoadingManagers, setIsLoadingManagers] = useState(false);
+  const [divisions, setDivisions] = useState([]);
+  const [isLoadingDivisions, setIsLoadingDivisions] = useState(false);
 
   // Form data for all steps
   const [formData, setFormData] = useState({
@@ -38,7 +49,8 @@ export function CreateEmployeePage() {
     // Step 4: Access
     reportingManager: '',
     designation: '',
-    roleId: ''
+    roleId: '',
+    password: ''
   });
 
   const [errors, setErrors] = useState({});
@@ -46,6 +58,31 @@ export function CreateEmployeePage() {
   const roles = bootstrap?.rbac?.roles || [];
   const userRole = roles[0]; // Get current user's role for compensation visibility
   const canEditCompensation = ['COREOPS_ADMIN', 'HR_ADMIN', 'FINANCE_ADMIN', 'FOUNDER'].includes(userRole);
+  const canSetPassword = roles.includes('SUPER_ADMIN') || roles.includes('HR_ADMIN');
+  const isHrAdmin = roles.includes('HR_ADMIN');
+
+  // Get available roles based on current user's role
+  const getAvailableRoles = () => {
+    if (isHrAdmin) {
+      return [
+        { id: 'EMPLOYEE', name: 'Employee', description: 'Basic employee access' }
+      ];
+    }
+    
+    // SUPER_ADMIN can create all functional roles
+    if (roles.includes('SUPER_ADMIN')) {
+      return [
+        { id: 'EMPLOYEE', name: 'Employee', description: 'Basic employee access' },
+        { id: 'MANAGER', name: 'Manager', description: 'Can manage team members' },
+        { id: 'HR_ADMIN', name: 'HR Admin', description: 'Full HR management access' },
+        { id: 'FINANCE_ADMIN', name: 'Finance Admin', description: 'Financial and payroll access' },
+        { id: 'FOUNDER', name: 'Founder', description: 'Founder-level access' }
+      ];
+    }
+    
+    // For other roles, return empty array or handle as needed
+    return [];
+  };
 
   const fetchReportingManagers = async (divisionId) => {
     setIsLoadingManagers(true);
@@ -55,11 +92,64 @@ export function CreateEmployeePage() {
       setReportingManagers(response.items || []);
     } catch (error) {
       console.error('Failed to fetch reporting managers:', error);
+      
+      // Handle specific division not found error
+      if (error?.response?.data?.code === 'DIVISION_NOT_FOUND') {
+        showNotification(`Division not found: ${divisionId}`, 'error');
+      } else {
+        showNotification('Failed to load reporting managers', 'error');
+      }
+      
       setReportingManagers([]);
     } finally {
       setIsLoadingManagers(false);
     }
   };
+
+  const fetchDivisions = async () => {
+    setIsLoadingDivisions(true);
+    try {
+      const response = await apiFetch('/api/v1/governance/divisions?page=1&pageSize=200');
+      setDivisions(response.items || []);
+    } catch (error) {
+      console.error('Failed to fetch divisions:', error);
+      setDivisions([]);
+    } finally {
+      setIsLoadingDivisions(false);
+    }
+  };
+
+  // Simple notification helper
+  function showNotification(message, type = 'info') {
+    // Create a simple notification element
+    const notification = document.createElement('div');
+    notification.className = `fixed top-4 right-4 px-4 py-3 rounded-lg shadow-lg z-50 ${
+      type === 'success' ? 'bg-green-500 text-white' :
+      type === 'error' ? 'bg-red-500 text-white' :
+      'bg-blue-500 text-white'
+    }`;
+    notification.textContent = message;
+    document.body.appendChild(notification);
+    
+    // Remove after 3 seconds
+    setTimeout(() => {
+      if (notification.parentNode) {
+        notification.parentNode.removeChild(notification);
+      }
+    }, 3000);
+  }
+
+  // Auto-set role to EMPLOYEE for HR_ADMIN
+  useEffect(() => {
+    if (isHrAdmin && !formData.roleId) {
+      setFormData(prev => ({ ...prev, roleId: 'EMPLOYEE' }));
+    }
+  }, [isHrAdmin, formData.roleId]);
+
+  // Fetch divisions on component mount
+  useEffect(() => {
+    fetchDivisions();
+  }, []);
 
   // Fetch reporting managers when scope/division changes
   useEffect(() => {
@@ -71,6 +161,18 @@ export function CreateEmployeePage() {
       setReportingManagers([]);
     }
   }, [formData.scope, formData.primaryDivisionId]);
+
+  // Get role display name from role ID
+  const getRoleDisplayName = (roleId) => {
+    const roleMap = {
+      'EMPLOYEE': 'Employee',
+      'MANAGER': 'Manager',
+      'HR_ADMIN': 'HR Admin',
+      'FINANCE_ADMIN': 'Finance Admin',
+      'FOUNDER': 'Founder'
+    };
+    return roleMap[roleId] || 'Employee';
+  };
 
   const handleInputChange = (step, field, value) => {
     setFormData(prev => ({
@@ -119,6 +221,9 @@ export function CreateEmployeePage() {
     if (step === 4) {
       if (!formData.designation) newErrors.designation = 'Designation is required';
       if (!formData.roleId) newErrors.roleId = 'System Role is required';
+      if (canSetPassword && (!formData.password || formData.password.length < 8)) {
+        newErrors.password = 'Password must be at least 8 characters long';
+      }
       
       // Validate that employee cannot report to themselves
       // This is a basic validation - in practice, we'd need to check if the selected manager
@@ -151,6 +256,7 @@ export function CreateEmployeePage() {
         lastName: formData.lastName,
         email: formData.email,
         phone: formData.phone,
+        password: formData.password,
         joiningDate: formData.joiningDate,
         employmentType: formData.employmentType,
         status: "ACTIVE",
@@ -173,19 +279,50 @@ export function CreateEmployeePage() {
         };
       }
 
-      await apiFetch('/api/v1/employees', {
+      const response = await apiFetch('/api/v1/employees', {
         method: 'POST',
         body: payload
       });
 
-      // Show success message and redirect
-      // Note: In a real implementation, you'd show a toast notification
-      alert('Employee created successfully. Password setup email sent.');
-      navigate('/admin/employees');
+      // Persist initial compensation (backend create does not write compensation)
+      if (canEditCompensation && formData.salaryType) {
+        const employeeId = response?.data?.id;
+        if (employeeId) {
+          const frequency = 'MONTHLY';
+          const reason = String(formData.compensationNotes || '').trim() || 'Initial compensation';
+          await apiFetch(`/api/v1/employees/${employeeId}/compensation`, {
+            method: 'POST',
+            body: {
+              amount: Number(formData.amount),
+              currency: String(formData.currency || '').trim().toUpperCase(),
+              frequency,
+              effectiveFrom: formData.effectiveFrom,
+              reason
+            }
+          });
+        }
+      }
+
+      // Show role-specific success message
+      const roleDisplayName = getRoleDisplayName(formData.roleId);
+      const successMessage = `${roleDisplayName} created successfully`;
+      showNotification(successMessage, 'success');
+      
+      // Redirect to employee list after a short delay
+      setTimeout(() => {
+        navigate(getBackPath());
+      }, 1000);
 
     } catch (error) {
       console.error('Failed to create employee:', error);
-      alert('Failed to create employee. Please try again.');
+      
+      // Extract backend error message with fallback
+      const backendMessage =
+        error?.response?.data?.message ||
+        error?.message ||
+        "Failed to create employee. Please try again.";
+      
+      showNotification(backendMessage, 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -207,12 +344,19 @@ export function CreateEmployeePage() {
       {/* Step Indicator - Sticky */}
       <div className="sticky top-0 z-10 bg-white border-b border-slate-200 px-6 py-4">
         <div className="max-w-4xl mx-auto">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-8">
+          <div className="flex items-center justify-center">
+            {/* Mobile: Compact stepper */}
+            <div className="lg:hidden flex items-center gap-2">
+              <span className="text-sm text-slate-600">Step {currentStep} of 4</span>
+              <span className="text-sm font-medium text-slate-900">- {getStepNumber(currentStep)}</span>
+            </div>
+            
+            {/* Desktop: Full stepper */}
+            <div className="hidden lg:flex items-center gap-4 overflow-x-auto pb-2">
               {[1, 2, 3, 4].map((step) => (
-                <div key={step} className="flex items-center">
+                <div key={step} className="flex items-center gap-2 shrink-0">
                   <div
-                    className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium ${
+                    className={`h-8 w-8 rounded-full flex items-center justify-center text-sm font-medium ${
                       isStepComplete(step)
                         ? 'bg-green-600 text-white'
                         : step === currentStep
@@ -222,25 +366,12 @@ export function CreateEmployeePage() {
                   >
                     {isStepComplete(step) ? '✓' : step}
                   </div>
-                  <span
-                    className={`ml-2 text-sm font-medium ${
-                      step === currentStep ? 'text-slate-900' : 'text-slate-500'
-                    }`}
-                  >
+                  <span className="text-sm whitespace-nowrap font-medium">
                     {getStepNumber(step)}
                   </span>
-                  {step < 4 && (
-                    <div className="ml-8 w-8 h-0.5 bg-slate-200"></div>
-                  )}
                 </div>
               ))}
             </div>
-            <button
-              onClick={() => navigate('/admin/employees')}
-              className="text-sm text-slate-600 hover:text-slate-900"
-            >
-              Cancel
-            </button>
           </div>
         </div>
       </div>
@@ -367,7 +498,7 @@ export function CreateEmployeePage() {
 
             <div className="mt-8 flex justify-between">
               <button
-                onClick={() => navigate('/admin/employees')}
+                onClick={() => navigate(getBackPath())}
                 className="px-4 py-2 text-slate-600 hover:text-slate-900"
               >
                 Cancel
@@ -484,12 +615,16 @@ export function CreateEmployeePage() {
                   value={formData.primaryDivisionId}
                   onChange={(e) => handleInputChange(2, 'primaryDivisionId', e.target.value)}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500"
+                  disabled={isLoadingDivisions}
                 >
-                  <option value="">Select a division</option>
-                  <option value="rws">RWS</option>
-                  <option value="tws">TWS</option>
-                  <option value="products">Products</option>
-                  <option value="internal">Internal</option>
+                  <option value="">
+                    {isLoadingDivisions ? 'Loading divisions...' : 'Select a division'}
+                  </option>
+                  {divisions.map((division) => (
+                    <option key={division.id} value={division.id}>
+                      {division.name}
+                    </option>
+                  ))}
                 </select>
                 {errors.primaryDivisionId && (
                   <p className="mt-1 text-sm text-red-600">{errors.primaryDivisionId}</p>
@@ -725,17 +860,39 @@ export function CreateEmployeePage() {
                 )}
               </div>
 
+              {canSetPassword && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Password *
+                  </label>
+                  <input
+                    type="password"
+                    value={formData.password}
+                    onChange={(e) => handleInputChange(4, 'password', e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-500"
+                    placeholder="Minimum 8 characters"
+                    minLength={8}
+                    required
+                  />
+                  {errors.password && (
+                    <p className="mt-1 text-sm text-red-600">{errors.password}</p>
+                  )}
+                </div>
+              )}
+
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-slate-700 mb-2">
                   System Role *
                 </label>
+                {isHrAdmin && (
+                  <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <p className="text-sm text-blue-800">
+                      <strong>Note:</strong> As HR Admin, you can only create employees with the "Employee" role.
+                    </p>
+                  </div>
+                )}
                 <div className="space-y-3">
-                  {[
-                    { id: 'EMPLOYEE', name: 'Employee', description: 'Basic employee access' },
-                    { id: 'HR_ADMIN', name: 'HR Admin', description: 'HR management access', restricted: true },
-                    { id: 'FINANCE_ADMIN', name: 'Finance Admin', description: 'Financial access', restricted: true },
-                    { id: 'FOUNDER', name: 'Founder', description: 'Full system access', restricted: true }
-                  ].map((role) => (
+                  {getAvailableRoles().map((role) => (
                     <label key={role.id} className="flex items-center p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50">
                       <input
                         type="radio"
@@ -748,12 +905,16 @@ export function CreateEmployeePage() {
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
                           <span className="font-medium text-slate-900">{role.name}</span>
-                          {role.restricted && <span className="text-slate-400">🔒</span>}
                         </div>
                         <p className="text-sm text-slate-600">{role.description}</p>
                       </div>
                     </label>
                   ))}
+                  {getAvailableRoles().length === 0 && (
+                    <div className="text-center py-4 text-slate-600">
+                      No roles available for assignment.
+                    </div>
+                  )}
                 </div>
                 {errors.roleId && (
                   <p className="mt-1 text-sm text-red-600">{errors.roleId}</p>

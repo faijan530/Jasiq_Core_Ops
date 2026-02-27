@@ -111,16 +111,16 @@ function dtoWorklog(row) {
   };
 }
 
-export async function getMyTimesheets(pool, { actorId, query }) {
+export async function getMyTimesheets(pool, { employeeId, query }) {
   const cfg = await readTimesheetConfig(pool);
   assertTimesheetEnabled(cfg);
 
-  const employee = await getEmployeeForTimesheet(pool, actorId);
+  const employee = await getEmployeeForTimesheet(pool, employeeId);
   assertEmployeeEligible({ employee, cfg });
 
   const { offset, limit, page, pageSize } = parsePagination(query || {});
-  const rows = await listTimesheetsForEmployee(pool, { employeeId: actorId, offset, limit });
-  const total = await countTimesheetsForEmployee(pool, { employeeId: actorId });
+  const rows = await listTimesheetsForEmployee(pool, { employeeId, offset, limit });
+  const total = await countTimesheetsForEmployee(pool, { employeeId });
 
   return pagedResponse({
     items: rows.map((r) => dtoHeader(r)),
@@ -135,8 +135,14 @@ export async function getTimesheetByIdService(pool, { id }) {
   if (!row) throw badRequest('Timesheet not found');
   const worklogs = await listActiveWorklogsForTimesheet(pool, { timesheetId: id });
 
+  // Calculate total hours from worklogs
+  const totalHours = worklogs.reduce((sum, worklog) => sum + Number(worklog.hours || 0), 0);
+
   return {
-    header: dtoHeader(row),
+    header: {
+      ...dtoHeader(row),
+      totalHours: totalHours
+    },
     worklogs: worklogs.map(dtoWorklog)
   };
 }
@@ -169,28 +175,47 @@ export async function upsertWorklogService(pool, { employeeId, workDate, task, h
     });
 
     if (!header) {
-      header = await insertTimesheetHeader(client, {
-        id: crypto.randomUUID(),
-        employee_id: employeeId,
-        period_type: period.periodType,
-        period_start: period.periodStart,
-        period_end: period.periodEnd,
-        status: TIMESHEET_STATUS.DRAFT,
-        locked: false,
-        actor_id: actorId
-      });
+      try {
+        header = await insertTimesheetHeader(client, {
+          id: crypto.randomUUID(),
+          employee_id: employeeId,
+          period_type: period.periodType,
+          period_start: period.periodStart,
+          period_end: period.periodEnd,
+          status: TIMESHEET_STATUS.DRAFT,
+          locked: false,
+          actor_id: actorId
+        });
 
-      await writeAuditLog(client, {
-        requestId,
-        entityType: 'TIMESHEET',
-        entityId: header.id,
-        action: 'CREATE_HEADER',
-        beforeData: null,
-        afterData: { employeeId, periodType: period.periodType, periodStart: period.periodStart, periodEnd: period.periodEnd, status: header.status },
-        actorId,
-        actorRole: null,
-        reason: null
-      });
+        await writeAuditLog(client, {
+          requestId,
+          entityType: 'TIMESHEET',
+          entityId: header.id,
+          action: 'CREATE_HEADER',
+          beforeData: null,
+          afterData: { employeeId, periodType: period.periodType, periodStart: period.periodStart, periodEnd: period.periodEnd, status: header.status },
+          actorId,
+          actorRole: null,
+          reason: null
+        });
+      } catch (error) {
+        // Handle race condition: if header was created by another request
+        if (error.code === '23505' && error.constraint === 'timesheet_header_employee_id_period_type_period_start_perio_key') {
+          // Try to fetch the existing header again
+          header = await getTimesheetHeaderByEmployeePeriodForUpdate(client, {
+            employeeId,
+            periodType: period.periodType,
+            periodStart: period.periodStart,
+            periodEnd: period.periodEnd
+          });
+          
+          if (!header) {
+            throw error; // Re-throw if we still can't find it
+          }
+        } else {
+          throw error; // Re-throw other errors
+        }
+      }
     }
 
     const entity = new TimesheetHeader(header);
@@ -252,8 +277,14 @@ export async function upsertWorklogService(pool, { employeeId, workDate, task, h
     const outHeader = await getTimesheetHeaderById(client, { id: updatedEntity.id });
     const outLogs = await listActiveWorklogsForTimesheet(client, { timesheetId: updatedEntity.id });
 
+    // Calculate total hours from worklogs
+    const totalHours = outLogs.reduce((sum, worklog) => sum + Number(worklog.hours || 0), 0);
+
     return {
-      header: dtoHeader(outHeader),
+      header: {
+        ...dtoHeader(outHeader),
+        totalHours: totalHours
+      },
       worklogs: outLogs.map(dtoWorklog)
     };
   });
@@ -262,6 +293,22 @@ export async function upsertWorklogService(pool, { employeeId, workDate, task, h
 export async function submitTimesheet(pool, { id, actorId, requestId }) {
   const cfg = await readTimesheetConfig(pool);
   assertTimesheetEnabled(cfg);
+
+  // Resolve actor's employee linkage
+  const userRes = await pool.query(
+    'SELECT id, employee_id FROM "user" WHERE id = $1',
+    [actorId]
+  );
+  
+  if (userRes.rowCount === 0) {
+    throw badRequest('User not found');
+  }
+  
+  const user = userRes.rows[0];
+  
+  if (!user.employee_id) {
+    throw badRequest('User is not linked to an employee record');
+  }
 
   return withTransaction(pool, async (client) => {
     const header = await getTimesheetHeaderByIdForUpdate(client, { id });
@@ -326,9 +373,31 @@ export async function approveTimesheet(pool, { id, actorId, requestId }) {
   const cfg = await readTimesheetConfig(pool);
   assertTimesheetEnabled(cfg);
 
+  // Resolve actor's employee linkage
+  const userRes = await pool.query(
+    'SELECT id, employee_id FROM "user" WHERE id = $1',
+    [actorId]
+  );
+  
+  if (userRes.rowCount === 0) {
+    throw badRequest('User not found');
+  }
+  
+  const user = userRes.rows[0];
+  
+  if (!user.employee_id) {
+    throw badRequest('User is not linked to an employee record');
+  }
+
   return withTransaction(pool, async (client) => {
     const header = await getTimesheetHeaderByIdForUpdate(client, { id });
     if (!header) throw badRequest('Timesheet not found');
+
+    const isLegacyPendingL2 =
+      cfg.approvalLevels === 2 &&
+      header.status === TIMESHEET_STATUS.APPROVED &&
+      header.approved_l1_at &&
+      !header.approved_l2_at;
 
     // Enforce scoped RBAC for approvals inside the service.
     if (cfg.approvalLevels === 1) {
@@ -348,7 +417,7 @@ export async function approveTimesheet(pool, { id, actorId, requestId }) {
 
     await assertMonthOpenForDate(client, { dateIso: header.period_end });
 
-    if (header.status !== TIMESHEET_STATUS.SUBMITTED) throw badRequest('Timesheet is not SUBMITTED');
+    if (header.status !== TIMESHEET_STATUS.SUBMITTED && !isLegacyPendingL2) throw badRequest('Timesheet is not SUBMITTED');
 
     let updated;
     let action;
@@ -368,7 +437,21 @@ export async function approveTimesheet(pool, { id, actorId, requestId }) {
       });
       action = 'APPROVE';
     } else {
-      if (!header.approved_l1_at) {
+      if (isLegacyPendingL2) {
+        updated = await updateTimesheetHeaderState(client, {
+          id,
+          status: TIMESHEET_STATUS.APPROVED,
+          locked: true,
+          actorId,
+          setSubmitted: false,
+          setApprovedL1: false,
+          setApprovedL2: true,
+          setRejected: false,
+          setRevisionRequested: false,
+          clearDecisions: false
+        });
+        action = 'APPROVE_L2';
+      } else if (!header.approved_l1_at) {
         updated = await updateTimesheetHeaderState(client, {
           id,
           status: TIMESHEET_STATUS.SUBMITTED,
@@ -420,15 +503,40 @@ export async function rejectTimesheet(pool, { id, actorId, requestId, reason }) 
   assertTimesheetEnabled(cfg);
   const trimmedReason = requireReason(reason);
 
+  // Resolve actor's employee linkage
+  const userRes = await pool.query(
+    'SELECT id, employee_id FROM "user" WHERE id = $1',
+    [actorId]
+  );
+  
+  if (userRes.rowCount === 0) {
+    throw badRequest('User not found');
+  }
+  
+  const user = userRes.rows[0];
+  
+  if (!user.employee_id) {
+    throw badRequest('User is not linked to an employee record');
+  }
+
   return withTransaction(pool, async (client) => {
     const header = await getTimesheetHeaderByIdForUpdate(client, { id });
     if (!header) throw badRequest('Timesheet not found');
 
-    await assertActorCanAccessEmployee(client, {
-      actorId,
-      permissionCode: 'TIMESHEET_APPROVE_L1',
-      employeeId: header.employee_id
-    });
+    if (cfg.approvalLevels === 1) {
+      await assertActorCanAccessEmployee(client, {
+        actorId,
+        permissionCode: 'TIMESHEET_APPROVE_L1',
+        employeeId: header.employee_id
+      });
+    } else {
+      const required = header.approved_l1_at ? 'TIMESHEET_APPROVE_L2' : 'TIMESHEET_APPROVE_L1';
+      await assertActorCanAccessEmployee(client, {
+        actorId,
+        permissionCode: required,
+        employeeId: header.employee_id
+      });
+    }
 
     await assertMonthOpenForDate(client, { dateIso: header.period_end });
 
@@ -468,15 +576,40 @@ export async function requestRevision(pool, { id, actorId, requestId, reason }) 
   assertTimesheetEnabled(cfg);
   const trimmedReason = requireReason(reason);
 
+  // Resolve actor's employee linkage
+  const userRes = await pool.query(
+    'SELECT id, employee_id FROM "user" WHERE id = $1',
+    [actorId]
+  );
+  
+  if (userRes.rowCount === 0) {
+    throw badRequest('User not found');
+  }
+  
+  const user = userRes.rows[0];
+  
+  if (!user.employee_id) {
+    throw badRequest('User is not linked to an employee record');
+  }
+
   return withTransaction(pool, async (client) => {
     const header = await getTimesheetHeaderByIdForUpdate(client, { id });
     if (!header) throw badRequest('Timesheet not found');
 
-    await assertActorCanAccessEmployee(client, {
-      actorId,
-      permissionCode: 'TIMESHEET_APPROVE_L1',
-      employeeId: header.employee_id
-    });
+    if (cfg.approvalLevels === 1) {
+      await assertActorCanAccessEmployee(client, {
+        actorId,
+        permissionCode: 'TIMESHEET_APPROVE_L1',
+        employeeId: header.employee_id
+      });
+    } else {
+      const required = header.approved_l1_at ? 'TIMESHEET_APPROVE_L2' : 'TIMESHEET_APPROVE_L1';
+      await assertActorCanAccessEmployee(client, {
+        actorId,
+        permissionCode: required,
+        employeeId: header.employee_id
+      });
+    }
 
     await assertMonthOpenForDate(client, { dateIso: header.period_end });
 
@@ -511,15 +644,37 @@ export async function requestRevision(pool, { id, actorId, requestId, reason }) 
   });
 }
 
-export async function listApprovals(pool, { query }) {
+export async function listApprovals(pool, { query, actorPermissions }) {
   const cfg = await readTimesheetConfig(pool);
   assertTimesheetEnabled(cfg);
 
   const { offset, limit, page, pageSize } = parsePagination(query || {});
   const divisionId = query?.divisionId ? String(query.divisionId) : null;
 
-  const rows = await listApprovalsQueue(pool, { divisionId, offset, limit });
-  const total = await countApprovalsQueue(pool, { divisionId });
+  const perms = Array.isArray(actorPermissions) ? actorPermissions : [];
+  const canReadQueue = perms.includes('TIMESHEET_APPROVAL_QUEUE_READ');
+  const canApproveL1 = perms.includes('TIMESHEET_APPROVE_L1');
+  const canApproveL2 = perms.includes('TIMESHEET_APPROVE_L2');
+  const desiredLevel = (() => {
+    if (cfg.approvalLevels === 1) return 1;
+
+    // HR / queue readers: show a combined queue (L1 + L2 pending) so you never miss items.
+    if (canReadQueue) return 0;
+
+    // Approvers: pick the stage they can act on.
+    if (canApproveL2 && !canApproveL1) return 2;
+    return 1;
+  })();
+
+  let rows = await listApprovalsQueue(pool, { divisionId, offset, limit, levels: desiredLevel });
+  let total = await countApprovalsQueue(pool, { divisionId, levels: desiredLevel });
+
+  // Fallback: if an L1 approver also has L2 approve permission (but not queue read),
+  // and L1 queue is empty, show L2 queue.
+  if (cfg.approvalLevels === 2 && desiredLevel === 1 && canApproveL2 && !canReadQueue && total === 0) {
+    rows = await listApprovalsQueue(pool, { divisionId, offset, limit, levels: 2 });
+    total = await countApprovalsQueue(pool, { divisionId, levels: 2 });
+  }
 
   return pagedResponse({
     items: rows.map((r) => ({
@@ -534,6 +689,7 @@ export async function listApprovals(pool, { query }) {
       periodEnd: r.period_end,
       status: r.status,
       approvedL1At: r.approved_l1_at,
+      approvedL2At: r.approved_l2_at,
       pendingApprovalLevel: cfg.approvalLevels === 1 ? 1 : (r.approved_l1_at ? 2 : 1)
     })),
     total,

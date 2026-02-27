@@ -54,7 +54,7 @@ export async function createLeaveRequestUsecase(pool, { body, actorId, requestId
   }
 
   return withTransaction(pool, async (client) => {
-    await assertActorCanAccessEmployee(client, { actorId, permissionCode: 'LEAVE_REQUEST_CREATE', employeeId });
+    await assertActorCanAccessEmployee(client, { actorId, permissionCode: 'LEAVE_APPLY_SELF', employeeId });
 
     await assertMonthsOpenForRange(client, {
       startDate,
@@ -92,7 +92,7 @@ export async function createLeaveRequestUsecase(pool, { body, actorId, requestId
       half_day_part: unit === 'HALF_DAY' ? halfDayPart : null,
       units,
       reason: trimmedReason,
-      status: 'SUBMITTED'
+      status: 'PENDING_L1'  // Changed from 'SUBMITTED' to 'PENDING_L1'
     });
 
     await writeAuditLog(client, {

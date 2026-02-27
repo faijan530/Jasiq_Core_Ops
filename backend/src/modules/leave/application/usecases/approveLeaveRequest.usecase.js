@@ -38,9 +38,22 @@ export async function approveLeaveRequestUsecase(pool, { id, actorId, requestId,
     const before = await getLeaveRequestById(client, { id, forUpdate: true });
     if (!before) throw badRequest('Leave request not found');
 
-    if (before.status !== 'SUBMITTED') throw badRequest('Leave request is not SUBMITTED');
+    const isLegacyPendingL2 =
+      cfg.approvalLevels === 2 &&
+      before.status === 'APPROVED' &&
+      before.approved_l1_at &&
+      !before.approved_l2_at;
 
-    const required = cfg.approvalLevels === 1 ? 'LEAVE_APPROVE_L1' : (before.approved_l1_at ? 'LEAVE_APPROVE_L2' : 'LEAVE_APPROVE_L1');
+    // Allow approval from PENDING_L1, PENDING_L2, legacy SUBMITTED (mapped to PENDING_L1),
+    // and legacy inconsistent APPROVED-without-L2 (treated as pending L2).
+    if (!['PENDING_L1', 'PENDING_L2', 'SUBMITTED'].includes(before.status) && !isLegacyPendingL2) {
+      throw badRequest('Leave request is not pending approval');
+    }
+
+    const required =
+      cfg.approvalLevels === 1
+        ? 'LEAVE_APPROVE_L1'
+        : (before.approved_l1_at ? 'LEAVE_APPROVE_L2' : 'LEAVE_APPROVE_L1');
     await assertActorCanAccessEmployee(client, { actorId, permissionCode: required, employeeId: before.employee_id });
 
     await assertMonthsOpenForRange(client, {
@@ -50,11 +63,11 @@ export async function approveLeaveRequestUsecase(pool, { id, actorId, requestId,
       overrideReason: trimmedReason
     });
 
-    // 2-level: first approval only stamps L1.
+    // 2-level: first approval only stamps L1 and moves to PENDING_L2
     if (cfg.approvalLevels === 2 && !before.approved_l1_at) {
       const updated = await updateLeaveRequestStatus(client, {
         id,
-        status: 'SUBMITTED',
+        status: 'PENDING_L2',  // Changed from 'SUBMITTED' to 'PENDING_L2'
         fields: {
           approved_l1_by: actorId,
           approved_l1_at: new Date()
@@ -78,10 +91,39 @@ export async function approveLeaveRequestUsecase(pool, { id, actorId, requestId,
       return updated;
     }
 
+    // Legacy inconsistent state: already APPROVED but missing L2 stamp.
+    // Treat as pending L2 and just stamp L2 approval.
+    if (isLegacyPendingL2) {
+      const updated = await updateLeaveRequestStatus(client, {
+        id,
+        status: 'APPROVED',
+        fields: {
+          approved_l2_by: actorId,
+          approved_l2_at: new Date()
+        },
+        expectedVersion: before.version
+      });
+      if (!updated) throw conflict('Version conflict');
+
+      await writeAuditLog(client, {
+        requestId,
+        entityType: 'LEAVE_REQUEST',
+        entityId: id,
+        action: 'LEAVE_REQUEST_APPROVE_L2',
+        beforeData: { status: before.status, approved_l2_at: before.approved_l2_at },
+        afterData: { status: updated.status, approved_l2_at: updated.approved_l2_at },
+        actorId,
+        actorRole: null,
+        reason: trimmedReason
+      });
+
+      return updated;
+    }
+
     const lt = await getLeaveTypeById(client, { id: before.leave_type_id });
     if (!lt || lt.is_active === false) throw badRequest('Leave type not found');
 
-    // Final approval performs balance consume + attendance sync.
+    // Final approval performs balance consume + attendance sync
     if (lt.is_paid) {
       const bal = await getLeaveBalance(client, { employeeId: before.employee_id, leaveTypeId: before.leave_type_id, year: yearOf(before.start_date), forUpdate: true });
       if (!bal) throw badRequest('Leave balance not found');
@@ -145,6 +187,7 @@ export async function approveLeaveRequestUsecase(pool, { id, actorId, requestId,
     });
     if (!updated) throw conflict('Version conflict');
 
+    // Apply leave to attendance only when status is APPROVED
     const dates = eachDay(before.start_date, before.end_date);
     for (const d of dates) {
       await applyLeaveToAttendance(client, {

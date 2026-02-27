@@ -31,15 +31,10 @@ export function EmployeeDocuments() {
   const handleDownload = async (doc) => {
     try {
       const response = await apiFetch(`/api/v1/employees/me/documents/${doc.id}/download`);
-      // Create download link
-      const url = window.URL.createObjectURL(new Blob([response]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', doc.fileName || doc.filename || 'document');
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
+      const url = response?.url;
+      if (url) {
+        window.open(url, '_blank', 'noopener,noreferrer');
+      }
     } catch (err) {
       setError(err);
     }
@@ -78,68 +73,29 @@ export function EmployeeDocuments() {
     return '📁';
   };
 
-  // Standard company documents that should be available to all employees
-  const standardDocuments = [
-    {
-      id: 'offer-letter',
-      type: 'Offer Letter',
-      fileName: 'Offer Letter.pdf',
-      description: 'Your employment offer letter',
-      uploadDate: new Date().toISOString(),
-      isStandard: true
-    },
-    {
-      id: 'employee-handbook',
-      type: 'Employee Handbook',
-      fileName: 'Employee Handbook.pdf',
-      description: 'Company policies and procedures',
-      uploadDate: new Date().toISOString(),
-      isStandard: true
-    },
-    {
-      id: 'code-of-conduct',
-      type: 'Code of Conduct',
-      fileName: 'Code of Conduct.pdf',
-      description: 'Company code of conduct and ethics',
-      uploadDate: new Date().toISOString(),
-      isStandard: true
-    }
-  ];
-
-  const allDocuments = [...standardDocuments, ...documents];
+  const allDocuments = documents;
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-slate-900 mb-2">Documents</h1>
-        <p className="text-slate-600">View and download your employment documents</p>
-      </div>
-
       {/* Documents Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {allDocuments.map((doc) => (
           <div key={doc.id} className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 hover:shadow-md transition-shadow">
             <div className="flex items-start justify-between mb-4">
               <div className="flex items-center gap-3">
-                <div className="text-3xl">{getDocumentIcon(doc.type)}</div>
+                <div className="text-3xl">{getDocumentIcon(doc.documentType || doc.type)}</div>
                 <div>
-                  <h3 className="font-semibold text-slate-900">{doc.type}</h3>
-                  <p className="text-sm text-slate-600">{doc.fileName}</p>
+                  <h3 className="font-semibold text-slate-900">{doc.documentType || doc.type || 'Document'}</h3>
+                  <p className="text-sm text-slate-600">{doc.fileName || doc.filename || '—'}</p>
                 </div>
               </div>
-              {doc.isStandard && (
-                <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
-                  Standard
-                </span>
-              )}
             </div>
             
-            <p className="text-sm text-slate-600 mb-4">{doc.description}</p>
+            <p className="text-sm text-slate-600 mb-4">{doc.description || '—'}</p>
             
             <div className="space-y-2">
               <div className="flex items-center justify-between text-xs text-slate-500">
-                <span>Uploaded: {doc.uploadDate ? new Date(doc.uploadDate).toLocaleDateString() : '—'}</span>
+                <span>Uploaded: {doc.uploadedAt || doc.uploadDate ? new Date(doc.uploadedAt || doc.uploadDate).toLocaleDateString() : '—'}</span>
                 {doc.sizeBytes && <span>{formatFileSize(doc.sizeBytes)}</span>}
               </div>
               

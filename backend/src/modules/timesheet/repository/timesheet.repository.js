@@ -14,7 +14,10 @@ export async function getEmployeeForTimesheet(client, employeeId) {
 }
 
 export async function getTodayDateOnly(client) {
-  const res = await client.query(`SELECT to_char(CURRENT_DATE, 'YYYY-MM-DD') AS today_date`);
+  // Get current date in IST timezone (UTC+5:30)
+  const res = await client.query(`
+    SELECT to_char((CURRENT_TIMESTAMP + INTERVAL '5 hours 30 minutes')::date, 'YYYY-MM-DD') AS today_date
+  `);
   return res.rows[0]?.today_date || null;
 }
 
@@ -291,6 +294,7 @@ export async function countTimesheetsForEmployee(client, { employeeId }) {
 }
 
 export async function listApprovalsQueue(client, { divisionId, offset, limit, levels }) {
+  const lvl = levels === 0 || levels === '0' ? 0 : (levels ? Number(levels) : 1);
   const res = await client.query(
     `SELECT
        th.id,
@@ -302,6 +306,7 @@ export async function listApprovalsQueue(client, { divisionId, offset, limit, le
        th.locked,
        th.approved_l1_at,
        th.approved_l1_by,
+       th.approved_l2_at,
        th.created_at,
        th.updated_at,
        th.version,
@@ -311,23 +316,104 @@ export async function listApprovalsQueue(client, { divisionId, offset, limit, le
        e.primary_division_id
      FROM timesheet_header th
      JOIN employee e ON e.id = th.employee_id
-     WHERE th.status = 'SUBMITTED'
+     WHERE (
+       (
+         $4::int = 1
+         AND th.status = 'SUBMITTED'
+         AND th.approved_l1_at IS NULL
+       )
+       OR (
+        $4::int = 2
+        AND (
+          (
+            th.status = 'SUBMITTED'
+            AND th.approved_l1_at IS NOT NULL
+            AND th.approved_l2_at IS NULL
+          )
+          OR (
+            th.status = 'APPROVED'
+            AND th.approved_l1_at IS NOT NULL
+            AND th.approved_l2_at IS NULL
+          )
+        )
+      )
+      OR (
+        $4::int = 0
+        AND (
+          (
+            th.status = 'SUBMITTED'
+            AND th.approved_l1_at IS NULL
+          )
+          OR (
+            th.status = 'SUBMITTED'
+            AND th.approved_l1_at IS NOT NULL
+            AND th.approved_l2_at IS NULL
+          )
+          OR (
+            th.status = 'APPROVED'
+            AND th.approved_l1_at IS NOT NULL
+            AND th.approved_l2_at IS NULL
+          )
+        )
+      )
+     )
        AND ($1::uuid IS NULL OR e.primary_division_id = $1)
      ORDER BY th.updated_at DESC, th.created_at DESC
      OFFSET $2 LIMIT $3`,
-    [divisionId || null, offset, limit]
+    [divisionId || null, offset, limit, lvl]
   );
   return res.rows;
 }
 
-export async function countApprovalsQueue(client, { divisionId }) {
+export async function countApprovalsQueue(client, { divisionId, levels }) {
+  const lvl = levels === 0 || levels === '0' ? 0 : (levels ? Number(levels) : 1);
   const res = await client.query(
     `SELECT COUNT(*)::int AS c
      FROM timesheet_header th
      JOIN employee e ON e.id = th.employee_id
-     WHERE th.status = 'SUBMITTED'
+     WHERE (
+       (
+         $2::int = 1
+         AND th.status = 'SUBMITTED'
+         AND th.approved_l1_at IS NULL
+       )
+       OR (
+        $2::int = 2
+        AND (
+          (
+            th.status = 'SUBMITTED'
+            AND th.approved_l1_at IS NOT NULL
+            AND th.approved_l2_at IS NULL
+          )
+          OR (
+            th.status = 'APPROVED'
+            AND th.approved_l1_at IS NOT NULL
+            AND th.approved_l2_at IS NULL
+          )
+        )
+      )
+      OR (
+        $2::int = 0
+        AND (
+          (
+            th.status = 'SUBMITTED'
+            AND th.approved_l1_at IS NULL
+          )
+          OR (
+            th.status = 'SUBMITTED'
+            AND th.approved_l1_at IS NOT NULL
+            AND th.approved_l2_at IS NULL
+          )
+          OR (
+            th.status = 'APPROVED'
+            AND th.approved_l1_at IS NOT NULL
+            AND th.approved_l2_at IS NULL
+          )
+        )
+      )
+     )
        AND ($1::uuid IS NULL OR e.primary_division_id = $1)`,
-    [divisionId || null]
+    [divisionId || null, lvl]
   );
   return res.rows[0]?.c || 0;
 }

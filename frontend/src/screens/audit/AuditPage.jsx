@@ -1,33 +1,12 @@
 import React, { useMemo, useState, useEffect } from 'react';
 
-import { PageHeader } from '../../components/PageHeader.jsx';
 import { EmptyState, ErrorState, ForbiddenState, LoadingState } from '../../components/States.jsx';
+import { apiFetch, getApiBaseUrl, getAuthToken } from '../../api/client.js';
 import { usePagedQuery } from '../../hooks/usePagedQuery.js';
 import { useBootstrap } from '../../state/bootstrap.jsx';
 
-const ACTOR_OPTIONS = [
-  { label: 'Admin', value: '00000000-0000-0000-0000-000000000001' },
-  { label: 'System', value: 'system' },
-  { label: 'Service Account', value: 'service-account' }
-];
-
-const MODULE_OPTIONS = [
-  { label: 'Finance', value: 'finance' },
-  { label: 'Payroll', value: 'payroll' },
-  { label: 'Attendance', value: 'attendance' },
-  { label: 'Governance', value: 'governance' },
-  { label: 'System', value: 'system' }
-];
-
-const ACTION_TYPE_OPTIONS = [
-  { label: 'Open', value: 'open' },
-  { label: 'Locked', value: 'locked' },
-  { label: 'Closed', value: 'closed' },
-  { label: 'Read-only', value: 'read-only' }
-];
-
 function buildPath(filters) {
-  const u = new URL('/api/v1/governance/audit', 'http://local');
+  const u = new URL('/api/v1/governance/audit', getApiBaseUrl());
   for (const [k, v] of Object.entries(filters)) {
     if (v === undefined || v === null || v === '' || v === 'undefined') continue;
     u.searchParams.set(k, String(v));
@@ -35,37 +14,20 @@ function buildPath(filters) {
   return u.pathname + u.search;
 }
 
-function mapActionToLabel(action) {
-  const actionMap = {
-    'CREATE': 'Open',
-    'UPDATE': 'Read-only',
-    'ADMIN_LOGIN': 'Read-only',
-    'LOCK': 'Locked',
-    'CLOSE': 'Closed'
-  };
-  return actionMap[action] || 'Read-only';
+function getSeverityBarColor(severity) {
+  const s = String(severity || 'MEDIUM').toUpperCase();
+  if (s === 'CRITICAL') return 'bg-rose-600';
+  if (s === 'HIGH') return 'bg-red-500';
+  if (s === 'MEDIUM') return 'bg-amber-500';
+  return 'bg-slate-400';
 }
 
-function getActionColor(action) {
-  const label = mapActionToLabel(action);
-  switch (label) {
-    case 'Closed': return 'text-red-700';
-    case 'Locked': return 'text-amber-700';
-    case 'Open': return 'text-slate-700';
-    case 'Read-only': return 'text-slate-700';
-    default: return 'text-slate-700';
-  }
-}
-
-function getSeverityBarColor(action) {
-  const label = mapActionToLabel(action);
-  switch (label) {
-    case 'Closed': return 'bg-red-500';
-    case 'Locked': return 'bg-amber-500';
-    case 'Open': return 'bg-slate-400';
-    case 'Read-only': return 'bg-slate-400';
-    default: return 'bg-slate-400';
-  }
+function getSeverityTextColor(severity) {
+  const s = String(severity || 'MEDIUM').toUpperCase();
+  if (s === 'CRITICAL') return 'text-rose-700';
+  if (s === 'HIGH') return 'text-red-700';
+  if (s === 'MEDIUM') return 'text-amber-700';
+  return 'text-slate-700';
 }
 
 function formatActorId(id) {
@@ -202,21 +164,42 @@ export function AuditPage() {
   const { bootstrap } = useBootstrap();
   const title = 'Audit Logs';
 
+  const permissions = bootstrap?.rbac?.permissions || [];
+  const canExport = permissions.includes('GOV_AUDIT_EXPORT') || permissions.includes('SYSTEM_FULL_ACCESS');
+  const hasRead = permissions.includes('GOV_AUDIT_READ') || permissions.includes('SYSTEM_FULL_ACCESS');
+  // Debug: uncomment to see permissions in console
+  console.log('Audit permissions:', { permissions, canExport, hasRead });
+
   const [page, setPage] = useState(1);
   const [pageSize] = useState(20);
 
   // Filter states
-  const [dateRange, setDateRange] = useState('7'); // last 7 days default
-  const [actor, setActor] = useState('');
-  const [module, setModule] = useState('');
-  const [actionType, setActionType] = useState('');
-  const [entityReference, setEntityReference] = useState('');
+  const [createdFrom, setCreatedFrom] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 7);
+    return d.toISOString().slice(0, 10);
+  });
+  const [createdTo, setCreatedTo] = useState(() => new Date().toISOString().slice(0, 10));
+  const [entityType, setEntityType] = useState('');
+  const [entityId, setEntityId] = useState('');
+  const [action, setAction] = useState('');
+  const [severity, setSeverity] = useState('');
+  const [scope, setScope] = useState('');
+  const [divisionId, setDivisionId] = useState('');
+  const [actorId, setActorId] = useState('');
+  const [requestId, setRequestId] = useState('');
+  const [reasonContains, setReasonContains] = useState('');
 
   // Detail drawer state
   const [selectedAudit, setSelectedAudit] = useState(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  const actorBlocked = actor === 'system' || actor === 'service-account';
+  const [timelineStatus, setTimelineStatus] = useState('idle');
+  const [timelineError, setTimelineError] = useState(null);
+  const [timelineItems, setTimelineItems] = useState([]);
+
+  const [exportStatus, setExportStatus] = useState('idle');
+  const [exportError, setExportError] = useState(null);
 
   // Debounced filter application
   useEffect(() => {
@@ -225,36 +208,25 @@ export function AuditPage() {
     }, 300);
 
     return () => clearTimeout(timer);
-  }, [dateRange, actor, module, actionType, entityReference]);
+  }, [createdFrom, createdTo, entityType, entityId, action, severity, scope, divisionId, actorId, requestId, reasonContains]);
 
   const path = useMemo(() => {
-    if (actorBlocked) return '';
     const filters = {};
-    if (module) filters.entityType = module;
-    if (entityReference) filters.entityId = entityReference;
-    if (actor) filters.actorId = actor;
-    // Map UI action types back to backend actions
-    if (actionType) {
-      const backendActionMap = {
-        'open': 'CREATE',
-        'read-only': 'UPDATE',
-        'locked': 'LOCK',
-        'closed': 'CLOSE'
-      };
-      filters.action = backendActionMap[actionType];
-    }
-    if (dateRange) {
-      const days = parseInt(dateRange);
-      const endDate = new Date();
-      const startDate = new Date();
-      startDate.setDate(endDate.getDate() - days);
-      filters.startDate = startDate.toISOString().split('T')[0];
-      filters.endDate = endDate.toISOString().split('T')[0];
-    }
+    if (entityType) filters.entityType = entityType;
+    if (entityId) filters.entityId = entityId;
+    if (action) filters.action = action;
+    if (severity) filters.severity = severity;
+    if (scope) filters.scope = scope;
+    if (divisionId) filters.divisionId = divisionId;
+    if (actorId) filters.actorId = actorId;
+    if (requestId) filters.requestId = requestId;
+    if (reasonContains) filters.reasonContains = reasonContains;
+    if (createdFrom) filters.createdFrom = `${createdFrom}T00:00:00.000Z`;
+    if (createdTo) filters.createdTo = `${createdTo}T23:59:59.999Z`;
     return buildPath(filters);
-  }, [dateRange, actor, module, actionType, entityReference, actorBlocked]);
+  }, [createdFrom, createdTo, entityType, entityId, action, severity, scope, divisionId, actorId, requestId, reasonContains]);
 
-  const list = usePagedQuery({ path: path || '/api/v1/governance/audit', page, pageSize, enabled: !!path && !actorBlocked });
+  const list = usePagedQuery({ path: path || '/api/v1/governance/audit', page, pageSize, enabled: true });
 
   const items = list.data?.items || [];
   const total = list.data?.total || 0;
@@ -262,22 +234,18 @@ export function AuditPage() {
   // Get active filters for display
   const activeFilters = useMemo(() => {
     const filters = [];
-    if (dateRange) filters.push({ label: `Last ${dateRange} days`, key: 'dateRange' });
-    if (actor) {
-      const actorOption = ACTOR_OPTIONS.find(o => o.value === actor);
-      if (actorOption) filters.push({ label: `Actor: ${actorOption.label}`, key: 'actor' });
-    }
-    if (module) {
-      const moduleOption = MODULE_OPTIONS.find(o => o.value === module);
-      if (moduleOption) filters.push({ label: `Module: ${moduleOption.label}`, key: 'module' });
-    }
-    if (actionType) {
-      const actionOption = ACTION_TYPE_OPTIONS.find(o => o.value === actionType);
-      if (actionOption) filters.push({ label: `Action: ${actionOption.label}`, key: 'actionType' });
-    }
-    if (entityReference) filters.push({ label: `Reference: ${entityReference}`, key: 'entityReference' });
+    if (createdFrom || createdTo) filters.push({ label: `Range: ${createdFrom || '…'} → ${createdTo || '…'}`, key: 'createdRange' });
+    if (entityType) filters.push({ label: `Entity: ${entityType}`, key: 'entityType' });
+    if (entityId) filters.push({ label: `Entity ID: ${entityId}`, key: 'entityId' });
+    if (action) filters.push({ label: `Action: ${action}`, key: 'action' });
+    if (severity) filters.push({ label: `Severity: ${severity}`, key: 'severity' });
+    if (scope) filters.push({ label: `Scope: ${scope}`, key: 'scope' });
+    if (divisionId) filters.push({ label: `Division: ${divisionId}`, key: 'divisionId' });
+    if (actorId) filters.push({ label: `Actor: ${actorId}`, key: 'actorId' });
+    if (requestId) filters.push({ label: `Request: ${requestId}`, key: 'requestId' });
+    if (reasonContains) filters.push({ label: `Reason: ${reasonContains}`, key: 'reasonContains' });
     return filters;
-  }, [dateRange, actor, module, actionType, entityReference]);
+  }, [createdFrom, createdTo, entityType, entityId, action, severity, scope, divisionId, actorId, requestId, reasonContains]);
 
   const handleRowClick = (audit) => {
     setSelectedAudit(audit);
@@ -287,245 +255,252 @@ export function AuditPage() {
   const closeDrawer = () => {
     setDrawerOpen(false);
     setSelectedAudit(null);
+    setTimelineStatus('idle');
+    setTimelineError(null);
+    setTimelineItems([]);
   };
 
   const removeFilter = (key) => {
     switch (key) {
-      case 'dateRange': setDateRange(''); break;
-      case 'actor': setActor(''); break;
-      case 'module': setModule(''); break;
-      case 'actionType': setActionType(''); break;
-      case 'entityReference': setEntityReference(''); break;
+      case 'createdRange':
+        setCreatedFrom('');
+        setCreatedTo('');
+        break;
+      case 'entityType': setEntityType(''); break;
+      case 'entityId': setEntityId(''); break;
+      case 'action': setAction(''); break;
+      case 'severity': setSeverity(''); break;
+      case 'scope': setScope(''); break;
+      case 'divisionId': setDivisionId(''); break;
+      case 'actorId': setActorId(''); break;
+      case 'requestId': setRequestId(''); break;
+      case 'reasonContains': setReasonContains(''); break;
+    }
+  };
+
+  useEffect(() => {
+    let alive = true;
+    async function loadTimeline() {
+      if (!drawerOpen || !selectedAudit?.entityType || !selectedAudit?.entityId) return;
+      try {
+        setTimelineStatus('loading');
+        setTimelineError(null);
+        const payload = await apiFetch(
+          `/api/v1/governance/audit/timeline?entityType=${encodeURIComponent(selectedAudit.entityType)}&entityId=${encodeURIComponent(selectedAudit.entityId)}&page=1&pageSize=50`
+        );
+        if (!alive) return;
+        setTimelineItems(payload?.items || []);
+        setTimelineStatus('ready');
+      } catch (e) {
+        if (!alive) return;
+        setTimelineError(e);
+        setTimelineStatus('error');
+      }
+    }
+    loadTimeline();
+    return () => {
+      alive = false;
+    };
+  }, [drawerOpen, selectedAudit?.entityType, selectedAudit?.entityId]);
+
+  const handleExport = async () => {
+    if (!canExport) return;
+    setExportStatus('loading');
+    setExportError(null);
+    try {
+      const body = {
+        from: createdFrom ? `${createdFrom}T00:00:00.000Z` : null,
+        to: createdTo ? `${createdTo}T23:59:59.999Z` : null,
+        format: 'CSV',
+        entityType: entityType || null,
+        entityId: entityId || null,
+        action: action || null,
+        divisionId: divisionId || null,
+        severity: severity || null,
+        reasonContains: reasonContains || null,
+      };
+      const data = await apiFetch('/api/v1/governance/audit/export', {
+        method: 'POST',
+        body,
+      });
+      if (data.downloadUrl) {
+        // Download using authenticated request (Bearer token). Navigation drops headers and can cause 401.
+        const base = getApiBaseUrl();
+        const url = data.downloadUrl.startsWith('http')
+          ? data.downloadUrl
+          : `${String(base).replace(/\/$/, '')}${data.downloadUrl}`;
+
+        const token = getAuthToken();
+        const res = await fetch(url, {
+          method: 'GET',
+          headers: {
+            ...(token ? { authorization: `Bearer ${token}` } : {})
+          }
+        });
+        if (!res.ok) throw new Error(`Download failed: ${res.status}`);
+
+        const blob = await res.blob();
+        const objectUrl = window.URL.createObjectURL(blob);
+
+        const a = document.createElement('a');
+        a.href = objectUrl;
+        a.download = data.fileName || 'audit_export.csv';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+
+        window.URL.revokeObjectURL(objectUrl);
+      } else {
+        throw new Error('No download URL returned');
+      }
+      setExportStatus('success');
+    } catch (e) {
+      setExportError(e);
+      setExportStatus('error');
     }
   };
 
   if (list.status === 'loading' && !list.data) {
-    return (
-      <div className="min-h-screen bg-slate-100">
-        {/* Global Header - matching other pages */}
-        <div className="fixed top-0 left-0 right-0 lg:left-72 z-50 h-16 bg-gradient-to-r from-slate-800 to-slate-900 text-white block sm:block md:block lg:block xl:block">
-          <div className="mx-auto max-w-7xl h-full px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center justify-between w-full">
-              <div className="flex items-center gap-2">
-                <img 
-                  src="/image.png" 
-                  alt="JASIQ" 
-                  className="h-10 w-auto object-contain rounded-lg shadow-sm ring-1 ring-white/10 hover:shadow-md transition-shadow"
-                />
-                <span className="text-sm font-semibold tracking-wide whitespace-nowrap">LABS</span>
-              </div>
-              <div className="hidden sm:flex text-sm text-slate-300 whitespace-nowrap">
-                <span className="text-white">Governance</span>
-                <span className="mx-2">·</span>
-                <span className="text-amber-400">Audit Logs</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="pt-32 sm:pt-32 lg:pt-16">
-          <PageHeader title={title} subtitle="Every critical action, permanently recorded" />
-          <LoadingState />
-        </div>
-      </div>
-    );
+    return <LoadingState />;
   }
 
   if (list.status === 'error') {
     if (list.error?.status === 403) {
-      return (
-        <div className="min-h-screen bg-slate-100">
-          {/* Global Header */}
-          <div className="fixed top-0 left-0 right-0 lg:left-72 z-50 h-16 bg-gradient-to-r from-slate-800 to-slate-900 text-white block sm:block md:block lg:block xl:block">
-            <div className="mx-auto max-w-7xl h-full px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-3">
-              <div className="flex min-w-0 items-center justify-between w-full">
-                <div className="flex items-center gap-2">
-                  <img 
-                    src="/image.png" 
-                    alt="JASIQ" 
-                    className="h-10 w-auto object-contain rounded-lg shadow-sm ring-1 ring-white/10 hover:shadow-md transition-shadow"
-                  />
-                  <span className="text-sm font-semibold tracking-wide whitespace-nowrap">LABS</span>
-                </div>
-                <div className="hidden sm:flex text-sm text-slate-300 whitespace-nowrap">
-                  <span className="text-white">Governance</span>
-                  <span className="mx-2">·</span>
-                  <span className="text-amber-400">Audit Logs</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="pt-32 sm:pt-32 lg:pt-16">
-            <PageHeader title={title} subtitle="Every critical action, permanently recorded" />
-            <ForbiddenState />
-          </div>
-        </div>
-      );
+      return <ForbiddenState />;
     }
-
-    return (
-      <div className="min-h-screen bg-slate-100">
-        {/* Global Header */}
-        <div className="fixed top-0 left-0 right-0 lg:left-72 z-50 h-16 bg-gradient-to-r from-slate-800 to-slate-900 text-white block sm:block md:block lg:block xl:block">
-          <div className="mx-auto max-w-7xl h-full px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center justify-between w-full">
-              <div className="flex items-center gap-2">
-                <img 
-                  src="/image.png" 
-                  alt="JASIQ" 
-                  className="h-10 w-auto object-contain rounded-lg shadow-sm ring-1 ring-white/10 hover:shadow-md transition-shadow"
-                />
-                <span className="text-sm font-semibold tracking-wide whitespace-nowrap">LABS</span>
-              </div>
-              <div className="hidden sm:flex text-sm text-slate-300 whitespace-nowrap">
-                <span className="text-white">Governance</span>
-                <span className="mx-2">·</span>
-                <span className="text-amber-400">Audit Logs</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="pt-32 sm:pt-32 lg:pt-16">
-          <PageHeader title={title} subtitle="Every critical action, permanently recorded" />
-          <ErrorState error={list.error} />
-        </div>
-      </div>
-    );
+    return <ErrorState error={list.error} />;
   }
 
   return (
-    <div className="min-h-screen bg-slate-100">
-      {/* Global Header */}
-      <div className="fixed top-0 left-0 right-0 lg:left-72 z-50 h-16 bg-gradient-to-r from-slate-800 to-slate-900 text-white block sm:block md:block lg:block xl:block">
-        <div className="mx-auto max-w-7xl h-full px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-3">
-          <div className="flex min-w-0 items-center justify-between w-full">
-            <div className="flex items-center gap-2">
-              <img 
-                src="/image.png" 
-                alt="JASIQ" 
-                className="h-10 w-auto object-contain rounded-lg shadow-sm ring-1 ring-white/10 hover:shadow-md transition-shadow"
-              />
-              <span className="text-sm font-semibold tracking-wide whitespace-nowrap">LABS</span>
+    <div className="max-w-6xl mx-auto space-y-5">
+      <div className="text-center space-y-1">
+        <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-amber-500 to-orange-600 rounded-3xl shadow-xl mb-4">
+          <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+        </div>
+        <h1 className="text-4xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">
+          Audit Logs
+        </h1>
+        <p className="text-lg text-slate-600 max-w-2xl mx-auto">
+          Every critical action, permanently recorded with full traceability
+        </p>
+      </div>
+
+      {/* Enhanced Filter Bar */}
+      <div className="bg-white rounded-2xl border border-slate-200/60 shadow-sm overflow-hidden">
+        <div className="bg-gradient-to-r from-amber-50 to-orange-50/50 px-6 py-4 border-b border-slate-200">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-amber-500 rounded-lg flex items-center justify-center">
+              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+              </svg>
             </div>
-            <div className="hidden sm:flex text-sm text-slate-300 whitespace-nowrap">
-              <span className="text-white">Governance</span>
-              <span className="mx-2">·</span>
-              <span className="text-amber-400">Audit Logs</span>
+            <h2 className="text-lg font-bold text-slate-900">Filter Audit Logs</h2>
+            <div className="bg-white px-3 py-1 rounded-full border border-slate-200 shadow-sm">
+              <span className="text-sm font-medium text-slate-700">{total} total</span>
             </div>
           </div>
         </div>
-      </div>
-
-      <div className="pt-32 sm:pt-32 lg:pt-16">
-        <PageHeader title={title} subtitle="Every critical action, permanently recorded" />
-
-        {/* Compact Filter Bar */}
-        <div className="mx-4 mb-4 md:mx-6 lg:mx-8">
-          <div className="bg-white rounded-lg border border-slate-200 p-6 shadow-sm">
-            <div className="flex flex-wrap items-center gap-4">
-              {/* Date Range Dropdown */}
-              <div className="relative">
-                <select
-                  className="px-4 py-3 h-11 w-full bg-white border-2 border-gray-500 rounded-md text-sm text-gray-800 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 leading-none appearance-none pr-12 cursor-pointer hover:border-gray-600 transition-colors duration-150"
-                  value={dateRange}
-                  onChange={(e) => setDateRange(e.target.value)}
-                >
-                  <option value="">All dates</option>
-                  <option value="1">Last 24 hours</option>
-                  <option value="7">Last 7 days</option>
-                  <option value="30">Last 30 days</option>
-                  <option value="90">Last 90 days</option>
-                </select>
-                <span className="absolute right-4 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                  <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M1 1L6 6L11 1" stroke="#374151" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </span>
-              </div>
-
-              {/* Actor Dropdown */}
-              <div className="relative">
-                <select
-                  className="px-4 py-3 h-11 w-full bg-white border border-gray-400 rounded-md text-sm text-gray-800 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 leading-none appearance-none pr-12 cursor-pointer hover:border-gray-500 transition-colors duration-150"
-                  value={actor}
-                  onChange={(e) => setActor(e.target.value)}
-                >
-                  <option value="">All actors</option>
-                  {ACTOR_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
-                  ))}
-                </select>
-                <span className="absolute right-4 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                  <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M1 1L6 6L11 1" stroke="#374151" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </span>
-              </div>
-
-              {/* Module Dropdown */}
-              <div className="relative">
-                <select
-                  className="px-4 py-3 h-11 w-full bg-white border border-gray-400 rounded-md text-sm text-gray-800 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 leading-none appearance-none pr-12 cursor-pointer hover:border-gray-500 transition-colors duration-150"
-                  value={module}
-                  onChange={(e) => setModule(e.target.value)}
-                >
-                  <option value="">All modules</option>
-                  {MODULE_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
-                  ))}
-                </select>
-                <span className="absolute right-4 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                  <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M1 1L6 6L11 1" stroke="#374151" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </span>
-              </div>
-
-              {/* Action Type Dropdown */}
-              <div className="relative">
-                <select
-                  className="px-4 py-3 h-11 w-full bg-white border border-gray-400 rounded-md text-sm text-gray-800 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 leading-none appearance-none pr-12 cursor-pointer hover:border-gray-500 transition-colors duration-150"
-                  value={actionType}
-                  onChange={(e) => setActionType(e.target.value)}
-                >
-                  <option value="">All actions</option>
-                  {ACTION_TYPE_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
-                  ))}
-                </select>
-                <span className="absolute right-4 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                  <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M1 1L6 6L11 1" stroke="#374151" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </span>
-              </div>
-
-              <input
-                type="text"
-                className="px-4 py-3 h-11 bg-white border border-gray-400 rounded-md text-sm text-gray-800 font-medium placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 leading-none hover:border-gray-500 transition-colors duration-150"
-                placeholder="Entity reference"
-                value={entityReference}
-                onChange={(e) => setEntityReference(e.target.value)}
-              />
+        <div className="p-6">
+          <div className="flex flex-wrap items-center gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">From</label>
+              <input type="date" value={createdFrom} onChange={(e) => setCreatedFrom(e.target.value)} className="px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">To</label>
+              <input type="date" value={createdTo} onChange={(e) => setCreatedTo(e.target.value)} className="px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Entity Type</label>
+              <input value={entityType} onChange={(e) => setEntityType(e.target.value)} className="px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm" placeholder="EXPENSE / PAYROLL_RUN" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Entity ID</label>
+              <input value={entityId} onChange={(e) => setEntityId(e.target.value)} className="px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm" placeholder="UUID" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Action</label>
+              <input value={action} onChange={(e) => setAction(e.target.value)} className="px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm" placeholder="CREATE / UPDATE / CLOSE" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Severity</label>
+              <select value={severity} onChange={(e) => setSeverity(e.target.value)} className="px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm">
+                <option value="">All</option>
+                <option value="LOW">LOW</option>
+                <option value="MEDIUM">MEDIUM</option>
+                <option value="HIGH">HIGH</option>
+                <option value="CRITICAL">CRITICAL</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Scope</label>
+              <input value={scope} onChange={(e) => setScope(e.target.value)} className="px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm" placeholder="SYSTEM / USER / API" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Division ID</label>
+              <input value={divisionId} onChange={(e) => setDivisionId(e.target.value)} className="px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm" placeholder="UUID" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Actor ID</label>
+              <input value={actorId} onChange={(e) => setActorId(e.target.value)} className="px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm" placeholder="UUID" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Request ID</label>
+              <input value={requestId} onChange={(e) => setRequestId(e.target.value)} className="px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm" placeholder="x-request-id" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Reason contains</label>
+              <input value={reasonContains} onChange={(e) => setReasonContains(e.target.value)} className="px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm" placeholder="text" />
             </div>
 
-            {/* Active Filters */}
+            {canExport ? (
+              <div className="ml-auto">
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Export</label>
+                <button
+                  type="button"
+                  onClick={handleExport}
+                  disabled={exportStatus === 'loading'}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 text-white text-sm font-semibold shadow hover:from-amber-600 hover:to-orange-700 disabled:opacity-50"
+                >
+                  {exportStatus === 'loading' ? 'Exporting…' : 'Export CSV'}
+                </button>
+                {exportError ? <div className="text-xs text-rose-700 mt-1">{String(exportError.message || exportError)}</div> : null}
+              </div>
+            ) : (
+              <div className="ml-auto">
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Export</label>
+                <button
+                  type="button"
+                  disabled
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-200 text-slate-500 text-sm font-semibold cursor-not-allowed"
+                  title="Export requires GOV_AUDIT_EXPORT or SYSTEM_FULL_ACCESS permission"
+                >
+                  Export CSV
+                </button>
+                <div className="text-xs text-slate-500 mt-1">Permission required</div>
+              </div>
+            )}
+          </div>
+
+            {/* Enhanced Active Filters */}
             {activeFilters.length > 0 && (
               <div className="flex flex-wrap gap-3 mt-6 pt-4 border-t border-slate-200">
                 {activeFilters.map((filter) => (
                   <span
                     key={filter.key}
-                    className="inline-flex items-center gap-2 px-3 py-2 h-11 bg-indigo-50 border border-indigo-200 text-indigo-700 text-sm rounded-md leading-none shadow-sm"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-amber-50 border border-amber-200 text-amber-700 text-sm rounded-full leading-none shadow-sm hover:shadow-md transition-all duration-200"
                   >
                     {filter.label}
                     <button
                       type="button"
-                      className="text-indigo-400 hover:text-indigo-600 leading-none transition-colors duration-200"
+                      className="text-amber-400 hover:text-amber-600 leading-none transition-colors duration-200 hover:scale-110 transform"
                       onClick={() => removeFilter(filter.key)}
                     >
-                      ×
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
                     </button>
                   </span>
                 ))}
@@ -534,85 +509,102 @@ export function AuditPage() {
           </div>
         </div>
 
-        {/* Forensic Timeline */}
-        <div className="mx-4 mb-6 md:mx-6 lg:mx-8">
-          <div className="bg-white rounded-lg border border-slate-200 shadow-sm">
-            {items.length === 0 ? (
-              <div className="p-8">
-                <EmptyState title="No audit logs found" description="Try adjusting your filters to see more results." />
-              </div>
-            ) : (
-              <div className="divide-y divide-slate-200">
-                {items.map((audit) => {
-                  const actorInfo = formatActorId(audit.actorId);
-                  const actionLabel = mapActionToLabel(audit.action);
-                  const actionColor = getActionColor(audit.action);
-                  const severityColor = getSeverityBarColor(audit.action);
-                  const timestampInfo = formatAuditTime(audit.createdAt ?? audit.created_at);
-                  const entityInfo = formatEntity(audit.entityType, audit.entityId, audit.action);
+       {/* Enhanced Forensic Timeline */}
+       <div className="bg-white rounded-2xl border border-slate-200/60 shadow-sm overflow-hidden">
+         <div className="bg-gradient-to-r from-amber-50 to-orange-50/50 px-6 py-4 border-b border-slate-200">
+           <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-amber-500 rounded-lg flex items-center justify-center">
+              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <h2 className="text-lg font-bold text-slate-900">Forensic Timeline</h2>
+            <div className="bg-white px-3 py-1 rounded-full border border-slate-200 shadow-sm">
+              <span className="text-sm font-medium text-slate-700">{items.length} entries</span>
+            </div>
+          </div>
+        </div>
+        {items.length === 0 ? (
+          <div className="p-8">
+            <EmptyState title="No audit logs found" description="Try adjusting your filters to see more results." />
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-200">
+            {items.map((audit) => {
+              const actorInfo = formatActorId(audit.actorId);
+              const severityColor = getSeverityBarColor(audit.severity);
+              const timestampInfo = formatAuditTime(audit.createdAt ?? audit.created_at);
+              const entityInfo = formatEntity(audit.entityType, audit.entityId, audit.action);
 
-                  return (
-                    <div
-                      key={audit.id}
-                      className="relative hover:bg-slate-50 cursor-pointer transition-colors"
-                      onClick={() => handleRowClick(audit)}
-                    >
-                      {/* Severity Bar - 3px width */}
-                      <div className={`absolute left-0 top-0 bottom-0 w-[3px] ${severityColor}`} />
-                      
-                      <div className="p-5 pl-6">
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex-1 min-w-0">
-                            {/* Time - monospace, muted */}
-                            <div className="font-mono text-xs text-slate-500 mb-3" title={timestampInfo.iso}>
-                              {timestampInfo.display}
-                            </div>
-                            
-                            {/* Actor - bold name, muted role */}
-                            <div className="mb-3">
-                              <div className="font-bold text-slate-900 text-base">{actorInfo.name}</div>
-                              <div className="text-sm text-slate-500 mt-0.5">{actorInfo.role}</div>
-                            </div>
-                            
-                            {/* Action and Entity - improved hierarchy */}
-                            <div className="flex items-center gap-4 text-sm">
-                              <span className={`font-semibold ${actionColor}`}>{actionLabel}</span>
-                              <span className="text-slate-600">
-                                {entityInfo.display}
-                              </span>
-                            </div>
+              return (
+                <div
+                  key={audit.id}
+                  className="relative hover:bg-slate-50 cursor-pointer transition-colors"
+                  onClick={() => handleRowClick(audit)}
+                >
+                  {/* Severity Bar - 3px width */}
+                  <div className={`absolute left-0 top-0 h-full w-1 ${severityColor}`} />
+                  
+                  <div className="p-5 pl-6">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        {/* Time - monospace, muted */}
+                        <div className="font-mono text-xs text-slate-500 mb-3" title={timestampInfo.iso}>
+                          {timestampInfo.display}
+                        </div>
+                        
+                        {/* Action and Entity - improved hierarchy */}
+                        <div className="flex items-center gap-4 text-sm">
+                          <span className={`font-semibold ${getSeverityTextColor(audit.severity)}`}>{String(audit.severity || 'MEDIUM').toUpperCase()}</span>
+                          <span className="text-sm font-medium text-slate-700">{String(audit.action || '').toUpperCase() || '—'}</span>
+                          <div className="text-sm font-semibold text-slate-900 truncate">
+                            {entityInfo.display}
                           </div>
+                          <div className="text-xs text-slate-500 mt-1">{actorInfo.name}</div>
                         </div>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-            )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
-        </div>
+        )}
+      </div>
 
-        {/* Pagination */}
-        <div className="mx-4 mb-8 md:mx-6 lg:mx-8">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <button
-              type="button"
-              className="w-full sm:w-auto px-6 py-2 h-10 bg-white border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 hover:border-slate-400 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed transition-all duration-200 shadow-sm"
-              disabled={page <= 1}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-            >
+      {/* Enhanced Pagination */}
+      <div className="bg-white rounded-2xl border border-slate-200/60 shadow-sm p-6">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+          <button
+            type="button"
+            className="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-xl text-sm font-semibold hover:from-amber-600 hover:to-orange-700 disabled:from-slate-300 disabled:to-slate-400 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl disabled:shadow-none transform hover:scale-105 disabled:scale-100"
+            disabled={page <= 1}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+          >
+            <div className="flex items-center gap-2">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
               Previous
-            </button>
-            <div className="text-sm text-slate-600 font-medium">Page {page} / Total {total}</div>
-            <button
-              type="button"
-              className="w-full sm:w-auto px-6 py-2 h-10 bg-white border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 hover:border-slate-400 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed transition-all duration-200 shadow-sm"
-              disabled={page * pageSize >= total}
-              onClick={() => setPage((p) => p + 1)}
-            >
-              Next
-            </button>
+            </div>
+          </button>
+          <div className="text-center">
+            <div className="text-sm font-medium text-slate-900">Page {page}</div>
+            <div className="text-xs text-slate-500">{total} total entries</div>
           </div>
+          <button
+            type="button"
+            className="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-xl text-sm font-semibold hover:from-amber-600 hover:to-orange-700 disabled:from-slate-300 disabled:to-slate-400 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl disabled:shadow-none transform hover:scale-105 disabled:scale-100"
+            disabled={page * pageSize >= total}
+            onClick={() => setPage((p) => p + 1)}
+          >
+            <div className="flex items-center gap-2">
+              Next
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </div>
+          </button>
         </div>
       </div>
 
@@ -624,7 +616,6 @@ export function AuditPage() {
             className="absolute inset-0 bg-black bg-opacity-25"
             onClick={closeDrawer}
           />
-          
           {/* Drawer */}
           <div className="absolute right-0 top-0 h-full w-full md:w-2/5 lg:w-2/5 xl:w-2/5 bg-white shadow-xl overflow-y-auto">
             <div className="sticky top-0 bg-white border-b border-slate-200 p-4">
@@ -646,9 +637,8 @@ export function AuditPage() {
               {/* Action */}
               <div className="pb-4 border-b border-slate-100">
                 <div className="text-sm font-medium text-slate-500 mb-1">Action</div>
-                <div className={`font-medium ${getActionColor(selectedAudit.action)}`}>
-                  {mapActionToLabel(selectedAudit.action)}
-                </div>
+                <div className="font-medium text-slate-900">{String(selectedAudit.action || '').toUpperCase() || '—'}</div>
+                <div className={`text-sm mt-1 font-semibold ${getSeverityTextColor(selectedAudit.severity)}`}>{String(selectedAudit.severity || 'MEDIUM').toUpperCase()}</div>
               </div>
 
               {/* Entity */}
@@ -695,18 +685,18 @@ export function AuditPage() {
               </div>
 
               {/* IP Address (if available) */}
-              {selectedAudit.ipAddress && (
+              {selectedAudit?.meta?.ip && (
                 <div className="pb-4 border-b border-slate-100">
                   <div className="text-sm font-medium text-slate-500 mb-1">IP Address</div>
-                  <div className="font-mono text-sm text-slate-900">{selectedAudit.ipAddress}</div>
+                  <div className="font-mono text-sm text-slate-900">{String(selectedAudit.meta.ip)}</div>
                 </div>
               )}
 
               {/* Device (if available) */}
-              {selectedAudit.userAgent && (
+              {selectedAudit?.meta?.userAgent && (
                 <div className="pb-4 border-b border-slate-100">
                   <div className="text-sm font-medium text-slate-500 mb-1">Device</div>
-                  <div className="text-sm text-slate-900">{selectedAudit.userAgent}</div>
+                  <div className="text-sm text-slate-900">{String(selectedAudit.meta.userAgent)}</div>
                 </div>
               )}
 
@@ -729,43 +719,55 @@ export function AuditPage() {
               )}
 
               {/* JSON Diff */}
-              {(selectedAudit.beforeState || selectedAudit.afterState) && (
+              {(selectedAudit.beforeData || selectedAudit.afterData) && (
                 <div className="pb-4">
                   <div className="text-sm font-medium text-slate-500 mb-3">State Changes</div>
                   
-                  {selectedAudit.beforeState && (
+                  {selectedAudit.beforeData && (
                     <div className="mb-4">
                       <div className="text-xs font-medium text-slate-500 mb-2">Before</div>
                       <pre className="bg-slate-50 p-3 rounded-md text-xs font-mono text-slate-800 overflow-x-auto whitespace-pre-wrap">
-                        {JSON.stringify(JSON.parse(selectedAudit.beforeState), null, 2)}
+                        {JSON.stringify(selectedAudit.beforeData, null, 2)}
                       </pre>
                     </div>
                   )}
                   
-                  {selectedAudit.afterState && (
+                  {selectedAudit.afterData && (
                     <div>
                       <div className="text-xs font-medium text-slate-500 mb-2">After</div>
                       <pre className="bg-slate-50 p-3 rounded-md text-xs font-mono text-slate-800 overflow-x-auto whitespace-pre-wrap">
-                        {JSON.stringify(JSON.parse(selectedAudit.afterState), null, 2)}
+                        {JSON.stringify(selectedAudit.afterData, null, 2)}
                       </pre>
                     </div>
                   )}
                 </div>
               )}
 
-              {/* Export Button - Enhanced primary styling with trust signal */}
-              <div className="pt-4 border-t border-slate-200">
-                <button
-                  type="button"
-                  className="w-full px-6 py-3 h-12 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-lg text-sm font-semibold hover:from-indigo-700 hover:to-indigo-800 disabled:from-slate-300 disabled:to-slate-400 disabled:text-slate-600 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl disabled:shadow-none transform hover:scale-[1.02] disabled:scale-100"
-                  disabled // TODO: Add permission check
-                  title="Export requires additional permissions"
-                >
-                  Export Audit Logs
-                </button>
-                <p className="text-xs text-slate-500 mt-3 text-center leading-relaxed">
-                  Exported audit logs are immutable and watermarked for compliance.
-                </p>
+              {/* Timeline */}
+              <div className="pb-4">
+                <div className="text-sm font-medium text-slate-500 mb-3">Entity Timeline</div>
+                {!selectedAudit?.entityType || !selectedAudit?.entityId ? (
+                  <div className="text-sm text-slate-600">Timeline not available for this event (missing entity reference).</div>
+                ) : timelineStatus === 'loading' ? (
+                  <div className="text-sm text-slate-600">Loading timeline…</div>
+                ) : timelineStatus === 'error' ? (
+                  <div className="text-sm text-rose-700">{String(timelineError?.message || timelineError || 'Failed to load timeline')}</div>
+                ) : timelineItems.length === 0 ? (
+                  <div className="text-sm text-slate-600">No timeline events.</div>
+                ) : (
+                  <div className="space-y-2">
+                    {timelineItems.slice(0, 10).map((t) => (
+                      <div key={t.id} className="rounded-lg border border-slate-200 px-3 py-2">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="text-sm font-semibold text-slate-900">{String(t.action || '').toUpperCase()}</div>
+                          <div className={`text-xs font-semibold ${getSeverityTextColor(t.severity)}`}>{String(t.severity || 'MEDIUM').toUpperCase()}</div>
+                        </div>
+                        <div className="text-xs text-slate-600 mt-1">{formatDisplayTime(t.createdAt ?? t.created_at)}</div>
+                        {t.reason ? <div className="text-xs text-slate-700 mt-1">{String(t.reason)}</div> : null}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>

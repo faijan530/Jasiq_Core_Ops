@@ -112,13 +112,35 @@ export async function updateEmployeeScope(client, { id, scope, primaryDivisionId
 }
 
 export async function getEligibleReportingManagers(client, { divisionId }) {
+  let divisionUuid = null;
+  
+  // If divisionId is provided, validate and convert
+  if (divisionId) {
+    // Check if it's already a UUID
+    if (divisionId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i)) {
+      divisionUuid = divisionId;
+    } else {
+      // Look up by code
+      const divisionRes = await client.query(
+        'SELECT id FROM division WHERE code = $1 AND is_active = true',
+        [divisionId]
+      );
+      
+      if (divisionRes.rows.length === 0) {
+        throw new Error(`Division with code '${divisionId}' not found or inactive`);
+      }
+      
+      divisionUuid = divisionRes.rows[0].id;
+    }
+  }
+  
   const res = await client.query(
     `SELECT id, first_name, last_name, designation
      FROM employee
      WHERE status = 'ACTIVE'
        AND ($1::uuid IS NULL OR primary_division_id = $1)
      ORDER BY first_name ASC, last_name ASC`,
-    [divisionId || null]
+    [divisionUuid]
   );
   return res.rows;
 }
@@ -347,5 +369,113 @@ export async function insertEmployeeDocument(client, row) {
       row.deactivated_by,
       row.deactivated_reason
     ]
+  );
+}
+
+export async function findUserByPasswordSetupToken(client, token) {
+  const res = await client.query(
+    'SELECT * FROM "user" WHERE password_setup_token = $1',
+    [token]
+  );
+  return res.rows[0] || null;
+}
+
+export async function findByPasswordSetupToken(client, token) {
+  return await findUserByPasswordSetupToken(client, token);
+}
+
+export async function getUserByEmail(client, email) {
+  const res = await client.query('SELECT * FROM "user" WHERE email = $1', [String(email || '').trim().toLowerCase()]);
+  return res.rows[0] || null;
+}
+
+export async function getUserByEmployeeId(client, employeeId) {
+  const res = await client.query('SELECT * FROM "user" WHERE employee_id = $1', [employeeId]);
+  return res.rows[0] || null;
+}
+
+export async function insertEmployeeUserAccount(client, row) {
+  const res = await client.query(
+    `INSERT INTO "user" (
+       id,
+       email,
+       password,
+       role,
+       active,
+       employee_id,
+       password_setup_token,
+       password_setup_expiry,
+       account_activated,
+       must_change_password,
+       created_at,
+       updated_at
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,NOW(),NOW())
+     ON CONFLICT (email) DO NOTHING
+     RETURNING *`,
+    [
+      row.id,
+      row.email,
+      row.password,
+      row.role,
+      row.active,
+      row.employee_id,
+      row.password_setup_token,
+      row.password_setup_expiry,
+      row.account_activated
+      ,
+      row.must_change_password ?? true
+    ]
+  );
+  return res.rows[0] || null;
+}
+
+export async function activateUserPassword(client, { userId, passwordHash }) {
+  const res = await client.query(
+    `UPDATE "user"
+     SET password = $2,
+         password_setup_token = NULL,
+         password_setup_expiry = NULL,
+         account_activated = TRUE,
+         active = TRUE,
+         updated_at = NOW()
+     WHERE id = $1
+     RETURNING *`,
+    [userId, passwordHash]
+  );
+  return res.rows[0] || null;
+}
+
+export async function ensureEmployeeUserRole(client, { userId }) {
+  const res = await client.query('SELECT id FROM role WHERE name = $1', ['EMPLOYEE']);
+  const roleId = res.rows[0]?.id || null;
+  if (!roleId) return;
+
+  await client.query(
+    `INSERT INTO user_role (id, user_id, role_id, scope, division_id)
+     VALUES (gen_random_uuid(), $1, $2, 'COMPANY', NULL)
+     ON CONFLICT DO NOTHING`,
+    [userId, roleId]
+  );
+}
+
+export async function getRoleByName(client, roleName) {
+  const res = await client.query('SELECT id FROM role WHERE name = $1', [roleName]);
+  if (res.rows.length === 0) {
+    throw new Error(`Role "${roleName}" not found`);
+  }
+  return res.rows[0].id;
+}
+
+export async function assignUserRole(client, { userId, roleName }) {
+  const roleId = await getRoleByName(client, roleName);
+  
+  await client.query(
+    `INSERT INTO user_role (id, user_id, role_id, scope, division_id)
+     VALUES (gen_random_uuid(), $1, $2, 'COMPANY', NULL)
+     ON CONFLICT (user_id, role_id) DO UPDATE SET
+       role_id = EXCLUDED.role_id,
+       scope = EXCLUDED.scope,
+       division_id = EXCLUDED.division_id`,
+    [userId, roleId]
   );
 }

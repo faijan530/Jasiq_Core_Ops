@@ -1,4 +1,6 @@
 export async function getEmployeeForAttendance(client, employeeId) {
+  console.info('[attendance.getEmployeeForAttendance] looking up employee', { employeeId });
+  
   const res = await client.query(
     `SELECT
        e.*, 
@@ -7,7 +9,19 @@ export async function getEmployeeForAttendance(client, employeeId) {
      WHERE e.id = $1`,
     [employeeId]
   );
-  return res.rows[0] || null;
+  
+  const employee = res.rows[0] || null;
+  console.info('[attendance.getEmployeeForAttendance] lookup result', { 
+    employeeId, 
+    found: !!employee, 
+    employee: employee ? { 
+      id: employee.id, 
+      status: employee.status, 
+      primary_division_id: employee.primary_division_id 
+    } : null 
+  });
+  
+  return employee;
 }
 
 export async function getAttendanceRecordByEmployeeDate(client, { employeeId, attendanceDate }) {
@@ -32,38 +46,44 @@ export async function getAttendanceRecordByEmployeeDate(client, { employeeId, at
 }
 
 export async function insertAttendanceRecord(client, row) {
+  console.log('[attendance.insert] about to insert attendance record');
+  console.info('[attendance.insertAttendanceRecord] executing insert', { 
+    employee_id: row.employee_id, 
+    attendance_date: row.attendance_date, 
+    status: row.status, 
+    source: row.source,
+    marked_by: row.marked_by
+  });
+  
   const res = await client.query(
     `INSERT INTO attendance_record (
-      id, employee_id, attendance_date,
+      employee_id, attendance_date,
       status, source, note,
       marked_by, marked_at,
-      created_at, updated_at, version
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,NOW(),NOW(),NOW(),$8)
+      created_at, updated_at
+    ) VALUES ($1,$2,$3,$4,$5,$6,NOW(),NOW(),NOW())
     ON CONFLICT (employee_id, attendance_date) DO NOTHING
     RETURNING
-      id,
-      employee_id,
-      to_char(attendance_date, 'YYYY-MM-DD') AS attendance_date,
-      status,
-      source,
-      note,
-      marked_by,
-      marked_at,
-      created_at,
-      updated_at,
-      version`,
+      id, employee_id, attendance_date, status, source, note,
+      marked_by, marked_at, created_at, updated_at, version`,
     [
-      row.id,
       row.employee_id,
       row.attendance_date,
       row.status,
       row.source,
-      row.note || null,
-      row.marked_by,
-      row.version
+      row.note,
+      row.marked_by
     ]
   );
-  return res.rows[0] || null;
+  
+  const result = res.rows[0] || null;
+  console.info('[attendance.insertAttendanceRecord] insert completed', { 
+    rowCount: res.rowCount, 
+    result: !!result, 
+    resultId: result?.id 
+  });
+  
+  return result;
 }
 
 export async function updateAttendanceRecord(client, { id, status, source, note, markedBy }) {
@@ -75,7 +95,7 @@ export async function updateAttendanceRecord(client, { id, status, source, note,
          marked_by = $5,
          marked_at = NOW(),
          updated_at = NOW(),
-         version = version + 1
+         version = attendance_record.version + 1
      WHERE id = $1
      RETURNING
        id,
@@ -152,6 +172,9 @@ export async function getMonthCloseStatus(client, { monthEndIso }) {
 }
 
 export async function getTodayDateOnly(client) {
-  const res = await client.query(`SELECT to_char(CURRENT_DATE, 'YYYY-MM-DD') AS today_date`);
+  // Get current date in IST timezone (UTC+5:30)
+  const res = await client.query(`
+    SELECT to_char((CURRENT_TIMESTAMP + INTERVAL '5 hours 30 minutes')::date, 'YYYY-MM-DD') AS today_date
+  `);
   return res.rows[0]?.today_date || null;
 }

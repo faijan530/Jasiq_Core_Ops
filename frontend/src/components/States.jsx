@@ -1,4 +1,5 @@
 import React from 'react';
+import { useBootstrap } from '../state/bootstrap.jsx';
 
 export function LoadingState({ message = 'Loading…' }) {
   return (
@@ -31,7 +32,32 @@ export function EmptyState({ title, description, action }) {
   );
 }
 
-export function ForbiddenState() {
+export function ForbiddenState({ error }) {
+  const { bootstrap } = useBootstrap();
+  const roles = bootstrap?.rbac?.roles || [];
+  const isSuperAdmin = roles.includes('SUPER_ADMIN');
+  
+  // SUPER_ADMIN bypass - never show access denied
+  if (isSuperAdmin) {
+    return (
+      <div className="flex flex-col items-center justify-center p-8 text-center">
+        <div className="w-16 h-16 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-2xl flex items-center justify-center mb-4 shadow-sm">
+          <svg className="w-8 h-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </div>
+        <h3 className="text-lg font-semibold text-slate-900 mb-2">Access Granted</h3>
+        <p className="text-slate-600">
+          As SUPER_ADMIN, you have access to all resources.
+        </p>
+      </div>
+    );
+  }
+
+  // Extract specific error information if available
+  const requiredPermission = error?.requiredPermission;
+  const message = error?.message;
+
   return (
     <div className="flex flex-col items-center justify-center p-8 text-center">
       <div className="w-16 h-16 bg-gradient-to-br from-rose-100 to-pink-100 rounded-2xl flex items-center justify-center mb-4 shadow-sm">
@@ -40,12 +66,21 @@ export function ForbiddenState() {
         </svg>
       </div>
       <h3 className="text-lg font-semibold text-slate-900 mb-2">Access Denied</h3>
-      <p className="text-slate-600">You don't have permission to access this resource.</p>
+      <p className="text-slate-600">
+        {message === 'Forbidden' && requiredPermission 
+          ? `Required permission: ${requiredPermission}`
+          : message || 'You don\'t have permission to access this resource.'
+        }
+      </p>
     </div>
   );
 }
 
 export function ErrorState({ error, onRetry }) {
+  if (error?.status === 403) {
+    return <ForbiddenState error={error} />;
+  }
+
   return (
     <div className="flex flex-col items-center justify-center p-8 text-center">
       <div className="w-16 h-16 bg-gradient-to-br from-rose-100 to-pink-100 rounded-2xl flex items-center justify-center mb-4 shadow-sm">
@@ -53,7 +88,9 @@ export function ErrorState({ error, onRetry }) {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
       </div>
-      <h3 className="text-lg font-semibold text-slate-900 mb-2">Something went wrong</h3>
+      <h3 className="text-lg font-semibold text-slate-900 mb-2">
+        {error?.title || 'Something went wrong'}
+      </h3>
       <p className="text-slate-600 mb-4">{error?.message || 'An unexpected error occurred.'}</p>
       {onRetry && (
         <button

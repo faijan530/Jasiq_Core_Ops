@@ -39,6 +39,16 @@ export function requirePermission({ pool, permissionCode, getDivisionId }) {
       const userId = req.auth?.userId;
       const grants = await getUserGrants(pool, userId);
 
+      if (grants.permissions.includes('SYSTEM_FULL_ACCESS') || grants.roles.includes('SUPER_ADMIN')) {
+        req.authorization = {
+          roles: grants.roles,
+          permissions: grants.permissions
+        };
+
+        next();
+        return;
+      }
+
       const divisionId = getDivisionId ? await getDivisionId(req) : null;
 
       const match = grants.scoped.find((g) => {
@@ -70,6 +80,16 @@ export function requireAnyPermission({ pool, permissionCodes, getDivisionId }) {
     try {
       const userId = req.auth?.userId;
       const grants = await getUserGrants(pool, userId);
+
+      if (grants.permissions.includes('SYSTEM_FULL_ACCESS') || grants.roles.includes('SUPER_ADMIN')) {
+        req.authorization = {
+          roles: grants.roles,
+          permissions: grants.permissions
+        };
+
+        next();
+        return;
+      }
 
       const divisionId = getDivisionId ? await getDivisionId(req) : null;
 

@@ -76,12 +76,6 @@ export function EmployeeProfile() {
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-slate-900 mb-2">My Profile</h1>
-        <p className="text-slate-600">Your personal and employment information</p>
-      </div>
-
       {/* Personal Information Card */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 mb-6">
         <h2 className="text-lg font-semibold text-slate-900 mb-4">Personal Information</h2>
@@ -139,7 +133,7 @@ export function EmployeeProfile() {
           </div>
           <div>
             <div className="text-sm font-medium text-slate-500">Reporting Manager</div>
-            <div className="mt-1 text-sm text-slate-900">{employee?.reportingManager || '—'}</div>
+            <div className="mt-1 text-sm text-slate-900">{employee?.reportingManagerName || '—'}</div>
           </div>
           <div>
             <div className="text-sm font-medium text-slate-500">Employment Type</div>

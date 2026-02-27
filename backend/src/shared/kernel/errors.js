@@ -19,6 +19,10 @@ export function forbidden(message = 'Forbidden') {
   return new AppError({ code: 'FORBIDDEN', message, status: 403 });
 }
 
+export function monthClosed(message = 'Month is closed') {
+  return new AppError({ code: 'MONTH_CLOSED', message, status: 403 });
+}
+
 export function notFound(message = 'Not found') {
   return new AppError({ code: 'NOT_FOUND', message, status: 404 });
 }

@@ -6,6 +6,7 @@ import { EmptyState, ErrorState, ForbiddenState, LoadingState } from '../../comp
 import { useMutation } from '../../hooks/useMutation.js';
 import { usePagedQuery } from '../../hooks/usePagedQuery.js';
 import { useBootstrap } from '../../state/bootstrap.jsx';
+import { getEmployeeBasePath } from '../../utils/roleRouting.js';
 
 function cx(...parts) {
   return parts.filter(Boolean).join(' ');
@@ -90,27 +91,37 @@ function Icon({ name, className }) {
 }
 
 export function EmployeeProfilePage() {
-  const { employeeId } = useParams();
+  const { bootstrap } = useBootstrap();
+  const { id } = useParams();
   const navigate = useNavigate();
 
-  const { bootstrap } = useBootstrap();
+  const employeeId = id;
+
+  useEffect(() => {
+    if (!id) {
+      navigate(getEmployeeBasePath(bootstrap?.rbac?.roles), { replace: true });
+    }
+  }, [id, navigate, bootstrap]);
+
   const permissions = bootstrap?.rbac?.permissions || [];
   const roles = bootstrap?.rbac?.roles || [];
   const features = bootstrap?.features?.flags || {};
   const systemConfig = bootstrap?.systemConfig || {};
 
+  const hasSystemFullAccess = permissions.includes('SYSTEM_FULL_ACCESS');
   const monthCloseEnabled = Boolean(features?.MONTH_CLOSE_ENABLED);
-  const canReadMonthClose = permissions.includes('GOV_MONTH_CLOSE_READ');
-  const canReadAudit = permissions.includes('GOV_AUDIT_READ');
+  const canReadMonthClose = hasSystemFullAccess || permissions.includes('GOV_MONTH_CLOSE_READ');
+  const canReadAudit = hasSystemFullAccess || permissions.includes('GOV_AUDIT_READ');
 
-  const canIdentityWrite = permissions.includes('EMPLOYEE_WRITE');
-  const canCompWrite = permissions.includes('EMPLOYEE_COMPENSATION_WRITE');
-  const canDocWrite = permissions.includes('EMPLOYEE_DOCUMENT_WRITE');
+  const canIdentityWrite = hasSystemFullAccess || permissions.includes('EMPLOYEE_WRITE');
+  const canCompWrite = hasSystemFullAccess || permissions.includes('EMPLOYEE_COMPENSATION_WRITE');
+  const canDocWrite = hasSystemFullAccess || permissions.includes('EMPLOYEE_DOCUMENT_WRITE');
 
+  const isHrAdmin = roles.includes('HR_ADMIN');
   const canSeeCompensationAction = roles.includes('HR_ADMIN') || roles.includes('FINANCE_ADMIN') || roles.includes('FOUNDER');
 
-  const canReadAttendance = permissions.includes('ATTENDANCE_READ');
-  const canReadTimesheet = permissions.includes('TIMESHEET_READ');
+  const canReadAttendance = hasSystemFullAccess || permissions.includes('ATTENDANCE_READ');
+  const canReadTimesheet = hasSystemFullAccess || permissions.includes('TIMESHEET_READ');
   const timesheetEnabledRaw = systemConfig?.TIMESHEET_ENABLED?.value ?? systemConfig?.TIMESHEET_ENABLED;
   const timesheetEnabled = ['true', '1', 'yes', 'enabled', 'on'].includes(String(timesheetEnabledRaw ?? '').trim().toLowerCase());
 
@@ -130,14 +141,11 @@ export function EmployeeProfilePage() {
     let alive = true;
 
     async function run() {
-      if (!employeeId) {
-        setEmpState({ status: 'error', data: null, error: { message: 'Missing employee id' }, refreshIndex: 0 });
-        return;
-      }
+      if (!id) return;
 
       setEmpState((s) => ({ ...s, status: 'loading', error: null }));
       try {
-        const payload = await apiFetch(`/api/v1/employees/${employeeId}`);
+        const payload = await apiFetch(`/api/v1/employees/${id}`);
         if (!alive) return;
         setEmpState((s) => ({ ...s, status: 'ready', data: payload, error: null }));
       } catch (err) {
@@ -151,14 +159,14 @@ export function EmployeeProfilePage() {
     return () => {
       alive = false;
     };
-  }, [employeeId, empState.refreshIndex]);
+  }, [id, empState.refreshIndex]);
 
   const employee = empState.data?.item || null;
   const employeeDivision = employee?.primaryDivisionId ? divisionsById[employee.primaryDivisionId] : null;
   const divisionColor = employeeDivision?.color || '#3B82F6';
 
   const SYSTEM_ROLES = ['SUPER_ADMIN', 'ADMIN', 'COREOPS_ADMIN'];
-  const FUNCTIONAL_ROLES = ['EMPLOYEE', 'MANAGER', 'HR_ADMIN', 'FINANCE_ADMIN'];
+  const FUNCTIONAL_ROLES = ['EMPLOYEE', 'MANAGER', 'HR_ADMIN', 'FINANCE_ADMIN', 'FOUNDER'];
   const currentUserSystemRoles = (roles || []).filter((r) => SYSTEM_ROLES.includes(r));
   const canEditRestrictedFunctional = currentUserSystemRoles.includes('SUPER_ADMIN') || currentUserSystemRoles.includes('ADMIN');
 
@@ -175,7 +183,7 @@ export function EmployeeProfilePage() {
     setRolesDraft(next);
     setRolesEditMode(false);
     setRolesError('');
-  }, [employeeId, empState.refreshIndex, employee?.id]);
+  }, [id, empState.refreshIndex, employee?.id]);
 
   function toggleDraftRole(roleName) {
     if (roleName === 'EMPLOYEE') return;
@@ -210,7 +218,7 @@ export function EmployeeProfilePage() {
   const isMonthClosed = Boolean(monthKey && monthCloseEnabled && canReadMonthClose && closedMonthSet.has(monthKey));
   const readOnlyMode = isMonthClosed;
 
-  const canEditRoles = canIdentityWrite && !readOnlyMode;
+  const canEditRoles = canIdentityWrite && !readOnlyMode && !isHrAdmin;
 
   const updateRolesMutation = useMutation(async ({ id, payload }) => {
     return apiFetch(`/api/v1/employees/${id}`, { method: 'PATCH', body: payload });
@@ -223,10 +231,10 @@ export function EmployeeProfilePage() {
     let alive = true;
 
     async function run() {
-      if (!employeeId) return;
+      if (!id) return;
       setCompState((s) => ({ ...s, status: 'loading', error: null }));
       try {
-        const payload = await apiFetch(`/api/v1/employees/${employeeId}/compensation`);
+        const payload = await apiFetch(`/api/v1/employees/${id}/compensation`);
         if (!alive) return;
         setCompState((s) => ({ ...s, status: 'ready', data: payload, error: null }));
       } catch (err) {
@@ -240,7 +248,7 @@ export function EmployeeProfilePage() {
     return () => {
       alive = false;
     };
-  }, [employeeId, compState.refreshIndex]);
+  }, [id, compState.refreshIndex]);
 
   const compItems = compState.data?.items || compState.data?.item || compState.data?.data || compState.data?.versions || compState.data?.history || [];
   const compList = Array.isArray(compItems) ? compItems : [];
@@ -252,10 +260,10 @@ export function EmployeeProfilePage() {
     let alive = true;
 
     async function run() {
-      if (!employeeId) return;
+      if (!id) return;
       setDocState((s) => ({ ...s, status: 'loading', error: null }));
       try {
-        const payload = await apiFetch(`/api/v1/employees/${employeeId}/documents`);
+        const payload = await apiFetch(`/api/v1/employees/${id}/documents`);
         if (!alive) return;
         setDocState((s) => ({ ...s, status: 'ready', data: payload, error: null }));
       } catch (err) {
@@ -269,24 +277,26 @@ export function EmployeeProfilePage() {
     return () => {
       alive = false;
     };
-  }, [employeeId, docState.refreshIndex]);
+  }, [id, docState.refreshIndex]);
 
   const docItems = docState.data?.items || docState.data?.documents || [];
 
   const auditPath = useMemo(() => {
-    if (!employeeId) return '';
+    if (!id) return '';
     const u = new URL('/api/v1/governance/audit', 'http://local');
     u.searchParams.set('entityType', 'EMPLOYEE');
-    u.searchParams.set('entityId', employeeId);
+    u.searchParams.set('entityId', id);
     return u.pathname + u.search;
-  }, [employeeId]);
+  }, [id]);
 
   const auditList = usePagedQuery({ path: auditPath || '/api/v1/governance/audit', page: 1, pageSize: 50, enabled: Boolean(auditPath) && canReadAudit });
   const auditItems = auditList.data?.items || [];
 
   const scopeHistoryItems = useMemo(() => {
+    const fromEmployee = empState.data?.scopeHistory || [];
+    if (Array.isArray(fromEmployee) && fromEmployee.length > 0) return fromEmployee;
     return auditItems.filter((x) => String(x.action || '').toUpperCase().includes('SCOPE'));
-  }, [auditItems]);
+  }, [auditItems, empState.data]);
 
   const updateIdentityMutation = useMutation(async ({ id, payload }) => {
     return apiFetch(`/api/v1/employees/${id}`, { method: 'PATCH', body: payload });
@@ -363,6 +373,7 @@ export function EmployeeProfilePage() {
   const [docMimeType, setDocMimeType] = useState('');
   const [docSizeBytes, setDocSizeBytes] = useState('');
   const [docReason, setDocReason] = useState('');
+  const [docFile, setDocFile] = useState(null);
 
   const openDocModal = () => {
     setDocType('');
@@ -371,120 +382,54 @@ export function EmployeeProfilePage() {
     setDocMimeType('');
     setDocSizeBytes('');
     setDocReason('');
+    setDocFile(null);
     setDocModalOpen(true);
   };
 
+  async function handleDownloadDocument(docId) {
+    if (!employeeId || !docId) return;
+    const res = await apiFetch(`/api/v1/employees/${employeeId}/documents/${docId}/download`);
+    const url = res?.url;
+    if (url) window.open(url, '_blank', 'noopener,noreferrer');
+  }
+
   if (empState.status === 'loading' && !empState.data) {
-    return (
-      <div className="min-h-screen bg-slate-50">
-        <div className="fixed top-0 left-0 right-0 lg:left-72 z-50 h-16 bg-gradient-to-r from-slate-800 to-slate-900 text-white block sm:block md:block lg:block xl:block">
-          <div className="mx-auto max-w-7xl h-full px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center justify-between w-full">
-              <div className="flex items-center gap-2">
-                <img src="/image.png" alt="JASIQ" className="h-10 w-auto object-contain rounded-lg shadow-sm ring-1 ring-white/10" />
-                <span className="text-sm font-semibold tracking-wide whitespace-nowrap">LABS</span>
-              </div>
-              <div className="hidden sm:flex text-sm text-slate-300 whitespace-nowrap">
-                <span className="text-white">Governance</span>
-                <span className="mx-2">·</span>
-                <span className="text-amber-400">Employees</span>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div className="pt-16 bg-white border-b border-slate-200">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-4">
-            <h1 className="text-xl font-semibold text-slate-900">Employee Profile</h1>
-            <p className="text-sm text-slate-600">Employment record and financial scope</p>
-          </div>
-        </div>
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-6 pb-10">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-            <LoadingState message="Loading employee…" />
-          </div>
-        </div>
-      </div>
-    );
+    return <LoadingState message="Loading employee…" />;
   }
 
   if (empState.status === 'error') {
-    return (
-      <div className="min-h-screen bg-slate-50">
-        <div className="fixed top-0 left-0 right-0 lg:left-72 z-50 h-16 bg-gradient-to-r from-slate-800 to-slate-900 text-white block sm:block md:block lg:block xl:block">
-          <div className="mx-auto max-w-7xl h-full px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center justify-between w-full">
-              <div className="flex items-center gap-2">
-                <img src="/image.png" alt="JASIQ" className="h-10 w-auto object-contain rounded-lg shadow-sm ring-1 ring-white/10" />
-                <span className="text-sm font-semibold tracking-wide whitespace-nowrap">LABS</span>
-              </div>
-              <div className="hidden sm:flex text-sm text-slate-300 whitespace-nowrap">
-                <span className="text-white">Governance</span>
-                <span className="mx-2">·</span>
-                <span className="text-amber-400">Employees</span>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div className="pt-16 bg-white border-b border-slate-200">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-4">
-            <h1 className="text-xl font-semibold text-slate-900">Employee Profile</h1>
-            <p className="text-sm text-slate-600">Employment record and financial scope</p>
-          </div>
-        </div>
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-6 pb-10">
-          {empState.error?.status === 403 ? <ForbiddenState /> : <ErrorState error={empState.error} />}
-        </div>
-      </div>
-    );
+    return empState.error?.status === 403 ? <ForbiddenState /> : <ErrorState error={empState.error} />;
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="fixed top-0 left-0 right-0 lg:left-72 z-50 h-16 bg-gradient-to-r from-slate-800 to-slate-900 text-white block sm:block md:block lg:block xl:block">
-        <div className="mx-auto max-w-7xl h-full px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-3">
-          <div className="flex min-w-0 items-center justify-between w-full">
-            <div className="flex items-center gap-2">
-              <img src="/image.png" alt="JASIQ" className="h-10 w-auto object-contain rounded-lg shadow-sm ring-1 ring-white/10" />
-              <span className="text-sm font-semibold tracking-wide whitespace-nowrap">LABS</span>
-            </div>
-            <div className="hidden sm:flex text-sm text-slate-300 whitespace-nowrap">
-              <span className="text-white">Governance</span>
-              <span className="mx-2">·</span>
-              <span className="text-amber-400">Employees</span>
-            </div>
-          </div>
-        </div>
+    <div className="space-y-5">
+      <div className="text-center space-y-1">
+        <h1 className="text-2xl font-semibold">Employee Profile</h1>
+        <p className="text-sm text-gray-500">Employment record and financial scope</p>
       </div>
 
-      <div className="pt-16 bg-white border-b border-slate-200">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <button
-                type="button"
-                onClick={() => navigate('/admin/employees')}
-                className="flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900 transition-colors"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-                Back to Employees
-              </button>
-              <div>
-                <h1 className="text-xl font-semibold text-slate-900">Employee Profile</h1>
-                <p className="text-sm text-slate-600">Employment record and financial scope</p>
-              </div>
-            </div>
-          </div>
-        </div>
+      <div className="mb-6">
+        <button
+          type="button"
+          onClick={() => navigate('/hr/employees')}
+          className="inline-flex items-center gap-2 px-4 py-2 
+                     bg-white border border-gray-200 
+                     rounded-md shadow-sm
+                     text-sm font-medium text-gray-700
+                     hover:bg-gray-50 hover:shadow
+                     transition-all duration-200"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+          Back to Employees
+        </button>
       </div>
 
       {readOnlyMode ? (
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-4">
-          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-            <div className="text-sm font-semibold text-amber-900">Month is closed. Employee changes are read-only.</div>
-            <div className="mt-1 text-sm text-amber-800">All changes require the month to be open.</div>
-          </div>
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+          <div className="text-sm font-semibold text-amber-900">Month is closed. Employee changes are read-only.</div>
+          <div className="mt-1 text-sm text-amber-800">All changes require the month to be open.</div>
         </div>
       ) : null}
 
@@ -581,13 +526,7 @@ export function EmployeeProfilePage() {
                 </div>
               </div>
               <div className="p-4">
-                {!canReadAudit ? (
-                  <EmptyState title="Audit access required" description="You do not have GOV_AUDIT_READ permission." />
-                ) : auditList.status === 'loading' && !auditList.data ? (
-                  <LoadingState message="Loading scope history…" />
-                ) : auditList.status === 'error' ? (
-                  <ErrorState error={auditList.error} />
-                ) : scopeHistoryItems.length === 0 ? (
+                {scopeHistoryItems.length === 0 ? (
                   <EmptyState title="No scope history" description="Scope changes will appear here." />
                 ) : (
                   <div className="space-y-3">
@@ -595,10 +534,12 @@ export function EmployeeProfilePage() {
                       <div key={h.id} className="rounded-xl border border-slate-200 bg-white p-4">
                         <div className="flex items-start justify-between gap-3">
                           <div>
-                            <div className="text-sm font-semibold text-slate-900">{String(h.action || 'UPDATE')}</div>
-                            <div className="mt-1 text-xs text-slate-600">{h.createdAt ? new Date(h.createdAt).toLocaleString() : '—'}</div>
+                            <div className="text-sm font-semibold text-slate-900">{String(h.scope || h.action || 'UPDATE')}</div>
+                            <div className="mt-1 text-xs text-slate-600">
+                              {h.changedAt || h.createdAt ? new Date(h.changedAt || h.createdAt).toLocaleString() : '—'}
+                            </div>
                           </div>
-                          <div className="text-xs text-slate-600">Actor: {h.actorId || '—'}</div>
+                          <div className="text-xs text-slate-600">Actor: {h.changedBy || h.actorId || '—'}</div>
                         </div>
                       </div>
                     ))}
@@ -689,11 +630,22 @@ export function EmployeeProfilePage() {
                       <div key={d.id || d.storageKey} className="rounded-xl border border-slate-200 bg-white p-4">
                         <div className="flex items-start justify-between gap-3">
                           <div>
-                            <div className="text-sm font-semibold text-slate-900">{d.type || d.docType || 'Document'}</div>
+                            <div className="text-sm font-semibold text-slate-900">{d.documentType || d.type || d.docType || 'Document'}</div>
                             <div className="mt-1 text-xs text-slate-600">{d.fileName || d.filename || d.storageKey || '—'}</div>
                           </div>
-                          <div className="text-xs text-slate-500">{d.createdAt ? new Date(d.createdAt).toLocaleDateString() : '—'}</div>
+                          <div className="text-xs text-slate-500">{d.createdAt || d.markedAt ? new Date(d.createdAt || d.markedAt).toLocaleDateString() : '—'}</div>
                         </div>
+                        {d.id ? (
+                          <div className="mt-3">
+                            <button
+                              type="button"
+                              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                              onClick={() => handleDownloadDocument(d.id)}
+                            >
+                              Download
+                            </button>
+                          </div>
+                        ) : null}
                       </div>
                     ))}
                   </div>
@@ -712,7 +664,7 @@ export function EmployeeProfilePage() {
                   <div className="mt-1 text-sm text-slate-700">{canReadAttendance ? 'Available' : 'Not accessible'}</div>
                   {canReadAttendance ? (
                     <div className="mt-2">
-                      <Link className="text-sm font-medium text-slate-900 underline" to="/admin/attendance">Open Attendance</Link>
+                      <Link className="text-sm font-medium text-slate-900 underline" to="/hr/attendance">Open Attendance</Link>
                     </div>
                   ) : null}
                 </div>
@@ -722,131 +674,6 @@ export function EmployeeProfilePage() {
                   {timesheetEnabled && canReadTimesheet ? (
                     <div className="mt-2">
                       <Link className="text-sm font-medium text-slate-900 underline" to="/timesheet/approvals">Open Timesheets</Link>
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm">
-              <div className="p-4 border-b border-slate-200 flex items-start justify-between gap-4">
-                <div>
-                  <div className="text-sm font-semibold text-slate-900">Roles &amp; Access</div>
-                  <div className="mt-1 text-xs text-slate-500">Functional roles control access to day-to-day operations.</div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:bg-slate-50"
-                    disabled={!canEditRoles || rolesEditMode}
-                    onClick={() => {
-                      setRolesDraft(Array.from(new Set([...(employeeFunctionalRoles || []), 'EMPLOYEE'])));
-                      setRolesEditMode(true);
-                      setRolesError('');
-                    }}
-                    title={!canEditRoles ? 'You do not have permission to edit roles or the month is closed' : undefined}
-                  >
-                    Edit Roles
-                  </button>
-                </div>
-              </div>
-
-              <div className="p-4 space-y-4">
-                <div>
-                  <div className="text-xs font-medium text-slate-500">System Roles</div>
-                  <div className="mt-1 text-xs text-slate-500">System roles are managed via Admin Management and cannot be edited here.</div>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {(employeeSystemRoles.length ? employeeSystemRoles : ['—']).map((r) => (
-                      <span key={r} className="inline-flex items-center rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700 ring-1 ring-inset ring-slate-200">
-                        {r}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="border-t border-slate-200 pt-4">
-                  <div className="text-xs font-medium text-slate-500">Functional Roles</div>
-                  <div className="mt-1 text-xs text-slate-500">Functional roles control attendance, approvals, payroll, and daily operations.</div>
-
-                  <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
-                      <input type="checkbox" checked={true} disabled />
-                      <span className="font-medium">Employee</span>
-                    </label>
-
-                    <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
-                      <input
-                        type="checkbox"
-                        checked={(rolesEditMode ? rolesDraft : employeeFunctionalRoles).includes('MANAGER')}
-                        disabled={!rolesEditMode || !canEditRoles}
-                        onChange={() => toggleDraftRole('MANAGER')}
-                      />
-                      <span className="font-medium">Manager</span>
-                    </label>
-
-                    <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
-                      <input
-                        type="checkbox"
-                        checked={(rolesEditMode ? rolesDraft : employeeFunctionalRoles).includes('HR_ADMIN')}
-                        disabled={!rolesEditMode || !canEditRoles || !canEditRestrictedFunctional}
-                        onChange={() => toggleDraftRole('HR_ADMIN')}
-                      />
-                      <span className="font-medium">HR Admin</span>
-                    </label>
-
-                    <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
-                      <input
-                        type="checkbox"
-                        checked={(rolesEditMode ? rolesDraft : employeeFunctionalRoles).includes('FINANCE_ADMIN')}
-                        disabled={!rolesEditMode || !canEditRoles || !canEditRestrictedFunctional}
-                        onChange={() => toggleDraftRole('FINANCE_ADMIN')}
-                      />
-                      <span className="font-medium">Finance Admin</span>
-                    </label>
-                  </div>
-
-                  {!canEditRestrictedFunctional ? (
-                    <div className="mt-2 text-xs text-slate-500">HR Admin and Finance Admin require SUPER_ADMIN or ADMIN system role.</div>
-                  ) : null}
-
-                  {rolesError ? <div className="mt-2 text-xs text-rose-700">{rolesError}</div> : null}
-
-                  {rolesEditMode ? (
-                    <div className="mt-4 flex items-center justify-end gap-2">
-                      <button
-                        type="button"
-                        className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                        onClick={() => {
-                          setRolesDraft(Array.from(new Set([...(employeeFunctionalRoles || []), 'EMPLOYEE'])));
-                          setRolesEditMode(false);
-                          setRolesError('');
-                        }}
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="button"
-                        className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:bg-slate-200"
-                        disabled={!employeeId || updateRolesMutation.status === 'loading'}
-                        onClick={async () => {
-                          const normalized = Array.from(new Set([...(rolesDraft || []), 'EMPLOYEE'])).filter((r) => FUNCTIONAL_ROLES.includes(r));
-                          if (normalized.length === 0) {
-                            setRolesError('At least one functional role is required.');
-                            return;
-                          }
-                          if (!normalized.includes('EMPLOYEE')) {
-                            setRolesError('EMPLOYEE is required.');
-                            return;
-                          }
-
-                          setRolesError('');
-                          await updateRolesMutation.run({ id: employeeId, payload: { roles: normalized } });
-                          setRolesEditMode(false);
-                          refreshEmployee();
-                        }}
-                      >
-                        Save Roles
-                      </button>
                     </div>
                   ) : null}
                 </div>
@@ -929,11 +756,11 @@ export function EmployeeProfilePage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700">Designation</label>
-                <input className="mt-1 w-full rounded-md border-slate-300 text-sm" value={idDesignation} onChange={(e) => setIdDesignation(e.target.value)} disabled={readOnlyMode} />
+                <input className="mt-1 w-full rounded-md border-slate-300 text-sm" value={idDesignation} onChange={(e) => setIdDesignation(e.target.value)} disabled />
               </div>
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-slate-700">Reporting Manager</label>
-                <input className="mt-1 w-full rounded-md border-slate-300 text-sm" value={idReportingManager} onChange={(e) => setIdReportingManager(e.target.value)} disabled={readOnlyMode} />
+                <input className="mt-1 w-full rounded-md border-slate-300 text-sm" value={idReportingManager} onChange={(e) => setIdReportingManager(e.target.value)} disabled />
               </div>
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-slate-700">Reason (required)</label>
@@ -965,8 +792,6 @@ export function EmployeeProfilePage() {
                     firstName: idFirstName.trim() || null,
                     lastName: idLastName.trim() || null,
                     phone: idPhone.trim() || null,
-                    designation: idDesignation.trim() || null,
-                    reportingManager: idReportingManager.trim() || null,
                     reason: idReason.trim()
                   };
                   await updateIdentityMutation.run({ id: employeeId, payload });
@@ -1153,12 +978,32 @@ export function EmployeeProfilePage() {
                 <input className="mt-1 w-full rounded-md border-slate-300 text-sm" value={docType} onChange={(e) => setDocType(e.target.value)} disabled={readOnlyMode} />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700">File Name</label>
-                <input className="mt-1 w-full rounded-md border-slate-300 text-sm" value={docFileName} onChange={(e) => setDocFileName(e.target.value)} disabled={readOnlyMode} />
-              </div>
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-slate-700">Storage Key</label>
-                <input className="mt-1 w-full rounded-md border-slate-300 text-sm font-mono" value={docStorageKey} onChange={(e) => setDocStorageKey(e.target.value)} disabled={readOnlyMode} />
+                <label className="block text-sm font-medium text-slate-700">File</label>
+                <input
+                  className="mt-1 w-full rounded-md border-slate-300 text-sm"
+                  type="file"
+                  disabled={readOnlyMode}
+                  onChange={(e) => {
+                    const f = e.target.files && e.target.files[0] ? e.target.files[0] : null;
+                    setDocFile(f);
+                    if (!f) {
+                      setDocFileName('');
+                      setDocMimeType('');
+                      setDocSizeBytes('');
+                      setDocStorageKey('');
+                      return;
+                    }
+                    setDocFileName(f.name || 'document');
+                    setDocMimeType(f.type || 'application/octet-stream');
+                    setDocSizeBytes(String(f.size || ''));
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                      const result = typeof reader.result === 'string' ? reader.result : '';
+                      setDocStorageKey(result);
+                    };
+                    reader.readAsDataURL(f);
+                  }}
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700">MIME Type</label>
@@ -1183,13 +1028,13 @@ export function EmployeeProfilePage() {
               <button
                 type="button"
                 className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:bg-slate-200"
-                disabled={readOnlyMode || uploadDocMutation.status === 'loading' || !employeeId || !canDocWrite || docReason.trim().length === 0 || docType.trim().length === 0 || docStorageKey.trim().length === 0}
+                disabled={readOnlyMode || uploadDocMutation.status === 'loading' || !employeeId || !canDocWrite || docReason.trim().length === 0 || docType.trim().length === 0 || docFileName.trim().length === 0 || docStorageKey.trim().length === 0}
                 onClick={async () => {
                   await uploadDocMutation.run({
                     id: employeeId,
                     payload: {
-                      type: docType.trim(),
-                      fileName: docFileName.trim() || null,
+                      documentType: docType.trim(),
+                      fileName: docFileName.trim(),
                       storageKey: docStorageKey.trim(),
                       mimeType: docMimeType.trim() || null,
                       sizeBytes: docSizeBytes.trim() ? Number(docSizeBytes) : null,

@@ -28,6 +28,9 @@ export function authMiddleware({ jwtConfig }) {
       claims: payload
     };
 
+    // Also attach decoded payload to req.user for permission middleware
+    req.user = payload;
+
     next();
   };
 }

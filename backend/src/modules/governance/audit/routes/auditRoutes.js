@@ -13,5 +13,36 @@ export function auditRoutes({ pool }) {
     controller.list
   );
 
+  router.get(
+    '/timeline',
+    requirePermission({ pool, permissionCode: 'GOV_AUDIT_READ' }),
+    controller.timeline
+  );
+
+  router.post(
+    '/export',
+    requirePermission({ pool, permissionCode: 'GOV_AUDIT_EXPORT' }),
+    controller.exportCsv
+  );
+
+  router.get(
+    '/exports/download',
+    requirePermission({ pool, permissionCode: 'GOV_AUDIT_EXPORT' }),
+    controller.downloadExport
+  );
+
+  // Allow SYSTEM_FULL_ACCESS as well for export/download
+  router.post(
+    '/export',
+    requirePermission({ pool, permissionCode: 'SYSTEM_FULL_ACCESS' }),
+    controller.exportCsv
+  );
+
+  router.get(
+    '/exports/download',
+    requirePermission({ pool, permissionCode: 'SYSTEM_FULL_ACCESS' }),
+    controller.downloadExport
+  );
+
   return router;
 }

@@ -38,13 +38,28 @@ function isEmployeeNotLinkedError(err) {
 }
 
 export function MyTimesheet() {
-  const { bootstrap } = useBootstrap();
+  const { bootstrap, token } = useBootstrap();
 
   const permissions = bootstrap?.rbac?.permissions || [];
   const roles = bootstrap?.rbac?.roles || [];
-  const canRead = permissions.includes('TIMESHEET_READ');
-  const isSuperAdmin = roles.includes('SUPER_ADMIN');
-  const isManager = roles.includes('MANAGER');
+  
+  // Fallback: Check JWT token role if bootstrap roles are empty
+  let effectiveRoles = roles;
+  if (roles.length === 0 && token) {
+    try {
+      const tokenPayload = JSON.parse(atob(token.split('.')[1]));
+      const tokenRole = tokenPayload.role || tokenPayload?.claims?.role || tokenPayload?.roles?.[0];
+      if (tokenRole) {
+        effectiveRoles = [tokenRole];
+      }
+    } catch {
+      // Ignore token parsing errors
+    }
+  }
+  
+  const canRead = permissions.includes('TIMESHEET_READ') || effectiveRoles.includes('EMPLOYEE');
+  const isSuperAdmin = effectiveRoles.includes('SUPER_ADMIN');
+  const isManager = effectiveRoles.includes('MANAGER');
 
   const systemConfig = bootstrap?.systemConfig || {};
   const timesheetEnabled = isTruthyConfig(systemConfig?.TIMESHEET_ENABLED?.value ?? systemConfig?.TIMESHEET_ENABLED);

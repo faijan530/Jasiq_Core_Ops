@@ -24,16 +24,16 @@ function normalizeBootstrap(payload) {
     leaveEnabledStr === 'enabled' ||
     leaveEnabledStr === 'on';
 
-  const canReadTimesheet = permissions.includes('TIMESHEET_READ');
-  const canReadApprovals = permissions.includes('TIMESHEET_APPROVAL_QUEUE_READ');
+  const canReadTimesheet = permissions.includes('SYSTEM_FULL_ACCESS') || permissions.includes('TIMESHEET_READ');
+  const canReadApprovals = permissions.includes('SYSTEM_FULL_ACCESS') || permissions.includes('TIMESHEET_APPROVAL_QUEUE_READ');
 
-  const canReadLeaveRequests = permissions.includes('LEAVE_REQUEST_READ');
-  const canApproveLeaveL1 = permissions.includes('LEAVE_APPROVE_L1');
-  const canApproveLeaveL2 = permissions.includes('LEAVE_APPROVE_L2');
-  const canReadLeaveTypes = permissions.includes('LEAVE_TYPE_READ');
-  const canReadLeaveBalances = permissions.includes('LEAVE_BALANCE_READ');
+  const canReadLeaveRequests = permissions.includes('SYSTEM_FULL_ACCESS') || permissions.includes('LEAVE_REQUEST_READ');
+  const canApproveLeaveL1 = permissions.includes('SYSTEM_FULL_ACCESS') || permissions.includes('LEAVE_APPROVE_L1');
+  const canApproveLeaveL2 = permissions.includes('SYSTEM_FULL_ACCESS') || permissions.includes('LEAVE_APPROVE_L2');
+  const canReadLeaveTypes = permissions.includes('SYSTEM_FULL_ACCESS') || permissions.includes('LEAVE_TYPE_READ');
+  const canReadLeaveBalances = permissions.includes('SYSTEM_FULL_ACCESS') || permissions.includes('LEAVE_BALANCE_READ');
 
-  const canManageAdmins = permissions.includes('AUTH_ADMIN_MANAGE');
+  const canManageAdmins = permissions.includes('SYSTEM_FULL_ACCESS') || permissions.includes('AUTH_ADMIN_MANAGE');
 
   const merged = [...navigationItems];
   const existingPaths = new Set(merged.map((i) => i.path));
@@ -96,11 +96,11 @@ function normalizeBootstrap(payload) {
 
   // Remove old static Leave menu items - now handled by role-based configuration above
 
-  if (canManageAdmins && !existingPaths.has('/admin/admin-management')) {
+  if (canManageAdmins && !existingPaths.has('/super-admin/system-config')) {
     merged.push({
       id: 'adminManagement',
       label: 'Admin Management',
-      path: '/admin/admin-management',
+      path: '/super-admin/system-config',
       requiredPermission: 'AUTH_ADMIN_MANAGE'
     });
   }

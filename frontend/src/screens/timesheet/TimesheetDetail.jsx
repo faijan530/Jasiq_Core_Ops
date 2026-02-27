@@ -81,7 +81,11 @@ export function TimesheetDetail() {
 
   const permissions = bootstrap?.rbac?.permissions || [];
   const roles = bootstrap?.rbac?.roles || [];
-  const canRead = permissions.includes('TIMESHEET_READ');
+  const canRead =
+    permissions.includes('TIMESHEET_READ') ||
+    permissions.includes('TIMESHEET_APPROVAL_QUEUE_READ') ||
+    permissions.includes('TIMESHEET_APPROVE_L1') ||
+    permissions.includes('TIMESHEET_APPROVE_L2');
   const canSubmit = permissions.includes('TIMESHEET_SUBMIT');
   const canApproveL1 = permissions.includes('TIMESHEET_APPROVE_L1');
   const canApproveL2 = permissions.includes('TIMESHEET_APPROVE_L2');

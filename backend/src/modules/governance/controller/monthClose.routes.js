@@ -11,7 +11,7 @@ export function monthCloseRoutes({ pool }) {
     '/month-close',
     requirePermission({
       pool,
-      permissionCode: 'MONTH_CLOSE_MANAGE',
+      permissionCode: 'LEAVE_MONTH_CLOSE_OVERRIDE',
       getDivisionId: async () => null
     }),
     controller.close

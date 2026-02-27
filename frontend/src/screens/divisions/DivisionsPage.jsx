@@ -1,7 +1,7 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 
 import { apiFetch } from '../../api/client.js';
-import { PageHeader } from '../../components/PageHeader.jsx';
 import { Table } from '../../components/Table.jsx';
 import { EmptyState, ErrorState, ForbiddenState, LoadingState } from '../../components/States.jsx';
 import { useMutation } from '../../hooks/useMutation.js';
@@ -11,9 +11,37 @@ import { useBootstrap } from '../../state/bootstrap.jsx';
 export function DivisionsPage() {
   const { bootstrap } = useBootstrap();
   const title = bootstrap?.ui?.screens?.divisions?.title || 'Divisions';
+  const canWrite = bootstrap?.permissions?.includes('DIVISION_MANAGE') || false;
+
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { id } = useParams();
+  const roles = bootstrap?.rbac?.roles || [];
+  const isSuperAdmin = roles.includes('SUPER_ADMIN');
 
   const [mode, setMode] = useState('list'); // list | create | view
   const [selectedId, setSelectedId] = useState(null);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+
+  useEffect(() => {
+    const pathname = location?.pathname || '';
+    const isCreateRoute = pathname.endsWith('/divisions/create');
+
+    if (isCreateRoute) {
+      setMode('create');
+      setSelectedId(null);
+      return;
+    }
+
+    if (id) {
+      setMode('view');
+      setSelectedId(id);
+      return;
+    }
+
+    setMode('list');
+    setSelectedId(null);
+  }, [id, location?.pathname]);
 
   const [bannerDismissed, setBannerDismissed] = useState(() => {
     try {
@@ -110,8 +138,7 @@ export function DivisionsPage() {
   }, [detail.data, items, mode, selectedId]);
 
   const openDivision = (divisionId) => {
-    setMode('view');
-    setSelectedId(divisionId);
+    navigate(`/super-admin/divisions/${divisionId}`);
   };
 
   const headerMonthLabel = useMemo(() => {
@@ -137,151 +164,128 @@ export function DivisionsPage() {
   };
 
   if (list.status === 'loading' && !list.data) {
-    return (
-      <div className="min-h-screen bg-slate-100">
-        <PageHeader title={title} subtitle="Manage immutable divisions (activation only)." />
-        <LoadingState />
-      </div>
-    );
+    return <LoadingState />;
   }
 
   if (list.status === 'error') {
     if (list.error?.status === 403) {
-      return (
-        <div className="min-h-screen bg-slate-100">
-          <PageHeader title={title} variant="divisions" />
-          <ForbiddenState />
-        </div>
-      );
+      return <ForbiddenState />;
     }
-
-    return (
-      <div className="min-h-screen bg-slate-100">
-        <PageHeader title={title} variant="divisions" />
-        <ErrorState error={list.error} />
-      </div>
-    );
+    return <ErrorState error={list.error} />;
   }
 
   return (
-    <div className="min-h-screen bg-slate-100">
-      <div className="fixed top-0 left-0 right-0 lg:left-72 z-50 h-16 bg-gradient-to-r from-slate-800 to-slate-900 text-white block sm:block md:block lg:block xl:block">
-        <div className="mx-auto max-w-7xl h-full px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-3">
-          {selectedItem?.id && selectedItem?.name ? (
-            <div className="flex min-w-0 items-center justify-between w-full">
-              <div className="flex min-w-0 items-center gap-3">
-                <div className="flex items-center gap-2">
-                  <img 
-                    src="/image.png" 
-                    alt="JASIQ" 
-                    className="h-8 w-auto object-contain"
-                  />
-                  <span className="text-sm font-semibold tracking-wide whitespace-nowrap">LABS</span>
-                </div>
-                <span className="text-slate-300">·</span>
-                <button
-                  type="button"
-                  className="text-sm font-medium text-white hover:text-slate-200 transition-colors truncate max-w-[120px] md:max-w-none"
-                  onClick={() => openDivision(selectedItem.id)}
-                >
-                  {selectedItem.name}
-                </button>
-              </div>
-              <div className="hidden sm:flex text-sm text-slate-300 whitespace-nowrap">
-                <span className="text-white">{headerMonthLabel}</span>
-                <span className="mx-2">·</span>
-                <span className="text-emerald-400">OPEN</span>
-              </div>
+    <div className="max-w-6xl mx-auto space-y-5">
+      <div className="text-center space-y-1">
+        <h1 className="text-2xl font-semibold">
+          Divisions
+        </h1>
+        <p className="text-sm text-gray-500">
+          Root of financial attribution
+        </p>
+      </div>
+      
+      <div className="flex justify-center mb-6">
+        <div className="flex items-center gap-4">
+          {isSuperAdmin ? (
+            <button
+              type="button"
+              className="group relative inline-flex items-center gap-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-green-600 px-6 py-3 text-sm font-semibold text-white shadow-lg hover:shadow-xl hover:from-emerald-700 hover:to-green-700 transition-all duration-200 transform hover:scale-105"
+              onClick={() => navigate('/super-admin/divisions/create')}
+            >
+              <div className="absolute inset-0 rounded-2xl bg-white opacity-0 group-hover:opacity-20 transition-opacity" />
+              <svg className="w-5 h-5 relative" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              <span className="relative">Add Division</span>
+            </button>
+          ) : null}
+          {headerMonthLabel ? (
+            <div className="hidden sm:flex items-center gap-2 px-4 py-2 bg-emerald-50 border border-emerald-200 rounded-full">
+              <span className="text-sm text-emerald-700 font-medium">{headerMonthLabel}</span>
+              <span className="text-emerald-600 font-bold text-xs bg-emerald-200 px-2 py-1 rounded-full">OPEN</span>
             </div>
-          ) : (
-            <div className="flex min-w-0 items-center justify-between w-full">
-              <div className="flex items-center gap-2">
-                <img 
-                  src="/image.png" 
-                  alt="JASIQ" 
-                  className="h-10 w-auto object-contain rounded-lg shadow-sm ring-1 ring-white/10 hover:shadow-md transition-shadow"
-                />
-                <span className="text-sm font-semibold tracking-wide whitespace-nowrap">LABS</span>
-              </div>
-              {headerMonthLabel ? (
-                <div className="hidden sm:flex text-sm text-slate-300 whitespace-nowrap">
-                  <span className="text-white">{headerMonthLabel}</span>
-                  <span className="mx-2">·</span>
-                  <span className="text-emerald-400">OPEN</span>
-                </div>
-              ) : null}
-            </div>
-          )}
+          ) : null}
         </div>
       </div>
 
-      <div className="pt-32 sm:pt-32 lg:pt-16">
-      <PageHeader
-        title="Divisions"
-        subtitle="Root of financial attribution"
-        variant="divisions"
-        actions={
-          <div className="flex items-center gap-3">
-            <div className="hidden sm:block">
-              <input
-                className="h-9 w-64 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 placeholder:text-slate-400"
-                placeholder="Search divisions…"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
+      {/* Search and Content */}
+      <div className="bg-white rounded-2xl border border-slate-200/60 shadow-sm overflow-hidden">
+        <div className="bg-gradient-to-r from-emerald-50 to-green-50/50 px-6 py-4 border-b border-slate-200">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex-1 max-w-md">
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35m1.35-5.65a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z" />
+                  </svg>
+                </div>
+                <input
+                  className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-300 bg-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all duration-200 shadow-sm hover:shadow-md"
+                  placeholder="Search divisions by name or code…"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
             </div>
             <button
               type="button"
-              className="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-black disabled:bg-slate-400 whitespace-nowrap"
+              className="inline-flex items-center gap-2 px-4 py-3 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 transition-all duration-200 shadow-sm"
               onClick={() => {
-                setMode('create');
-                setSelectedId(null);
-                setCode('');
-                setName('');
-                setDivisionType('INTERNAL');
-                setDescription('');
-                setCreateReason('');
+                setSearchTerm('');
+                navigate('/super-admin/divisions');
               }}
-              disabled={createMutation.status === 'loading' || toggleMutation.status === 'loading'}
             >
-              <span className="hidden sm:inline">+ Add Division</span>
-              <span className="sm:hidden">+ Add</span>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+              Clear
             </button>
           </div>
-        }
-      />
+        </div>
 
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pb-8">
-        {!bannerDismissed ? (
-          <div className="mb-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="flex items-start justify-between gap-4">
-              <div className="text-sm text-slate-700">
-                <div>Divisions define financial truth.</div>
-                <div>Every salary, expense, and income is ultimately attributed here.</div>
+        <div className="p-4">
+          {!bannerDismissed ? (
+            <div className="mb-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="flex items-start justify-between gap-4">
+                <div className="text-sm text-slate-700">
+                  <div>Divisions define financial truth.</div>
+                  <div>Every salary, expense, and income is ultimately attributed here.</div>
+                </div>
+                <button
+                  type="button"
+                  className="text-sm font-medium text-indigo-800 hover:underline"
+                  onClick={() => {
+                    setBannerDismissed(true);
+                    try {
+                      window.localStorage.setItem('divisions_context_banner_dismissed', '1');
+                    } catch {
+                      // ignore
+                    }
+                  }}
+                >
+                  Dismiss
+                </button>
               </div>
-              <button
-                type="button"
-                className="text-sm font-medium text-indigo-800 hover:underline"
-                onClick={() => {
-                  setBannerDismissed(true);
-                  try {
-                    window.localStorage.setItem('divisions_context_banner_dismissed', '1');
-                  } catch {
-                    // ignore
-                  }
-                }}
-              >
-                Dismiss
-              </button>
             </div>
-          </div>
-        ) : null}
+          ) : null}
 
         {mode === 'list' ? (
-          <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
-            <div className="p-4 border-b border-slate-200 flex items-center justify-between">
-              <div className="text-sm font-semibold text-slate-900">Divisions</div>
-              <div className="text-xs text-slate-500">Total: {total}</div>
+          <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <div className="bg-gradient-to-r from-slate-50 to-slate-100/50 px-6 py-4 border-b border-slate-200">
+              <div className="flex items-center justify-between">
+                <div className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                  <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center">
+                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    </svg>
+                  </div>
+                  Divisions
+                </div>
+                <div className="bg-white px-3 py-1 rounded-full border border-slate-200 shadow-sm">
+                  <span className="text-sm font-medium text-slate-700">{total} total</span>
+                </div>
+              </div>
             </div>
 
             <div className="p-4">
@@ -290,15 +294,15 @@ export function DivisionsPage() {
               ) : (
                 <>
                   {/* Mobile card layout */}
-                  <div className="grid grid-cols-1 gap-4 md:hidden">
+                  <div className="grid grid-cols-1 gap-4 md:hidden p-4">
                     {filteredItems.map((d) => (
-                      <div key={d.id} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                      <div key={d.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm hover:shadow-md transition-all duration-200">
                         {/* Division name and created date header */}
                         <div className="mb-4 pb-3 border-b border-slate-100">
                           <div className="flex items-center justify-between mb-2">
                             <button
                               type="button"
-                              className="text-base font-semibold text-slate-900 hover:text-indigo-800 transition-colors text-left"
+                              className="text-lg font-bold text-slate-900 hover:text-emerald-700 transition-colors text-left flex-1"
                               onClick={() => {
                                 openDivision(d.id);
                               }}
@@ -307,18 +311,18 @@ export function DivisionsPage() {
                             </button>
                             <div>
                               {d.isActive ? (
-                                <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-1 text-xs font-medium text-emerald-700">
+                                <span className="inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700 border border-emerald-200">
                                   Active
                                 </span>
                               ) : (
-                                <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600">
+                                <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600 border border-slate-200">
                                   Inactive
                                 </span>
                               )}
                             </div>
                           </div>
                           <div className="flex items-center text-sm text-slate-600">
-                            <svg className="w-4 h-4 mr-1.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-4 h-4 mr-2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                             </svg>
                             Created {createdOn(d)}
@@ -328,12 +332,12 @@ export function DivisionsPage() {
                         {/* Division details */}
                         <div className="space-y-3 text-sm">
                           <div className="flex items-center justify-between">
-                            <span className="text-slate-600 font-medium">Code</span>
-                            <span className="font-mono text-slate-900 bg-slate-50 px-2 py-1 rounded">{d.code}</span>
+                            <span className="text-slate-600 font-semibold">Code</span>
+                            <span className="font-mono text-slate-900 bg-slate-50 px-3 py-1 rounded-lg border border-slate-200">{d.code}</span>
                           </div>
                           <div className="flex items-center justify-between">
-                            <span className="text-slate-600 font-medium">Type</span>
-                            <span className="inline-flex rounded-full border border-slate-300 px-2 py-0.5 text-xs text-slate-700">
+                            <span className="text-slate-600 font-semibold">Type</span>
+                            <span className="inline-flex rounded-full border border-slate-300 px-3 py-1 text-xs font-medium text-slate-700 bg-white">
                               {typeBadge(d)}
                             </span>
                           </div>
@@ -343,7 +347,7 @@ export function DivisionsPage() {
                         <div className="mt-4 pt-3 border-t border-slate-100">
                           <button
                             type="button"
-                            className="w-full flex items-center justify-center gap-2 rounded-md bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-800 hover:bg-indigo-100 transition-colors"
+                            className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-50 to-green-50 px-4 py-3 text-sm font-semibold text-emerald-800 hover:from-emerald-100 hover:to-green-100 transition-all duration-200 border border-emerald-200"
                             onClick={() => {
                               openDivision(d.id);
                             }}
@@ -457,8 +461,7 @@ export function DivisionsPage() {
                   type="button"
                   className="rounded-md border border-slate-400 bg-slate-800 px-3 py-2 text-sm font-medium text-white shadow-md hover:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2"
                   onClick={() => {
-                    setMode('list');
-                    setSelectedId(null);
+                    navigate('/super-admin/divisions');
                   }}
                 >
                   ← Back
@@ -594,22 +597,7 @@ export function DivisionsPage() {
                 ) : null}
 
                 {mode === 'view' && selectedItem ? (
-                  <button
-                    type="button"
-                    className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:bg-slate-50"
-                    disabled={
-                      toggleMutation.status === 'loading' ||
-                      (selectedItem.isActive && selectedItem.canDeactivate === false)
-                    }
-                    onClick={() => {
-                      setActivationTarget(selectedItem);
-                      setActivationIsActive(!selectedItem.isActive);
-                      setActivationReason('');
-                      setActivationModalOpen(true);
-                    }}
-                  >
-                    {selectedItem.isActive ? 'Deactivate' : 'Activate'}
-                  </button>
+                  null
                 ) : null}
 
                 {mode === 'view' && selectedItem?.isActive && selectedItem?.canDeactivate === false ? (

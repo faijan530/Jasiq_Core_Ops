@@ -1,0 +1,35 @@
+BEGIN;
+
+-- Finance admins can operate month close + adjustments
+INSERT INTO role_permission (role_id, permission_id)
+SELECT r.id, p.id
+FROM role r, permission p
+WHERE r.name = 'FINANCE_ADMIN'
+  AND p.code IN (
+    'MONTH_CLOSE_VIEW',
+    'MONTH_CLOSE_PREVIEW',
+    'MONTH_CLOSE_EXECUTE',
+    'ADJUSTMENT_CREATE',
+    'ADJUSTMENT_VIEW'
+  )
+  AND NOT EXISTS (
+    SELECT 1 FROM role_permission rp
+    WHERE rp.role_id = r.id AND rp.permission_id = p.id
+  );
+
+-- Governance admins can at least view/preview
+INSERT INTO role_permission (role_id, permission_id)
+SELECT r.id, p.id
+FROM role r, permission p
+WHERE r.name = 'COREOPS_ADMIN'
+  AND p.code IN (
+    'MONTH_CLOSE_VIEW',
+    'MONTH_CLOSE_PREVIEW',
+    'ADJUSTMENT_VIEW'
+  )
+  AND NOT EXISTS (
+    SELECT 1 FROM role_permission rp
+    WHERE rp.role_id = r.id AND rp.permission_id = p.id
+  );
+
+COMMIT;

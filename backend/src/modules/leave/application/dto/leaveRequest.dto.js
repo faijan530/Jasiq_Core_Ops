@@ -16,7 +16,7 @@ export const createLeaveRequestSchema = Joi.object({
 
 export const listLeaveRequestsQuerySchema = Joi.object({
   employeeId: Joi.string().uuid().optional(),
-  status: Joi.string().valid('SUBMITTED', 'APPROVED', 'REJECTED', 'CANCELLED').optional(),
+  status: Joi.string().valid('SUBMITTED', 'PENDING_L1', 'PENDING_L2', 'APPROVED', 'REJECTED', 'CANCELLED').optional(),
   divisionId: Joi.string().uuid().optional(),
   page: Joi.number().integer().min(1).optional(),
   pageSize: Joi.number().integer().min(1).max(200).optional()

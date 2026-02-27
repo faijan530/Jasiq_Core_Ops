@@ -112,6 +112,9 @@ export async function updateLeaveRequestStatus(client, { id, status, fields, exp
 }
 
 export async function listLeaveRequests(client, { employeeId, status, divisionId, offset, limit }) {
+  const statusParam = status || null;
+  const isPendingL2 = String(statusParam || '').toUpperCase() === 'PENDING_L2';
+
   const res = await client.query(
     `SELECT
        lr.id,
@@ -148,24 +151,56 @@ export async function listLeaveRequests(client, { employeeId, status, divisionId
      JOIN employee e ON e.id = lr.employee_id
      JOIN leave_type lt ON lt.id = lr.leave_type_id
      WHERE ($1::uuid IS NULL OR lr.employee_id = $1)
-       AND ($2::text IS NULL OR lr.status = $2)
+       AND (
+         $2::text IS NULL
+         OR lr.status = $2
+         OR (
+           $6::boolean = true
+           AND lr.status = 'SUBMITTED'
+           AND lr.approved_l1_at IS NOT NULL
+           AND lr.approved_l2_at IS NULL
+         )
+         OR (
+           $6::boolean = true
+           AND lr.status = 'APPROVED'
+           AND lr.approved_l1_at IS NOT NULL
+           AND lr.approved_l2_at IS NULL
+         )
+       )
        AND ($3::uuid IS NULL OR e.primary_division_id = $3)
      ORDER BY lr.updated_at DESC, lr.created_at DESC
      OFFSET $4 LIMIT $5`,
-    [employeeId || null, status || null, divisionId || null, offset, limit]
+    [employeeId || null, statusParam, divisionId || null, offset, limit, isPendingL2]
   );
   return res.rows;
 }
 
 export async function countLeaveRequests(client, { employeeId, status, divisionId }) {
+  const statusParam = status || null;
+  const isPendingL2 = String(statusParam || '').toUpperCase() === 'PENDING_L2';
   const res = await client.query(
     `SELECT COUNT(*)::int AS c
      FROM leave_request lr
      JOIN employee e ON e.id = lr.employee_id
      WHERE ($1::uuid IS NULL OR lr.employee_id = $1)
-       AND ($2::text IS NULL OR lr.status = $2)
+       AND (
+         $2::text IS NULL
+         OR lr.status = $2
+         OR (
+           $4::boolean = true
+           AND lr.status = 'SUBMITTED'
+           AND lr.approved_l1_at IS NOT NULL
+           AND lr.approved_l2_at IS NULL
+         )
+         OR (
+           $4::boolean = true
+           AND lr.status = 'APPROVED'
+           AND lr.approved_l1_at IS NOT NULL
+           AND lr.approved_l2_at IS NULL
+         )
+       )
        AND ($3::uuid IS NULL OR e.primary_division_id = $3)`,
-    [employeeId || null, status || null, divisionId || null]
+    [employeeId || null, statusParam, divisionId || null, isPendingL2]
   );
   return res.rows[0]?.c || 0;
 }

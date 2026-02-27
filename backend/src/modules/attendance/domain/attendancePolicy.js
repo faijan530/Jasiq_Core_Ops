@@ -60,7 +60,7 @@ export function assertAttendanceStatus(status) {
 
 export function assertAttendanceSource(source) {
   const s = String(source || '').toUpperCase();
-  if (s !== 'HR' && s !== 'SYSTEM' && s !== 'SELF') {
+  if (s !== 'SELF' && s !== 'SYSTEM' && s !== 'IMPORT' && s !== 'MANUAL' && s !== 'HR') {
     throw badRequest('Invalid attendance source');
   }
 }
@@ -101,9 +101,9 @@ export function assertSelfMarkingAllowed({ actorId, employeeId, source, selfMark
   if (!selfMarkEnabled) {
     throw forbidden('Self marking is disabled');
   }
-  if (String(actorId) !== String(employeeId)) {
-    throw forbidden('Cannot self mark for another employee');
-  }
+  // For self-marking, we need to verify the user is associated with the employee
+  // This check is now handled in the service layer by resolving user to employee
+  // So we allow the check to pass here since the service has already validated the relationship
 }
 
 export function monthEndForAttendanceDate(attendanceDateIso) {

@@ -21,6 +21,32 @@ export function toDateOnly(value) {
   return null;
 }
 
+// Get current date in IST timezone (UTC+5:30)
+export function getCurrentDateInIST() {
+  const now = new Date();
+  // Convert to IST (UTC+5:30)
+  const istOffset = 5.5 * 60 * 60 * 1000; // 5.5 hours in milliseconds
+  const istTime = new Date(now.getTime() + istOffset + (now.getTimezoneOffset() * 60 * 1000));
+  return istTime.toISOString().split('T')[0];
+}
+
+// Get current month in IST timezone (YYYY-MM format)
+export function getCurrentMonthInIST() {
+  return getCurrentDateInIST().slice(0, 7);
+}
+
+// Format date for display in IST
+export function formatDateInIST(dateString) {
+  if (!dateString) return '';
+  const date = new Date(dateString + 'T00:00:00.000+05:30');
+  return date.toLocaleDateString('en-IN', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'Asia/Kolkata'
+  });
+}
+
 export function buildMonthDays(year, monthIndex) {
   const days = [];
   const m = monthIndex + 1;

@@ -13,7 +13,10 @@ export async function assertActorCanAccessEmployee(client, { actorId, permission
        AND p.code = $2
        AND (
          ur.scope = 'COMPANY'
-         OR (ur.scope = 'DIVISION' AND $3::uuid IS NOT NULL AND ur.division_id = $3)
+         OR (ur.scope = 'DIVISION' AND (
+           ($3::uuid IS NOT NULL AND ur.division_id = $3)
+           OR ($3::uuid IS NULL)
+         ))
        )
      LIMIT 1`,
     [actorId, permissionCode, divisionId]
@@ -34,6 +37,9 @@ export async function getEmployeeDivisionIdByLeaveRequestId(client, { leaveReque
 }
 
 export async function getTodayDateOnly(client) {
-  const res = await client.query(`SELECT to_char(CURRENT_DATE, 'YYYY-MM-DD') AS today_date`);
+  // Get current date in IST timezone (UTC+5:30)
+  const res = await client.query(`
+    SELECT to_char((CURRENT_TIMESTAMP + INTERVAL '5 hours 30 minutes')::date, 'YYYY-MM-DD') AS today_date
+  `);
   return res.rows[0]?.today_date || null;
 }

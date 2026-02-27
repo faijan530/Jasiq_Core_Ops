@@ -2,11 +2,11 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { apiFetch } from '../../api/client.js';
-import { PageHeader } from '../../components/PageHeader.jsx';
 import { EmptyState, ErrorState, ForbiddenState, LoadingState } from '../../components/States.jsx';
 import { useMutation } from '../../hooks/useMutation.js';
 import { usePagedQuery } from '../../hooks/usePagedQuery.js';
 import { useBootstrap } from '../../state/bootstrap.jsx';
+import { getEmployeeAddPath, getEmployeeViewPath } from '../../utils/roleRouting.js';
 
 function cx(...parts) {
   return parts.filter(Boolean).join(' ');
@@ -216,9 +216,10 @@ export function EmployeesPage() {
   const navigate = useNavigate();
 
   const permissions = bootstrap?.rbac?.permissions || [];
-  const canWrite = permissions.includes('EMPLOYEE_WRITE');
-  const canCompWrite = permissions.includes('EMPLOYEE_COMPENSATION_WRITE');
-  const canDocWrite = permissions.includes('EMPLOYEE_DOCUMENT_WRITE');
+  const hasSystemFullAccess = permissions.includes('SYSTEM_FULL_ACCESS');
+  const canWrite = hasSystemFullAccess || permissions.includes('EMPLOYEE_WRITE');
+  const canCompWrite = hasSystemFullAccess || permissions.includes('EMPLOYEE_COMPENSATION_WRITE');
+  const canDocWrite = hasSystemFullAccess || permissions.includes('EMPLOYEE_DOCUMENT_WRITE');
 
   const [page, setPage] = useState(1);
   const [pageSize] = useState(20);
@@ -227,6 +228,7 @@ export function EmployeesPage() {
   const [scope, setScope] = useState('');
   const [status, setStatus] = useState('');
   const [search, setSearch] = useState('');
+  const [viewMode, setViewMode] = useState('grid');
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
 
   const divisions = usePagedQuery({ path: '/api/v1/governance/divisions', page: 1, pageSize: 200, enabled: true });
@@ -515,30 +517,14 @@ export function EmployeesPage() {
   };
 
   if (list.status === 'loading' && !list.data) {
-    return (
-      <div className="min-h-screen bg-slate-50">
-        <PageHeader title={title} />
-        <LoadingState />
-      </div>
-    );
+    return <LoadingState />;
   }
 
   if (list.status === 'error') {
     if (list.error?.status === 403) {
-      return (
-        <div className="min-h-screen bg-slate-50">
-          <PageHeader title={title} />
-          <ForbiddenState />
-        </div>
-      );
+      return <ForbiddenState />;
     }
-
-    return (
-      <div className="min-h-screen bg-slate-50">
-        <PageHeader title={title} />
-        <ErrorState error={list.error} />
-      </div>
-    );
+    return <ErrorState error={list.error} />;
   }
 
   const ReadOnlyContextPanel = (
@@ -605,174 +591,296 @@ export function EmployeesPage() {
   );
 
   return (
-    <>
-    <div className="min-h-screen bg-slate-50">
-      {/* Global Header */}
-      <div className="fixed top-0 left-0 right-0 lg:left-72 z-50 h-16 bg-gradient-to-r from-slate-800 to-slate-900 text-white block sm:block md:block lg:block xl:block">
-        <div className="mx-auto max-w-7xl h-full px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-3">
-          <div className="flex min-w-0 items-center justify-between w-full">
-            <div className="flex items-center gap-2">
-              <img 
-                src="/image.png" 
-                alt="JASIQ" 
-                className="h-10 w-auto object-contain rounded-lg shadow-sm ring-1 ring-white/10 hover:shadow-md transition-shadow"
-              />
-              <span className="text-sm font-semibold tracking-wide whitespace-nowrap">LABS</span>
-            </div>
-            <div className="hidden sm:flex text-sm text-slate-300 whitespace-nowrap">
-              <span className="text-white">Governance</span>
-              <span className="mx-2">·</span>
-              <span className="text-amber-400">Employees</span>
-            </div>
-          </div>
-        </div>
+    <div className="max-w-6xl mx-auto space-y-5">
+      <div className="text-center space-y-1">
+        <h1 className="text-2xl font-semibold">
+          Employees
+        </h1>
+        <p className="text-sm text-gray-500">
+          Employment records and financial scope
+        </p>
+      </div>
+      
+      <div className="flex justify-center mb-6">
+        {canWrite ? (
+          <button
+            type="button"
+            className="group relative inline-flex items-center gap-3 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-3 text-sm font-semibold text-white shadow-lg hover:shadow-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 transform hover:scale-105"
+            onClick={() => navigate(getEmployeeAddPath(bootstrap?.rbac?.roles))}
+          >
+            <div className="absolute inset-0 rounded-2xl bg-white opacity-0 group-hover:opacity-20 transition-opacity" />
+            <svg className="w-5 h-5 relative" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            <span className="relative">Add Employee</span>
+          </button>
+        ) : null}
       </div>
 
-      {/* Persistent Page Header */}
-      <div className="pt-16 sm:pt-16 lg:pt-16 bg-white border-b border-slate-200">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-xl font-semibold text-slate-900">Employees</h1>
-              <p className="text-sm text-slate-600">Employment records and financial scope</p>
-            </div>
-            <div className="flex items-center gap-2">
-              {canWrite ? (
-                <button
-                  type="button"
-                  className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
-                  onClick={() => navigate('/admin/employees/add')}
-                >
-                  Add Employee
-                </button>
-              ) : null}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-white border-b border-slate-200">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-3">
-          <div className="flex flex-wrap items-end gap-3">
+      <div className="bg-white border-b border-slate-200/60 shadow-sm">
+        <div className="px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex flex-wrap items-end gap-4">
             <div className="min-w-[240px] flex-1">
-              <label className="block text-xs font-medium text-slate-600">Search</label>
-              <div className="mt-1 flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2">
-                <Icon name="search" className="text-slate-400" />
+              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wide mb-2">Search Employees</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <Icon name="search" className="text-slate-400" />
+                </div>
                 <input
-                  className="w-full border-0 p-0 text-sm focus:ring-0"
+                  className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-300 bg-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 shadow-sm hover:shadow-md"
                   value={search}
-                  onChange={(e) => {
-                    setSearch(e.target.value);
-                    setPage(1);
-                  }}
-                  placeholder="Search by name or Employee ID"
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search by name, email, or code..."
                 />
               </div>
             </div>
-
-            <div className="min-w-[180px]">
-              <label className="block text-xs font-medium text-slate-600">Employment Scope</label>
-              <div className="relative mt-1">
-                <select
-                  className="w-full appearance-none rounded-xl border border-slate-300 bg-white px-3 py-2 pr-9 text-sm text-slate-700"
-                  value={scope}
-                  onChange={(e) => {
-                    setScope(e.target.value);
-                    setPage(1);
-                  }}
-                >
-                  <option value="">All</option>
-                  <option value="COMPANY">Company (Shared)</option>
-                  <option value="DIVISION">DIVISION</option>
-                </select>
-                <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-slate-400">
-                  <Icon name="chevron" />
-                </div>
-              </div>
-            </div>
-
-            <div className="min-w-[160px]">
-              <label className="block text-xs font-medium text-slate-600">Status</label>
-              <div className="relative mt-1">
-                <select
-                  className="w-full appearance-none rounded-xl border border-slate-300 bg-white px-3 py-2 pr-9 text-sm text-slate-700"
-                  value={status}
-                  onChange={(e) => {
-                    setStatus(e.target.value);
-                    setPage(1);
-                  }}
-                >
-                  <option value="">All</option>
-                  <option value="ACTIVE">Active</option>
-                  <option value="ON_HOLD">Locked</option>
-                  <option value="EXITED">Closed</option>
-                </select>
-                <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-slate-400">
-                  <Icon name="chevron" />
-                </div>
-              </div>
-            </div>
-
-            <div className="min-w-[220px]">
-              <label className="block text-xs font-medium text-slate-600">Division</label>
-              <div className="relative mt-1">
-                <select
-                  className="w-full appearance-none rounded-xl border border-slate-300 bg-white px-3 py-2 pr-9 text-sm text-slate-700"
-                  value={divisionId}
-                  onChange={(e) => {
-                    setDivisionId(e.target.value);
-                    setPage(1);
-                  }}
-                >
-                  <option value="">All</option>
-                  {(divisions.data?.items || []).map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.code} — {d.name}
-                    </option>
-                  ))}
-                </select>
-                <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-slate-400">
-                  <Icon name="chevron" />
-                </div>
-              </div>
-            </div>
-
-            <div className="min-w-[200px]">
-              <label className="block text-xs font-medium text-slate-600">Employment Type</label>
-              <div className="relative mt-1">
-                <select
-                  className="w-full appearance-none rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 pr-9 text-sm text-slate-500"
-                  value=""
-                  onChange={() => {}}
-                  disabled
-                >
-                  <option value="">Not available</option>
-                </select>
-                <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-slate-300">
-                  <Icon name="chevron" />
-                </div>
-              </div>
-            </div>
-
-            <div>
+            <div className="flex gap-2">
               <button
                 type="button"
-                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                onClick={() => {
-                  setDivisionId('');
-                  setScope('');
-                  setStatus('');
-                  setSearch('');
-                  setPage(1);
-                }}
+                onClick={() => setViewMode('grid')}
+                className={`p-3 rounded-xl transition-all duration-200 ${
+                  viewMode === 'grid' 
+                    ? 'bg-blue-100 text-blue-700 shadow-sm' 
+                    : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
+                }`}
               >
-                Clear
+                <Icon name="grid" className="w-5 h-5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('table')}
+                className={`p-3 rounded-xl transition-all duration-200 ${
+                  viewMode === 'table' 
+                    ? 'bg-blue-100 text-blue-700 shadow-sm' 
+                    : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
+                }`}
+              >
+                <Icon name="table" className="w-5 h-5" />
               </button>
             </div>
           </div>
         </div>
       </div>
 
+      {/* Employee List Content */}
+      <div className="bg-white rounded-2xl border border-slate-200/60 shadow-sm overflow-hidden">
+        <div className="bg-gradient-to-r from-slate-50 to-slate-100/50 px-6 py-4 border-b border-slate-200">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
+                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
+                </div>
+                Employees
+              </div>
+              <div className="mt-1 text-sm text-slate-600">
+                Showing {filteredBySearch.length} on this page · <span className="font-medium text-blue-600">{total}</span> total
+              </div>
+            </div>
+            <div className="bg-white px-3 py-1 rounded-full border border-slate-200 shadow-sm">
+              <span className="text-sm font-medium text-slate-700">Page {page}</span>
+            </div>
+          </div>
+        </div>
+
+        {filteredBySearch.length === 0 ? (
+          <div className="p-6">
+            <EmptyState title="No employees" description="Try changing filters or search." />
+          </div>
+        ) : (
+          <div>
+            {/* Mobile Grid View */}
+            <div className="sm:hidden p-3 space-y-2">
+              {filteredBySearch.map((e) => {
+                const isSelected = selectedId === e.id;
+                const division = divisionsById[e.primaryDivisionId];
+                const divisionColor = division?.color || '#3B82F6';
+                return (
+                  <div
+                    key={e.id}
+                    className={cx(
+                      'w-full text-left rounded-2xl border p-5 transition-all duration-200 hover:shadow-lg',
+                      isSelected 
+                        ? 'border-blue-500 bg-gradient-to-r from-blue-50 to-indigo-50 shadow-md' 
+                        : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
+                    )}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => {
+                      setSelectedId(e.id);
+                      setActiveTab('profile');
+                      setMobileDetailOpen(true);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        setSelectedId(e.id);
+                        setActiveTab('profile');
+                        setMobileDetailOpen(true);
+                      }
+                    }}
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex items-start gap-4">
+                        <div className={cx(
+                          'h-12 w-12 rounded-full flex items-center justify-center text-sm font-bold shadow-inner',
+                          isSelected ? 'bg-blue-600 text-white' : 'bg-gradient-to-br from-slate-700 to-slate-900 text-white'
+                        )}>
+                          {initialsFromEmployee(e)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className={cx(
+                            'text-base font-semibold truncate',
+                            isSelected ? 'text-blue-900' : 'text-slate-900'
+                          )}>{formatName(e)}</div>
+                          <div className="mt-1 font-mono text-xs text-slate-500">{e.employeeCode}</div>
+                          <div className="mt-1 text-xs text-slate-500 truncate">{e.email || '—'}</div>
+                          <div className="mt-3 flex flex-wrap items-center gap-2">
+                            {scopeBadge(e.scope, divisionColor)}
+                            {statusBadge(e.status)}
+                          </div>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        className={cx(
+                          'inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-all duration-200 shadow-sm hover:shadow-md',
+                          isSelected
+                            ? 'bg-blue-600 text-white hover:bg-blue-700'
+                            : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-50'
+                        )}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          navigate(getEmployeeViewPath(bootstrap?.rbac?.roles, e.id));
+                        }}
+                      >
+                        View
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Desktop Table View */}
+            <div className="hidden sm:block">
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-slate-200">
+                  <thead className="bg-slate-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Employee ID</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Name</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Scope</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Division</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Designation</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Status</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Joined On</th>
+                      <th className="px-4 py-3 text-right text-xs font-semibold text-slate-600">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 bg-white">
+                    {filteredBySearch.map((e) => (
+                      <tr key={e.id} className="hover:bg-slate-50">
+                        <td className="px-4 py-3">
+                          <span className="text-sm text-slate-700">{e.employeeCode}</span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-3">
+                            <div className="h-8 w-8 rounded-full bg-slate-900 text-white flex items-center justify-center text-xs font-semibold">
+                              {initialsFromEmployee(e)}
+                            </div>
+                            <div>
+                              <div className="text-sm font-medium text-slate-900">{formatName(e)}</div>
+                              <div className="text-xs text-slate-500">{e.email || '—'}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">{scopeBadge(e.scope)}</td>
+                        <td className="px-4 py-3">
+                          <span className="text-sm text-slate-700">
+                            {e.scope === 'COMPANY' ? '—' : formatDivisionLabel(divisionsById, e.primaryDivisionId)}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="text-sm text-slate-700">{e.designation || '—'}</span>
+                        </td>
+                        <td className="px-4 py-3">{statusBadge(e.status)}</td>
+                        <td className="px-4 py-3">
+                          <span className="text-sm text-slate-700">
+                            {e.createdAt ? new Date(e.createdAt).toLocaleDateString() : '—'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                            onClick={() => navigate(getEmployeeViewPath(bootstrap?.rbac?.roles, e.id))}
+                          >
+                            View
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Pagination */}
+      {total > pageSize && (
+        <div className="bg-white rounded-2xl border border-slate-200/60 shadow-sm p-6">
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-slate-600">
+              Showing <span className="font-medium text-slate-900">{((page - 1) * pageSize) + 1}</span> to{' '}
+              <span className="font-medium text-slate-900">{Math.min(page * pageSize, total)}</span> of{' '}
+              <span className="font-medium text-blue-600">{total}</span> results
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 hover:border-slate-400 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm"
+                disabled={page <= 1}
+                onClick={() => setPage(page - 1)}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+                Previous
+              </button>
+              <div className="flex items-center gap-1">
+                <span className="px-3 py-2 text-sm font-semibold text-slate-900 bg-blue-50 border border-blue-200 rounded-xl">
+                  {page}
+                </span>
+                <span className="text-sm text-slate-500 mx-1">of</span>
+                <span className="text-sm font-medium text-slate-700">
+                  {Math.ceil(total / pageSize)}
+                </span>
+              </div>
+              <button
+                type="button"
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 hover:border-slate-400 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm"
+                disabled={page >= Math.ceil(total / pageSize)}
+                onClick={() => setPage(page + 1)}
+              >
+                Next
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mobile Detail Panel */}
       {selectedId && mobileDetailOpen ? (
         <div className="fixed inset-0 z-50 bg-slate-50 xl:hidden">
           <div className="sticky top-0 z-10 border-b border-slate-200 bg-white px-4 py-3">
@@ -791,716 +899,6 @@ export function EmployeesPage() {
           <div className="p-4">{ReadOnlyContextPanel}</div>
         </div>
       ) : null}
-
-      {/* Main Content */}
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 pb-8 pt-6">
-          <div className="xl:col-span-8 bg-white rounded-2xl border border-slate-200 shadow-sm">
-                <div className="p-4 border-b border-slate-200">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <div className="text-sm font-semibold text-slate-900">Employees</div>
-                      <div className="mt-1 text-xs text-slate-500">
-                        Showing {filteredBySearch.length} on this page · Total {total}
-                      </div>
-                    </div>
-                    <div className="text-xs text-slate-500">Page {page}</div>
-                  </div>
-                </div>
-
-                {filteredBySearch.length === 0 ? (
-                  <div className="p-6">
-                    <EmptyState title="No employees" description="Try changing filters or search." />
-                  </div>
-                ) : (
-                  <div>
-                    <div className="sm:hidden p-3 space-y-2">
-                      {filteredBySearch.map((e) => {
-                        const isSelected = selectedId === e.id;
-                        const division = divisionsById[e.primaryDivisionId];
-                        const divisionColor = division?.color || '#3B82F6';
-                        return (
-                          <button
-                            key={e.id}
-                            type="button"
-                            className={cx(
-                              'w-full text-left rounded-2xl border p-4 shadow-sm',
-                              isSelected ? 'border-slate-900 bg-slate-50' : 'border-slate-200 bg-white hover:bg-slate-50'
-                            )}
-                            onClick={() => {
-                              setSelectedId(e.id);
-                              setActiveTab('profile');
-                              setMobileDetailOpen(true);
-                            }}
-                          >
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="flex items-start gap-3">
-                                <div className="h-10 w-10 rounded-full bg-slate-900 text-white flex items-center justify-center text-sm font-semibold">
-                                  {initialsFromEmployee(e)}
-                                </div>
-                                <div className="flex-1">
-                                  <div className="text-sm font-semibold text-slate-900">{formatName(e)}</div>
-                                  <div className="mt-1 font-mono text-xs text-slate-500">{e.employeeCode}</div>
-                                  <div className="mt-1 text-xs text-slate-500">{e.email || '—'}</div>
-                                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                                    {scopeBadge(e.scope, divisionColor)}
-                                    {statusBadge(e.status)}
-                                  </div>
-                                  <div className="mt-1 text-xs text-slate-600">
-                                    {e.scope === 'COMPANY' ? '' : formatDivisionLabel(divisionsById, e.primaryDivisionId)}
-                                  </div>
-                                  <div className="mt-1 text-xs text-slate-600">
-                                    {e.designation || '—'}
-                                  </div>
-                                </div>
-                              </div>
-                              <button
-                                type="button"
-                                className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 shadow-sm"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  navigate(`/admin/employees/profile/${e.id}`);
-                                }}
-                              >
-                                View
-                              </button>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    <div className="hidden sm:block">
-                      <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-slate-200">
-                          <thead className="bg-slate-50">
-                            <tr>
-                              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Employee ID</th>
-                              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Name</th>
-                              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Scope</th>
-                              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Division</th>
-                              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Designation</th>
-                              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Status</th>
-                              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Joined On</th>
-                              <th className="px-4 py-3 text-right text-xs font-semibold text-slate-600">Action</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-100 bg-white">
-                            {filteredBySearch.map((e) => {
-                              const isSelected = selectedId === e.id;
-                              const exited = e.status === 'EXITED';
-                              const division = divisionsById[e.primaryDivisionId];
-                              const divisionColor = division?.color || '#3B82F6';
-                              return (
-                                <tr key={e.id} className={isSelected ? 'bg-slate-50' : ''}>
-                                  <td className="px-4 py-3">
-                                    <span className="font-mono text-sm text-slate-500">{e.employeeCode}</span>
-                                  </td>
-                                  <td className="px-4 py-3">
-                                    <div className="text-sm font-semibold text-slate-900">{formatName(e)}</div>
-                                    <div className="text-xs text-slate-500">{e.email || '—'}</div>
-                                  </td>
-                                  <td className="px-4 py-3">{scopeBadge(e.scope, divisionColor)}</td>
-                                  <td className="px-4 py-3">
-                                    <span className="text-sm text-slate-700">
-                                      {e.scope === 'COMPANY' ? '' : formatDivisionLabel(divisionsById, e.primaryDivisionId)}
-                                    </span>
-                                  </td>
-                                  <td className="px-4 py-3">
-                                    <span className="text-sm text-slate-700">{e.designation || '—'}</span>
-                                  </td>
-                                  <td className="px-4 py-3">{statusBadge(e.status)}</td>
-                                  <td className="px-4 py-3">
-                                    <span className="text-sm text-slate-700">
-                                      {e.createdAt ? new Date(e.createdAt).toLocaleDateString() : '—'}
-                                    </span>
-                                  </td>
-                                  <td className="px-4 py-3 text-right">
-                                    <button
-                                      type="button"
-                                      className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
-                                      onClick={() => {
-                                        navigate(`/admin/employees/profile/${e.id}`);
-                                      }}
-                                    >
-                                      View
-                                    </button>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-
-                    <div className="p-4 border-t border-slate-200">
-                      <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-                        <button
-                          type="button"
-                          className="w-full sm:w-auto rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:bg-slate-50"
-                          disabled={page <= 1}
-                          onClick={() => setPage((p) => Math.max(1, p - 1))}
-                        >
-                          Previous
-                        </button>
-                        <div className="text-sm text-slate-600">Page {page}</div>
-                        <button
-                          type="button"
-                          className="w-full sm:w-auto rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:bg-slate-50"
-                          disabled={page * pageSize >= total}
-                          onClick={() => setPage((p) => p + 1)}
-                        >
-                          Next
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-          </div>
-
-          <div className="hidden xl:block xl:col-span-4">
-            <div className="sticky top-6">{ReadOnlyContextPanel}</div>
-          </div>
-        </div>
-      </div>
-      {employeeModalOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="absolute inset-0 bg-slate-900/40"
-            onClick={() => {
-              if (createMutation.status === 'loading' || updateMutation.status === 'loading') return;
-              setEmployeeModalOpen(false);
-            }}
-          />
-          <div className="relative w-full max-w-2xl rounded-xl bg-white border border-slate-200 shadow-sm p-5">
-            <div className="text-base font-semibold text-slate-900">
-              {employeeModalMode === 'create' ? 'Create Employee' : 'Edit Employee'}
-            </div>
-
-            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-sm font-medium text-slate-700">Employee Code</label>
-                <input
-                  className="mt-1 w-full rounded-md border-slate-300 text-sm font-mono disabled:bg-slate-50"
-                  value={formEmployeeCode}
-                  onChange={(e) => setFormEmployeeCode(e.target.value)}
-                  disabled={employeeModalMode !== 'create'}
-                />
-                {employeeModalMode !== 'create' ? (
-                  <div className="mt-1 text-xs text-slate-500">Employee code is immutable.</div>
-                ) : null}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700">Status</label>
-                <select
-                  className="mt-1 w-full rounded-md border-slate-300 text-sm disabled:bg-slate-50"
-                  value={formStatus}
-                  onChange={(e) => setFormStatus(e.target.value)}
-                  disabled={employeeModalMode !== 'create'}
-                >
-                  <option value="ACTIVE">Active</option>
-                  <option value="ON_HOLD">Locked</option>
-                  <option value="EXITED">Closed</option>
-                </select>
-                {employeeModalMode !== 'create' ? (
-                  <div className="mt-1 text-xs text-slate-500">Use Change Status for lifecycle transitions.</div>
-                ) : null}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700">First Name</label>
-                <input className="mt-1 w-full rounded-md border-slate-300 text-sm" value={formFirstName} onChange={(e) => setFormFirstName(e.target.value)} />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700">Last Name</label>
-                <input className="mt-1 w-full rounded-md border-slate-300 text-sm" value={formLastName} onChange={(e) => setFormLastName(e.target.value)} />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700">Email</label>
-                <input className="mt-1 w-full rounded-md border-slate-300 text-sm" value={formEmail} onChange={(e) => setFormEmail(e.target.value)} />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700">Phone</label>
-                <input className="mt-1 w-full rounded-md border-slate-300 text-sm" value={formPhone} onChange={(e) => setFormPhone(e.target.value)} />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700">Scope</label>
-                <select
-                  className="mt-1 w-full rounded-md border-slate-300 text-sm disabled:bg-slate-50"
-                  value={formScope}
-                  onChange={(e) => setFormScope(e.target.value)}
-                  disabled={employeeModalMode !== 'create'}
-                >
-                  <option value="COMPANY">COMPANY</option>
-                  <option value="DIVISION">DIVISION</option>
-                </select>
-                {employeeModalMode !== 'create' ? (
-                  <div className="mt-1 text-xs text-slate-500">Use Change Scope for scope transitions.</div>
-                ) : null}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700">Primary Division</label>
-                <select
-                  className="mt-1 w-full rounded-md border-slate-300 text-sm disabled:bg-slate-50"
-                  value={formPrimaryDivisionId}
-                  onChange={(e) => setFormPrimaryDivisionId(e.target.value)}
-                  disabled={employeeModalMode !== 'create' || formScope !== 'DIVISION'}
-                >
-                  <option value="">{formScope === 'DIVISION' ? 'Select…' : '—'}</option>
-                  {(divisions.data?.items || []).map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.code} — {d.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {employeeModalMode === 'create' ? (
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-slate-700">Idempotency Key (optional)</label>
-                  <input className="mt-1 w-full rounded-md border-slate-300 text-sm font-mono" value={formIdempotencyKey} onChange={(e) => setFormIdempotencyKey(e.target.value)} />
-                  <div className="mt-1 text-xs text-slate-500">If provided, repeated creates will return the same employee.</div>
-                </div>
-              ) : null}
-
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-slate-700">Reason (optional)</label>
-                <textarea className="mt-1 w-full h-24 rounded-md border-slate-300 text-sm" value={formReason} onChange={(e) => setFormReason(e.target.value)} />
-              </div>
-            </div>
-
-            {createMutation.status === 'error' ? (
-              <div className="mt-3">
-                <ErrorState error={createMutation.error} />
-              </div>
-            ) : null}
-
-            {updateMutation.status === 'error' ? (
-              <div className="mt-3">
-                <ErrorState error={updateMutation.error} />
-              </div>
-            ) : null}
-
-            <div className="mt-4 flex items-center justify-end gap-2">
-              <button
-                type="button"
-                className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 disabled:bg-slate-50"
-                disabled={createMutation.status === 'loading' || updateMutation.status === 'loading'}
-                onClick={() => setEmployeeModalOpen(false)}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:bg-slate-400"
-                disabled={
-                  (employeeModalMode === 'create'
-                    ? createMutation.status === 'loading'
-                    : updateMutation.status === 'loading') ||
-                  formEmployeeCode.trim().length === 0 ||
-                  formFirstName.trim().length === 0 ||
-                  formLastName.trim().length === 0 ||
-                  (employeeModalMode === 'create' && formScope === 'DIVISION' && !formPrimaryDivisionId)
-                }
-                onClick={async () => {
-                  if (employeeModalMode === 'create') {
-                    const payload = {
-                      employeeCode: formEmployeeCode.trim(),
-                      firstName: formFirstName.trim(),
-                      lastName: formLastName.trim(),
-                      email: formEmail.trim() || null,
-                      phone: formPhone.trim() || null,
-                      status: formStatus,
-                      scope: formScope,
-                      primaryDivisionId: formScope === 'DIVISION' ? formPrimaryDivisionId : null,
-                      reason: formReason.trim() || null,
-                      idempotencyKey: formIdempotencyKey.trim() || null
-                    };
-
-                    const res = await createMutation.run(payload);
-                    const created = res?.item;
-                    setEmployeeModalOpen(false);
-                    list.refresh();
-                    if (created?.id) {
-                      setSelectedId(created.id);
-                      setActiveTab('profile');
-                      refreshDetail();
-                    }
-                    return;
-                  }
-
-                  if (!selectedId) return;
-
-                  const payload = {
-                    firstName: formFirstName.trim() || null,
-                    lastName: formLastName.trim() || null,
-                    email: formEmail.trim() || null,
-                    phone: formPhone.trim() || null,
-                    reason: formReason.trim() || null
-                  };
-
-                  await updateMutation.run({ id: selectedId, payload });
-                  setEmployeeModalOpen(false);
-                  list.refresh();
-                  refreshDetail();
-                }}
-              >
-                {employeeModalMode === 'create'
-                  ? createMutation.status === 'loading'
-                    ? 'Creating…'
-                    : 'Create'
-                  : updateMutation.status === 'loading'
-                    ? 'Saving…'
-                    : 'Save'}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {/* Scope Change Modal */}
-      {scopeModalOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="absolute inset-0 bg-slate-900/40"
-            onClick={() => {
-              if (changeScopeMutation.status === 'loading') return;
-              setScopeModalOpen(false);
-            }}
-          />
-          <div className="relative w-full max-w-xl rounded-xl bg-white border border-slate-200 shadow-sm p-5">
-            <div className="text-base font-semibold text-slate-900">Change Employee Scope</div>
-            <div className="mt-1 text-sm text-slate-600">Scope changes are append-only and require a reason.</div>
-
-            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-sm font-medium text-slate-700">Scope</label>
-                <select className="mt-1 w-full rounded-md border-slate-300 text-sm" value={scopeNext} onChange={(e) => setScopeNext(e.target.value)}>
-                  <option value="COMPANY">COMPANY</option>
-                  <option value="DIVISION">DIVISION</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700">Primary Division</label>
-                <select
-                  className="mt-1 w-full rounded-md border-slate-300 text-sm disabled:bg-slate-50"
-                  value={scopeNextDivisionId}
-                  onChange={(e) => setScopeNextDivisionId(e.target.value)}
-                  disabled={scopeNext !== 'DIVISION'}
-                >
-                  <option value="">{scopeNext === 'DIVISION' ? 'Select…' : '—'}</option>
-                  {(divisions.data?.items || []).map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.code} — {d.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-slate-700">Reason (required)</label>
-                <textarea className="mt-1 w-full h-24 rounded-md border-slate-300 text-sm" value={scopeReason} onChange={(e) => setScopeReason(e.target.value)} />
-                {scopeReason.trim().length === 0 ? <div className="mt-1 text-xs text-rose-700">Reason is required.</div> : null}
-              </div>
-            </div>
-
-            {changeScopeMutation.status === 'error' ? (
-              <div className="mt-3">
-                <ErrorState error={changeScopeMutation.error} />
-              </div>
-            ) : null}
-
-            <div className="mt-4 flex items-center justify-end gap-2">
-              <button
-                type="button"
-                className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 disabled:bg-slate-50"
-                disabled={changeScopeMutation.status === 'loading'}
-                onClick={() => setScopeModalOpen(false)}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:bg-slate-400"
-                disabled={
-                  changeScopeMutation.status === 'loading' ||
-                  !selectedId ||
-                  scopeReason.trim().length === 0 ||
-                  (scopeNext === 'DIVISION' && !scopeNextDivisionId)
-                }
-                onClick={async () => {
-                  await changeScopeMutation.run({
-                    id: selectedId,
-                    payload: {
-                      scope: scopeNext,
-                      primaryDivisionId: scopeNext === 'DIVISION' ? scopeNextDivisionId : null,
-                      reason: scopeReason.trim()
-                    }
-                  });
-                  setScopeModalOpen(false);
-                  list.refresh();
-                  refreshDetail();
-                }}
-              >
-                {changeScopeMutation.status === 'loading' ? 'Saving…' : 'Confirm'}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {/* Status Change Modal */}
-      {statusModalOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="absolute inset-0 bg-slate-900/40"
-            onClick={() => {
-              if (changeStatusMutation.status === 'loading') return;
-              setStatusModalOpen(false);
-            }}
-          />
-          <div className="relative w-full max-w-xl rounded-xl bg-white border border-slate-200 shadow-sm p-5">
-            <div className="text-base font-semibold text-slate-900">Change Employee Status</div>
-            <div className="mt-1 text-sm text-slate-600">Status affects payroll and attendance eligibility.</div>
-
-            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-sm font-medium text-slate-700">Status</label>
-                <select className="mt-1 w-full rounded-md border-slate-300 text-sm" value={statusNext} onChange={(e) => setStatusNext(e.target.value)}>
-                  <option value="ACTIVE">Active</option>
-                  <option value="ON_HOLD">Locked</option>
-                  <option value="EXITED">Closed</option>
-                </select>
-              </div>
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-slate-700">Reason (optional)</label>
-                <textarea className="mt-1 w-full h-24 rounded-md border-slate-300 text-sm" value={statusReason} onChange={(e) => setStatusReason(e.target.value)} />
-              </div>
-            </div>
-
-            {changeStatusMutation.status === 'error' ? (
-              <div className="mt-3">
-                <ErrorState error={changeStatusMutation.error} />
-              </div>
-            ) : null}
-
-            <div className="mt-4 flex items-center justify-end gap-2">
-              <button
-                type="button"
-                className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 disabled:bg-slate-50"
-                disabled={changeStatusMutation.status === 'loading'}
-                onClick={() => setStatusModalOpen(false)}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:bg-slate-400"
-                disabled={changeStatusMutation.status === 'loading' || !selectedId}
-                onClick={async () => {
-                  await changeStatusMutation.run({
-                    id: selectedId,
-                    payload: {
-                      status: statusNext,
-                      reason: statusReason.trim() || null
-                    }
-                  });
-                  setStatusModalOpen(false);
-                  list.refresh();
-                  refreshDetail();
-                }}
-              >
-                {changeStatusMutation.status === 'loading' ? 'Saving…' : 'Confirm'}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {/* Compensation Modal */}
-      {compModalOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="absolute inset-0 bg-slate-900/40"
-            onClick={() => {
-              if (addCompMutation.status === 'loading') return;
-              setCompModalOpen(false);
-            }}
-          />
-          <div className="relative w-full max-w-xl rounded-xl bg-white border border-slate-200 shadow-sm p-5">
-            <div className="text-base font-semibold text-slate-900">Add Compensation Version</div>
-            <div className="mt-1 text-sm text-slate-600">Effective dates must not overlap. Reason is required.</div>
-
-            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-sm font-medium text-slate-700">Amount</label>
-                <input className="mt-1 w-full rounded-md border-slate-300 text-sm" value={compAmount} onChange={(e) => setCompAmount(e.target.value)} placeholder="5000" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700">Currency</label>
-                <input className="mt-1 w-full rounded-md border-slate-300 text-sm font-mono" value={compCurrency} onChange={(e) => setCompCurrency(e.target.value)} placeholder="USD" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700">Frequency</label>
-                <select className="mt-1 w-full rounded-md border-slate-300 text-sm" value={compFrequency} onChange={(e) => setCompFrequency(e.target.value)}>
-                  <option value="HOURLY">HOURLY</option>
-                  <option value="MONTHLY">MONTHLY</option>
-                  <option value="ANNUAL">ANNUAL</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700">Effective From</label>
-                <input className="mt-1 w-full rounded-md border-slate-300 text-sm" type="date" value={compEffectiveFrom} onChange={(e) => setCompEffectiveFrom(e.target.value)} />
-              </div>
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-slate-700">Reason (required)</label>
-                <textarea className="mt-1 w-full h-24 rounded-md border-slate-300 text-sm" value={compReason} onChange={(e) => setCompReason(e.target.value)} />
-                {compReason.trim().length === 0 ? <div className="mt-1 text-xs text-rose-700">Reason is required.</div> : null}
-              </div>
-            </div>
-
-            {addCompMutation.status === 'error' ? (
-              <div className="mt-3">
-                <ErrorState error={addCompMutation.error} />
-              </div>
-            ) : null}
-
-            <div className="mt-4 flex items-center justify-end gap-2">
-              <button
-                type="button"
-                className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 disabled:bg-slate-50"
-                disabled={addCompMutation.status === 'loading'}
-                onClick={() => setCompModalOpen(false)}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:bg-slate-400"
-                disabled={
-                  addCompMutation.status === 'loading' ||
-                  !selectedId ||
-                  compReason.trim().length === 0 ||
-                  compEffectiveFrom.trim().length === 0 ||
-                  compAmount.trim().length === 0
-                }
-                onClick={async () => {
-                  await addCompMutation.run({
-                    id: selectedId,
-                    payload: {
-                      amount: Number(compAmount),
-                      currency: compCurrency.trim().toUpperCase(),
-                      frequency: compFrequency,
-                      effectiveFrom: compEffectiveFrom,
-                      reason: compReason.trim()
-                    }
-                  });
-                  setCompModalOpen(false);
-                  refreshComp();
-                }}
-              >
-                {addCompMutation.status === 'loading' ? 'Saving…' : 'Confirm'}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {/* Document Upload Modal (metadata only) */}
-      {docModalOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="absolute inset-0 bg-slate-900/40"
-            onClick={() => {
-              if (uploadDocMutation.status === 'loading') return;
-              setDocModalOpen(false);
-            }}
-          />
-          <div className="relative w-full max-w-2xl rounded-xl bg-white border border-slate-200 shadow-sm p-5">
-            <div className="text-base font-semibold text-slate-900">Upload Employee Document (Metadata)</div>
-            <div className="mt-1 text-sm text-slate-600">Provide a signed URL as storageKey. No deletes; documents can only be deactivated.</div>
-
-            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-sm font-medium text-slate-700">Document Type</label>
-                <input className="mt-1 w-full rounded-md border-slate-300 text-sm" value={docType} onChange={(e) => setDocType(e.target.value)} placeholder="OFFER_LETTER" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700">File Name</label>
-                <input className="mt-1 w-full rounded-md border-slate-300 text-sm" value={docFileName} onChange={(e) => setDocFileName(e.target.value)} placeholder="offer-letter.pdf" />
-              </div>
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-slate-700">Storage Key (signed URL)</label>
-                <input className="mt-1 w-full rounded-md border-slate-300 text-sm font-mono" value={docStorageKey} onChange={(e) => setDocStorageKey(e.target.value)} placeholder="https://..." />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700">MIME Type (optional)</label>
-                <input className="mt-1 w-full rounded-md border-slate-300 text-sm" value={docMimeType} onChange={(e) => setDocMimeType(e.target.value)} placeholder="application/pdf" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700">Size (bytes, optional)</label>
-                <input className="mt-1 w-full rounded-md border-slate-300 text-sm" value={docSizeBytes} onChange={(e) => setDocSizeBytes(e.target.value)} placeholder="12345" />
-              </div>
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-slate-700">Reason (optional)</label>
-                <textarea className="mt-1 w-full h-24 rounded-md border-slate-300 text-sm" value={docReason} onChange={(e) => setDocReason(e.target.value)} />
-              </div>
-            </div>
-
-            {uploadDocMutation.status === 'error' ? (
-              <div className="mt-3">
-                <ErrorState error={uploadDocMutation.error} />
-              </div>
-            ) : null}
-
-            <div className="mt-4 flex items-center justify-end gap-2">
-              <button
-                type="button"
-                className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 disabled:bg-slate-50"
-                disabled={uploadDocMutation.status === 'loading'}
-                onClick={() => setDocModalOpen(false)}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:bg-slate-400"
-                disabled={
-                  uploadDocMutation.status === 'loading' ||
-                  !selectedId ||
-                  docType.trim().length === 0 ||
-                  docFileName.trim().length === 0 ||
-                  docStorageKey.trim().length === 0
-                }
-                onClick={async () => {
-                  await uploadDocMutation.run({
-                    id: selectedId,
-                    payload: {
-                      documentType: docType.trim(),
-                      fileName: docFileName.trim(),
-                      storageKey: docStorageKey.trim(),
-                      mimeType: docMimeType.trim() || null,
-                      sizeBytes: docSizeBytes.trim().length > 0 ? Number(docSizeBytes) : null,
-                      reason: docReason.trim() || null
-                    }
-                  });
-                  setDocModalOpen(false);
-                  refreshDocs();
-                }}
-              >
-                {uploadDocMutation.status === 'loading' ? 'Saving…' : 'Confirm'}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
     </div>
-    </>
   );
 }

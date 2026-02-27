@@ -30,6 +30,8 @@ import {
   uploadEmployeeDocument
 } from '../service/employeeService.js';
 
+import { listPayslipsByEmployee } from '../../payroll/repositories/payslip.repository.js';
+
 function cleanIdempotencyKey(v) {
   const s = String(v || '').trim();
   if (!s) return null;
@@ -73,52 +75,174 @@ export function employeeController({ pool }) {
       res.json(toEmployeeDetailDto(payload));
     }),
 
+    listMyPayslips: asyncHandler(async (req, res) => {
+      const employeeId = req.params.id;
+      if (!employeeId) throw badRequest('Employee not found');
+      const rows = await listPayslipsByEmployee(pool, { employeeId });
+
+      const items = (rows || []).map((r) => ({
+        id: r.id,
+        month: r.month,
+        gross: r.gross,
+        total_deductions: r.total_deductions,
+        net: r.net,
+        payment_status: r.payment_status,
+        generated_at: r.generated_at
+      }));
+
+      res.json(items);
+    }),
+
     getEligibleReportingManagers: asyncHandler(async (req, res) => {
       const divisionId = req.query.divisionId ? String(req.query.divisionId) : null;
-      const managers = await getEligibleReportingManagers(pool, { divisionId });
-      res.json({ items: managers });
+      
+      try {
+        const managers = await getEligibleReportingManagers(pool, { divisionId });
+        res.json({ items: managers });
+      } catch (error) {
+        if (error.message.includes('not found or inactive')) {
+          res.status(400).json({ 
+            message: error.message,
+            code: 'DIVISION_NOT_FOUND'
+          });
+        } else {
+          throw error;
+        }
+      }
     }),
 
     create: asyncHandler(async (req, res) => {
+      console.log('=== employeeController.create debug ===');
+      console.log('Incoming body:', req.body);
+      console.log('req.user:', req.user);
+      console.log('req.auth:', req.auth);
+      
       const body = validate(createEmployeeSchema, req.body);
       const idempotencyKey = cleanIdempotencyKey(req.header('x-idempotency-key'));
 
-      const created = await createEmployee(pool, {
-        employeeCode: body.employeeCode,
-        firstName: body.firstName,
-        lastName: body.lastName,
-        designation: body.designation || null,
-        email: body.email || null,
-        phone: body.phone || null,
-        status: body.status,
-        scope: body.scope,
-        primaryDivisionId: body.primaryDivisionId || null,
-        reportingManagerId: body.reportingManagerId || null,
-        actorId: req.auth.userId,
-        requestId: req.requestId,
-        reason: body.reason,
-        idempotencyKey
-      });
+      // Extract role from validated body
+      const role = body.roleId; // roleId is now validated in schema
+      console.log('Extracted role:', role);
+      
+      // Validate role
+      const allowedRoles = ['EMPLOYEE', 'HR_ADMIN', 'FINANCE_ADMIN', 'MANAGER', 'FOUNDER'];
+      if (!role) {
+        return res.status(400).json({ message: 'Role is required' });
+      }
+      if (!allowedRoles.includes(role)) {
+        return res.status(400).json({ 
+          message: 'Invalid role value',
+          allowedRoles,
+          received: role
+        });
+      }
 
-      res.status(201).json({ item: created ? {
-        id: created.id,
-        employeeCode: created.employee_code,
-        firstName: created.first_name,
-        lastName: created.last_name,
-        designation: created.designation,
-        email: created.email,
-        phone: created.phone,
-        status: created.status,
-        scope: created.scope,
-        primaryDivisionId: created.primary_division_id,
-        reportingManagerId: created.reporting_manager_id,
-        reportingManagerName: created.reporting_manager_name,
-        updatedAt: created.updated_at
-      } : null });
+      // Permission-based check instead of role-based
+      const permissions = req.user?.permissions || [];
+      const hasSystemFullAccess = permissions.includes('SYSTEM_FULL_ACCESS');
+      
+      // Elevation check: if assigning elevated role, require SYSTEM_FULL_ACCESS
+      const elevatedRoles = ['HR_ADMIN', 'FINANCE_ADMIN', 'MANAGER', 'FOUNDER'];
+      const isAssigningElevatedRole = elevatedRoles.includes(role);
+      
+      console.log('Has SYSTEM_FULL_ACCESS:', hasSystemFullAccess);
+      console.log('Is assigning elevated role:', isAssigningElevatedRole);
+      console.log('Requested role:', role);
+      
+      if (isAssigningElevatedRole && !hasSystemFullAccess) {
+        console.log('403: Cannot assign elevated role without SYSTEM_FULL_ACCESS');
+        return res.status(403).json({ message: 'Insufficient privilege to assign this role' });
+      }
+
+      try {
+        const created = await createEmployee(pool, {
+          employeeCode: body.employeeCode,
+          firstName: body.firstName,
+          lastName: body.lastName,
+          designation: body.designation || null,
+          email: body.email || null,
+          phone: body.phone || null,
+          password: body.password,
+          status: body.status,
+          scope: body.scope,
+          primaryDivisionId: body.primaryDivisionId || null,
+          reportingManagerId: body.reportingManagerId || null,
+          role, // Pass the extracted role
+          actorId: req.auth.userId,
+          requestId: req.requestId,
+          reason: body.reason,
+          idempotencyKey
+        });
+
+        const roleDisplayMap = {
+        EMPLOYEE: 'Employee',
+        HR_ADMIN: 'HR Admin',
+        FINANCE_ADMIN: 'Finance Admin',
+        MANAGER: 'Manager',
+        FOUNDER: 'Founder'
+      };
+      const roleLabel = roleDisplayMap[role] || 'Employee';
+
+      res.status(201).json({
+        message: `${roleLabel} created successfully`,
+        data: created ? {
+          id: created.id,
+          employeeCode: created.employee_code,
+          firstName: created.first_name,
+          lastName: created.last_name,
+          designation: created.designation,
+          email: created.email,
+          phone: created.phone,
+          status: created.status,
+          scope: created.scope,
+          primaryDivisionId: created.primary_division_id,
+          reportingManagerId: created.reporting_manager_id,
+          reportingManagerName: created.reporting_manager_name,
+          role: role, // Include the role in response
+          updatedAt: created.updated_at,
+          setupLink: created.setupLink || null
+        } : null
+      });
+      } catch (error) {
+        console.log('Database error:', error);
+        
+        // Handle unique constraint violations
+        if (error.code === '23505') {
+          let message = 'Employee already exists';
+          if (error.detail?.includes('email')) {
+            message = 'Employee already exists with this email';
+          } else if (error.detail?.includes('employee_code')) {
+            message = 'Employee already exists with this employee code';
+          }
+          return res.status(409).json({ message });
+        }
+        
+        throw error; // Re-throw other errors
+      }
     }),
 
     update: asyncHandler(async (req, res) => {
+      console.log('=== employeeController.update debug ===');
+      console.log('req.user:', req.user);
+      
       const body = validate(updateEmployeeSchema, req.body);
+      const permissions = req.user?.permissions || [];
+      const hasSystemFullAccess = permissions.includes('SYSTEM_FULL_ACCESS');
+      
+      // Elevation check for HR_ADMIN and FINANCE_ADMIN roles
+      const restrictedRoles = ['HR_ADMIN', 'FINANCE_ADMIN'];
+      const isAssigningRestricted = body.roles?.some(role => restrictedRoles.includes(role));
+      const isRemovingRestricted = false; // Would need to fetch current roles to check
+      
+      console.log('Has SYSTEM_FULL_ACCESS:', hasSystemFullAccess);
+      console.log('Requested roles:', body.roles);
+      console.log('Is assigning restricted:', isAssigningRestricted);
+      
+      if ((isAssigningRestricted || isRemovingRestricted) && !hasSystemFullAccess) {
+        console.log('403: Cannot modify HR/FINANCE roles without SYSTEM_FULL_ACCESS');
+        return res.status(403).json({ message: 'Insufficient privilege to modify these roles' });
+      }
+      
       const updated = await updateEmployee(pool, {
         id: req.params.id,
         firstName: body.firstName,
@@ -127,7 +251,7 @@ export function employeeController({ pool }) {
         phone: body.phone,
         roles: body.roles,
         actorId: req.auth.userId,
-        actorSystemRoles: req.authorization?.roles || [],
+        actorSystemRoles: hasSystemFullAccess ? ['SUPER_ADMIN'] : [], // Pass minimal required for service compatibility
         requestId: req.requestId,
         reason: body.reason
       });
@@ -247,8 +371,8 @@ export function employeeController({ pool }) {
       }
 
       const target = String(doc.storage_key || '').trim();
-      if (!target || !(target.startsWith('http://') || target.startsWith('https://'))) {
-        throw badRequest('Document storageKey must be a signed URL');
+      if (!target || !(target.startsWith('http://') || target.startsWith('https://') || target.startsWith('data:'))) {
+        throw badRequest('Document storageKey must be a signed URL or data URL');
       }
 
       res.json({ url: target });

@@ -7,6 +7,7 @@ export const createEmployeeSchema = Joi.object({
   designation: Joi.string().trim().max(100).allow('', null),
   email: Joi.string().trim().max(200).allow('', null),
   phone: Joi.string().trim().max(50).allow('', null),
+  password: Joi.string().min(8).required(),
   status: Joi.string().valid('ACTIVE', 'ON_HOLD', 'EXITED').required(),
   scope: Joi.string().valid('COMPANY', 'DIVISION').required(),
   primaryDivisionId: Joi.when('scope', {
@@ -18,6 +19,7 @@ export const createEmployeeSchema = Joi.object({
     otherwise: Joi.string().allow(null, '')
   }),
   reportingManagerId: Joi.string().uuid().allow(null, ''),
+  roleId: Joi.string().valid('EMPLOYEE', 'HR_ADMIN', 'FINANCE_ADMIN', 'MANAGER', 'FOUNDER').required(),
   reason: Joi.string().allow('', null)
 });
 

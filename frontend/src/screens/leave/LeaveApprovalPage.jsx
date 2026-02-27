@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { apiFetch } from '../../api/client.js';
@@ -56,9 +56,17 @@ export function LeaveApprovalPage() {
 
   const canAct = Boolean(canApproveL1 || canApproveL2);
 
+  const queueStatus = useMemo(() => {
+    // L2 approvers should act on PENDING_L2 after manager approval.
+    // If someone has both permissions, default to SUBMITTED queue (L1) to avoid hiding new submissions.
+    if (canApproveL2 && !canApproveL1) return 'PENDING_L2';
+    return 'SUBMITTED';
+  }, [canApproveL1, canApproveL2]);
+
   const [divisionId, setDivisionId] = useState('');
   const [divisionIdInput, setDivisionIdInput] = useState('');
   const [divisionError, setDivisionError] = useState('');
+  const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize] = useState(20);
 
@@ -66,19 +74,51 @@ export function LeaveApprovalPage() {
     const u = new URL('/api/v1/leave/requests', 'http://local');
     u.searchParams.set('page', String(page));
     u.searchParams.set('pageSize', String(pageSize));
-    u.searchParams.set('status', 'SUBMITTED');
+    u.searchParams.set('status', queueStatus);
     if (divisionId.trim()) u.searchParams.set('divisionId', divisionId.trim());
     return u.pathname + u.search;
-  }, [divisionId, page, pageSize]);
+  }, [divisionId, page, pageSize, queueStatus]);
 
-  const list = usePagedQuery({ path: '/api/v1/leave/requests', page, pageSize, enabled: leaveEnabled && canRead && canAct });
+  const list = usePagedQuery({ path: listPath, page, pageSize, enabled: leaveEnabled && canRead && canAct });
 
   const items = useMemo(() => {
-    const filtered = [...(list.data?.items || [])];
-    const statusFilter = 'SUBMITTED';
-    return statusFilter ? filtered.filter(item => String(item.status || '').toUpperCase() === statusFilter) : filtered;
-  }, [list.data]);
+    const rows = [...(list.data?.items || [])];
+    const statusFiltered = (() => {
+      if (!queueStatus) return rows;
+
+      if (queueStatus === 'PENDING_L2') {
+        // Backend already returns the correct L2 queue (including legacy APPROVED-without-L2 rows).
+        // Avoid re-filtering here so the UI can't accidentally hide rows.
+        return rows;
+      }
+
+      return rows.filter((item) => String(item.status || '').toUpperCase() === queueStatus);
+    })();
+
+    const q = String(search || '').trim().toLowerCase();
+    if (!q) return statusFiltered;
+
+    return statusFiltered.filter((d) => {
+      const hay = `${d.employeeCode || ''} ${d.firstName || ''} ${d.lastName || ''} ${d.leaveTypeName || ''} ${d.leaveTypeCode || ''} ${d.startDate || ''} ${d.endDate || ''}`
+        .trim()
+        .toLowerCase();
+      return hay.includes(q);
+    });
+  }, [list.data, queueStatus, search]);
   const total = list.data?.total || 0;
+
+  useEffect(() => {
+    try {
+      console.log('[LeaveApprovalPage] queueStatus:', queueStatus);
+      console.log('[LeaveApprovalPage] apiItems:', (list.data?.items || []).length);
+      console.log('[LeaveApprovalPage] filteredItems:', items.length);
+      if ((list.data?.items || []).length > 0) {
+        console.log('[LeaveApprovalPage] firstItem.status:', list.data?.items?.[0]?.status);
+      }
+    } catch {
+      // ignore
+    }
+  }, [queueStatus, list.data, items.length]);
 
   const monthClose = usePagedQuery({
     path: '/api/v1/governance/month-close',
@@ -108,6 +148,8 @@ export function LeaveApprovalPage() {
 
   const [modal, setModal] = useState(null); // { mode: 'approve'|'reject', item }
   const [reason, setReason] = useState('');
+
+  const stageLabel = queueStatus === 'PENDING_L2' ? 'L2 (Final)' : 'L1';
 
   const content = useMemo(() => {
     if (!canRead) return <ForbiddenState />;
@@ -139,8 +181,16 @@ export function LeaveApprovalPage() {
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm">
           <div className="p-4 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
-              <div className="text-sm font-semibold text-slate-900">Leave Approvals</div>
-              <div className="mt-1 text-xs text-slate-500">Total: {total}</div>
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="text-sm font-semibold text-slate-900">Leave Approvals</div>
+                <span className={cx(
+                  'inline-flex items-center rounded-full px-2 py-1 text-xs font-semibold',
+                  queueStatus === 'PENDING_L2' ? 'bg-purple-50 text-purple-800' : 'bg-blue-50 text-blue-800'
+                )}>
+                  Queue: {stageLabel}
+                </span>
+              </div>
+              <div className="mt-1 text-xs text-slate-500">Showing: {items.length} / Total: {total}</div>
             </div>
             <button
               type="button"
@@ -152,7 +202,20 @@ export function LeaveApprovalPage() {
             </button>
           </div>
 
-          <div className="p-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+          <div className="p-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+            <div>
+              <label className="block text-sm font-medium text-slate-700">Search</label>
+              <input
+                className="mt-1 w-full rounded-md border-slate-300 text-sm min-h-[44px]"
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
+                placeholder="Employee / type / date"
+              />
+              <div className="mt-1 text-xs text-slate-500">Filters the current page results.</div>
+            </div>
             <div>
               <label className="block text-sm font-medium text-slate-700">Division Id (optional)</label>
               <input
@@ -195,16 +258,17 @@ export function LeaveApprovalPage() {
 
           <div className="p-4">
             {items.length === 0 ? (
-              <EmptyState title="No pending requests" description="No SUBMITTED leave requests found for your scope." />
+              <EmptyState title="No pending requests" description={`No ${queueStatus} leave requests found for your scope.`} />
             ) : (
               <>
                 <div className="hidden md:block">
                   <Table
+                    key={`${items.length}:${items[0]?.id || 'none'}`}
                     columns={[
                       {
                         key: 'employee',
-                        header: 'Employee',
-                        render: (d) => (
+                        title: 'Employee',
+                        render: (_v, d) => (
                           <div>
                             <div className="text-sm font-medium text-slate-900">{d.employeeCode || String(d.employeeId).slice(0, 8) + '…'}</div>
                             <div className="mt-0.5 text-xs text-slate-500">{d.firstName || ''} {d.lastName || ''}</div>
@@ -213,8 +277,8 @@ export function LeaveApprovalPage() {
                       },
                       {
                         key: 'type',
-                        header: 'Leave Type',
-                        render: (d) => (
+                        title: 'Leave Type',
+                        render: (_v, d) => (
                           <div>
                             <div className="text-sm font-medium text-slate-900">{d.leaveTypeName || d.leaveTypeCode || '—'}</div>
                             <div className="mt-0.5 text-xs text-slate-500">{d.leaveTypeIsPaid ? 'Paid' : 'Unpaid'}</div>
@@ -223,8 +287,8 @@ export function LeaveApprovalPage() {
                       },
                       {
                         key: 'dates',
-                        header: 'Dates',
-                        render: (d) => {
+                        title: 'Dates',
+                        render: (_v, d) => {
                           const start = String(d.startDate || '').slice(0, 10);
                           const end = String(d.endDate || '').slice(0, 10);
                           const startMonthEnd = start ? toMonthEndIso(start) : null;
@@ -240,11 +304,11 @@ export function LeaveApprovalPage() {
                           );
                         }
                       },
-                      { key: 'status', header: 'Status', render: (d) => <StatusBadge status={d.status} /> },
+                      { key: 'status', title: 'Status', render: (_v, d) => <StatusBadge status={d.status} /> },
                       {
                         key: 'action',
-                        header: 'Action',
-                        render: (d) => (
+                        title: 'Action',
+                        render: (_v, d) => (
                           <div className="flex items-center justify-end gap-2">
                             <Link
                               to={`/leave/requests/${d.id}`}
@@ -279,7 +343,7 @@ export function LeaveApprovalPage() {
                         )
                       }
                     ]}
-                    rows={items.map((x) => ({ key: x.id, data: x }))}
+                    data={items}
                   />
                 </div>
 

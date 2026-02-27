@@ -9,6 +9,41 @@ export function timesheetRoutes({ pool }) {
   const router = Router();
   const controller = timesheetController({ pool });
 
+  function withEmployeeIdInBodyFromAuth(handler) {
+    return async function middleware(req, res, next) {
+      try {
+        // Find employee by user.employee_id (user table has employee_id column)
+        const userResult = await pool.query(
+          'SELECT employee_id FROM "user" WHERE id = $1',
+          [req.auth?.userId]
+        );
+        
+        const employeeId = userResult.rows[0]?.employee_id;
+        
+        // Set employeeId in body (will be null if employee not found)
+        req.body = { ...(req.body || {}), employeeId: employeeId || null };
+        
+        return handler(req, res, next);
+      } catch (error) {
+        console.error('Error finding employee by user_id:', error);
+        // Set employeeId to null if there's an error
+        req.body = { ...(req.body || {}), employeeId: null };
+        return handler(req, res, next);
+      }
+    };
+  }
+
+  function authorizeRoles(allowedRoles) {
+    return function middleware(req, res, next) {
+      const role = req.auth?.claims?.role;
+      if (allowedRoles.includes(role)) {
+        next();
+        return;
+      }
+      res.status(403).json({ message: 'Forbidden' });
+    };
+  }
+
   const approvalLimiter = rateLimit({
     windowMs: config.rateLimit.windowMs,
     max: config.rateLimit.max,
@@ -17,16 +52,21 @@ export function timesheetRoutes({ pool }) {
   });
 
   router.get(
-    '/my',
-    requirePermission({
-      pool,
-      permissionCode: 'TIMESHEET_READ',
-      getDivisionId: async (req) => {
-        const res = await pool.query('SELECT primary_division_id FROM employee WHERE id = $1', [req.auth?.userId]);
-        return res.rows[0]?.primary_division_id || null;
-      }
-    }),
+    '/me',
+    authorizeRoles(['EMPLOYEE', 'MANAGER', 'HR_ADMIN', 'SUPER_ADMIN']),
     controller.my
+  );
+
+  router.get(
+    '/me/:id',
+    authorizeRoles(['EMPLOYEE', 'MANAGER', 'HR_ADMIN', 'SUPER_ADMIN']),
+    controller.getMyTimesheetById
+  );
+
+  router.post(
+    '/me',
+    authorizeRoles(['EMPLOYEE', 'MANAGER', 'HR_ADMIN', 'SUPER_ADMIN']),
+    withEmployeeIdInBodyFromAuth(controller.upsertWorklog)
   );
 
   router.get(
@@ -40,10 +80,20 @@ export function timesheetRoutes({ pool }) {
   );
 
   router.get(
-    '/:id',
+    '/team',
     requirePermission({
       pool,
-      permissionCode: 'TIMESHEET_READ',
+      permissionCode: 'TIMESHEET_APPROVE_TEAM',
+      getDivisionId: async () => null
+    }),
+    controller.team
+  );
+
+  router.get(
+    '/:id',
+    requireAnyPermission({
+      pool,
+      permissionCodes: ['TIMESHEET_READ', 'TIMESHEET_APPROVAL_QUEUE_READ', 'TIMESHEET_APPROVE_L1', 'TIMESHEET_APPROVE_L2'],
       getDivisionId: async (req) => {
         const res = await pool.query(
           `SELECT e.primary_division_id
@@ -77,7 +127,7 @@ export function timesheetRoutes({ pool }) {
     '/:id/submit',
     requirePermission({
       pool,
-      permissionCode: 'TIMESHEET_SUBMIT',
+      permissionCode: 'TIMESHEET_SUBMIT_SELF',
       getDivisionId: async (req) => {
         const res = await pool.query(
           `SELECT e.primary_division_id
@@ -115,9 +165,9 @@ export function timesheetRoutes({ pool }) {
   router.post(
     '/:id/reject',
     approvalLimiter,
-    requirePermission({
+    requireAnyPermission({
       pool,
-      permissionCode: 'TIMESHEET_APPROVE_L1',
+      permissionCodes: ['TIMESHEET_APPROVE_L1', 'TIMESHEET_APPROVE_L2'],
       getDivisionId: async (req) => {
         const res = await pool.query(
           `SELECT e.primary_division_id
@@ -135,9 +185,9 @@ export function timesheetRoutes({ pool }) {
   router.post(
     '/:id/request-revision',
     approvalLimiter,
-    requirePermission({
+    requireAnyPermission({
       pool,
-      permissionCode: 'TIMESHEET_APPROVE_L1',
+      permissionCodes: ['TIMESHEET_APPROVE_L1', 'TIMESHEET_APPROVE_L2'],
       getDivisionId: async (req) => {
         const res = await pool.query(
           `SELECT e.primary_division_id

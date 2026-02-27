@@ -1,0 +1,4 @@
+month,division_id,division_name,category_id,category_name,revenue,expense,payroll,profit
+,,,,,0,123,146,-269
+,98f007d1-972d-4c3e-bfe5-679ecf25efb9,PRODUCT,,,0,0,5666,-5666
+,2cde1d7d-7402-4ed3-86e1-48d474c891ab,SERVICE,,,12345,0,1234,11111

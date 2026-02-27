@@ -134,6 +134,82 @@ export function bootstrapRoutes({ pool }) {
   const router = Router();
 
   router.get(
+    '/users/resolve',
+    asyncHandler(async (req, res) => {
+      const idsRaw = String(req.query?.ids || '').trim();
+      const ids = idsRaw
+        ? idsRaw
+            .split(',')
+            .map((s) => String(s).trim())
+            .filter(Boolean)
+            .slice(0, 50)
+        : [];
+
+      if (ids.length === 0) {
+        res.json({ items: [] });
+        return;
+      }
+
+      const r = await pool.query(
+        `SELECT
+           u.id AS user_id,
+           u.email,
+           u.employee_id,
+           e.id AS employee_row_id,
+           e.first_name,
+           e.last_name
+         FROM "user" u
+         LEFT JOIN employee e ON e.id = u.employee_id
+         WHERE u.id = ANY($1::uuid[]) OR u.employee_id = ANY($1::uuid[])`,
+        [ids]
+      );
+
+      const requested = new Set(ids.map((x) => String(x)));
+      const out = [];
+
+      for (const row of r.rows || []) {
+        const empName = `${row.first_name || ''} ${row.last_name || ''}`.trim() || null;
+        const name = empName || (row.email ? String(row.email) : null);
+        const userId = row.user_id ? String(row.user_id) : null;
+        const employeeId = row.employee_id ? String(row.employee_id) : null;
+
+        if (userId && requested.has(userId)) {
+          out.push({ id: userId, employeeId: employeeId || null, displayName: name });
+        }
+        if (employeeId && requested.has(employeeId)) {
+          out.push({ id: employeeId, employeeId: employeeId || null, displayName: name });
+        }
+      }
+
+      // Some modules may store employee.id directly in approval fields (without a linked user row)
+      const emp = await pool.query(
+        `SELECT id, first_name, last_name
+         FROM employee
+         WHERE id = ANY($1::uuid[])`,
+        [ids]
+      );
+
+      for (const row of emp.rows || []) {
+        const employeeId = row.id ? String(row.id) : null;
+        if (!employeeId || !requested.has(employeeId)) continue;
+        const name = `${row.first_name || ''} ${row.last_name || ''}`.trim() || null;
+        out.push({ id: employeeId, employeeId, displayName: name });
+      }
+
+      const seen = new Set();
+      const items = out.filter((it) => {
+        if (!it?.id) return false;
+        if (seen.has(it.id)) return false;
+        seen.add(it.id);
+        return true;
+      });
+
+      res.setHeader('cache-control', 'private, max-age=60');
+      res.json({ items });
+    })
+  );
+
+  router.get(
     '/bootstrap',
     asyncHandler(async (req, res) => {
       const userId = req.auth.userId;
