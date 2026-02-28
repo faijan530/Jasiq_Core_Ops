@@ -36,6 +36,7 @@ import { adminManagementRoutes } from './shared/auth/adminManagement.routes.js';
 import { passwordSetupRoutes } from './shared/auth/passwordSetup.routes.js';
 import { changePasswordRoutes } from './shared/auth/changePassword.routes.js';
 import { employeeLoginRoutes } from './shared/auth/employeeLogin.routes.js';
+import { refreshTokenRoutes } from './shared/auth/refreshToken.routes.js';
 
 export function buildApp({ pool }) {
   const app = express();
@@ -58,10 +59,22 @@ export function buildApp({ pool }) {
   }
 
   app.use(helmet());
-  app.use(cors({ origin: config.corsOrigin.split(','), credentials: true }));
+  const origins = config.corsOrigin.split(',').map((s) => s.trim()).filter(Boolean);
+  const allowAnyOrigin = origins.includes('*');
+  app.use(cors({
+    origin: (origin, cb) => {
+      if (allowAnyOrigin) return cb(null, origin || true);
+      if (!origin) return cb(null, true);
+      return cb(null, origins.includes(origin));
+    },
+    credentials: true
+  }));
   app.use(express.json({ limit: '1mb' }));
   app.use(requestIdMiddleware);
   app.use(requestLogMiddleware);
+
+  // NOTE: We intentionally avoid parsing cookies into req.cookies globally to reduce attack surface.
+  // Refresh token endpoints parse the Cookie header manually.
 
   app.get('/healthz', (req, res) => {
     res.json({ status: 'ok' });
@@ -73,6 +86,8 @@ export function buildApp({ pool }) {
   app.use('/api/v1/auth', adminManagementRoutes({ pool }));
   // Employee login routes (no auth required)
   app.use('/api/v1/auth/employee', employeeLoginRoutes({ pool }));
+  // Refresh token rotation + logout (no auth required; refresh cookie only)
+  app.use('/api/v1/auth', refreshTokenRoutes({ pool }));
 
   // Public password setup (no auth required)
   app.use('/api/public', passwordSetupRoutes({ pool }));

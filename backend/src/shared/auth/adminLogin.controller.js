@@ -6,7 +6,8 @@ import { asyncHandler } from '../kernel/asyncHandler.js';
 import { validate } from '../kernel/validation.js';
 import { config } from '../kernel/config.js';
 import { writeAuditLog } from '../kernel/audit.js';
-import { unauthorized, badRequest } from '../kernel/errors.js';
+import { unauthorized } from '../kernel/errors.js';
+import { refreshTokenService } from './refreshToken.service.js';
 
 const loginSchema = Joi.object({
   email: Joi.string().email().required(),
@@ -14,13 +15,12 @@ const loginSchema = Joi.object({
 });
 
 export function adminLoginController({ pool }) {
+  const refreshSvc = refreshTokenService({ pool });
+
   return {
     login: asyncHandler(async (req, res) => {
-      console.log('Admin login request body:', req.body);
-      console.log('Content-Type:', req.header('content-type'));
       const body = validate(loginSchema, req.body);
       const { email, password } = body;
-      console.log('Validated:', { email, password: '***' });
 
       const userRes = await pool.query(
         `SELECT id, email, password_hash, role_name, is_active
@@ -29,21 +29,15 @@ export function adminLoginController({ pool }) {
         [email.trim().toLowerCase()]
       );
 
-      console.log('User query result:', userRes.rowCount, 'rows found');
-
       if (userRes.rowCount === 0) {
-        console.log('401: No user found with email:', email);
         throw unauthorized('Invalid credentials');
       }
 
       const user = userRes.rows[0];
-      console.log('User found:', { id: user.id, email: user.email, role: user.role_name });
       
       const passwordMatch = await bcrypt.compare(password, user.password_hash);
-      console.log('Password match:', passwordMatch);
       
       if (!passwordMatch) {
-        console.log('401: Password mismatch for user:', email);
         throw unauthorized('Invalid credentials');
       }
 
@@ -56,11 +50,7 @@ export function adminLoginController({ pool }) {
         [user.id, user.role_name]
       );
 
-      console.log('Role query result:', roleRes.rowCount, 'rows found');
-      console.log('Looking for role:', user.role_name, 'for user:', user.id);
-
       if (roleRes.rowCount === 0) {
-        console.log('401: User does not have required role mapping');
         throw unauthorized('User does not have required role');
       }
 
@@ -84,7 +74,6 @@ export function adminLoginController({ pool }) {
       const role = permsRes.rows[0]?.role_name || user.role_name;
 
       // STEP 3 — Create JWT payload with permissions
-      const expiresIn = user.role_name === 'TECH_ADMIN' ? '2h' : '4h';
       const token = jwt.sign(
         {
           sub: user.id,
@@ -95,9 +84,29 @@ export function adminLoginController({ pool }) {
         {
           issuer: config.jwt.issuer,
           audience: config.jwt.audience,
-          expiresIn
+          expiresIn: config.security.accessTokenExpiresIn
         }
       );
+
+      const refresh = await refreshSvc.issueRefreshToken({
+        subjectType: 'ADMIN_USER',
+        subjectId: user.id,
+        ttlMs: config.security.refreshTokenTtlMs,
+        userAgent: req.header('user-agent') || null,
+        ip: req.ip
+      });
+
+      const secure = String(config.security.refreshCookieSecure || '').toLowerCase() === 'true'
+        ? true
+        : config.nodeEnv === 'production';
+
+      res.cookie(config.security.refreshCookieName || 'jasiq_refresh', refresh.token, {
+        httpOnly: true,
+        secure,
+        sameSite: config.security.refreshCookieSameSite || 'lax',
+        path: '/api/v1/auth',
+        maxAge: config.security.refreshTokenTtlMs
+      });
 
       // Audit log the login
       await writeAuditLog(pool, {

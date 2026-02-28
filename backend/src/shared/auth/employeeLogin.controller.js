@@ -6,6 +6,7 @@ import { asyncHandler } from '../kernel/asyncHandler.js';
 import { validate } from '../kernel/validation.js';
 import { config } from '../kernel/config.js';
 import { unauthorized } from '../kernel/errors.js';
+import { refreshTokenService } from './refreshToken.service.js';
 
 const loginSchema = Joi.object({
   email: Joi.string().email().required(),
@@ -28,6 +29,8 @@ function issueAccessToken({ userId, roleName }) {
 }
 
 export function employeeLoginController({ pool }) {
+  const refreshSvc = refreshTokenService({ pool });
+
   return {
     login: asyncHandler(async (req, res) => {
       const body = validate(loginSchema, req.body);
@@ -90,9 +93,29 @@ export function employeeLoginController({ pool }) {
         {
           issuer: config.jwt.issuer,
           audience: config.jwt.audience,
-          expiresIn: '8h'
+          expiresIn: config.security.accessTokenExpiresIn
         }
       );
+
+      const refresh = await refreshSvc.issueRefreshToken({
+        subjectType: 'USER',
+        subjectId: user.id,
+        ttlMs: config.security.refreshTokenTtlMs,
+        userAgent: req.header('user-agent') || null,
+        ip: req.ip
+      });
+
+      const secure = String(config.security.refreshCookieSecure || '').toLowerCase() === 'true'
+        ? true
+        : config.nodeEnv === 'production';
+
+      res.cookie(config.security.refreshCookieName || 'jasiq_refresh', refresh.token, {
+        httpOnly: true,
+        secure,
+        sameSite: config.security.refreshCookieSameSite || 'lax',
+        path: '/api/v1/auth',
+        maxAge: config.security.refreshTokenTtlMs
+      });
 
       const response = { accessToken: token };
       if (user.must_change_password) {

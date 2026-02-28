@@ -231,13 +231,14 @@ export async function listExpenses(client, {
 
   const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
 
-  const countRes = await client.query(`SELECT COUNT(*)::int AS cnt FROM expense e ${whereSql}`, params);
-  const total = countRes.rows[0]?.cnt || 0;
+  const countParams = [...params];
+  const totalPromise = client.query(
+    `SELECT COUNT(*)::int AS cnt FROM expense e ${whereSql}`,
+    countParams
+  );
 
-  params.push(limit);
-  params.push(offset);
-
-  const rowsRes = await client.query(
+  const rowsParams = [...params, limit, offset];
+  const rowsPromise = client.query(
     `SELECT e.*,
             ec.name AS category_name,
             CONCAT(emp.first_name, ' ', emp.last_name) AS employee_name
@@ -246,9 +247,12 @@ export async function listExpenses(client, {
      LEFT JOIN employee emp ON e.employee_id = emp.id
      ${whereSql}
      ORDER BY e.expense_date DESC, e.created_at DESC
-     LIMIT $${idx++} OFFSET $${idx++}`,
-    params
+     LIMIT $${idx} OFFSET $${idx + 1}`,
+    rowsParams
   );
+
+  const [countRes, rowsRes] = await Promise.all([totalPromise, rowsPromise]);
+  const total = countRes.rows[0]?.cnt || 0;
 
   return { items: rowsRes.rows, total };
 }

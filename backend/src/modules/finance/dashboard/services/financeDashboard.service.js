@@ -18,7 +18,7 @@ export async function getFinanceDashboardService(pool) {
   const active = activeRes.rows[0] || null;
   const activeMonth = active?.month || null;
 
-  const totalsRes = await pool.query(
+  const totalsPromise = pool.query(
     `
     SELECT
       COALESCE(SUM(CASE WHEN pi.is_system_generated = true AND pi.item_type <> 'DEDUCTION' THEN pi.amount ELSE 0 END), 0) AS total_gross,
@@ -31,12 +31,7 @@ export async function getFinanceDashboardService(pool) {
     [activeMonth]
   );
 
-  const totalGross = toMoney(totalsRes.rows[0]?.total_gross);
-  const totalDeductions = toMoney(totalsRes.rows[0]?.total_deductions);
-  const totalNet = totalGross - totalDeductions;
-  const totalEmployees = Number(totalsRes.rows[0]?.total_employees || 0);
-
-  const paidThisMonthRes = await pool.query(
+  const paidThisMonthPromise = pool.query(
     `
     SELECT COALESCE(SUM(pp.paid_amount), 0) AS total_paid
     FROM payroll_run pr
@@ -46,9 +41,7 @@ export async function getFinanceDashboardService(pool) {
     [activeMonth]
   );
 
-  const totalPaidThisMonth = toMoney(paidThisMonthRes.rows[0]?.total_paid);
-
-  const pendingRunsRes = await pool.query(
+  const pendingRunsPromise = pool.query(
     `
     SELECT COUNT(1)::int AS c
     FROM payroll_run
@@ -56,9 +49,7 @@ export async function getFinanceDashboardService(pool) {
     `
   );
 
-  const pendingPayrolls = Number(pendingRunsRes.rows[0]?.c || 0);
-
-  const lastMonthRes = await pool.query(
+  const lastMonthPromise = pool.query(
     `
     WITH last_month AS (
       SELECT date_trunc('month', MAX(month)::date) - INTERVAL '1 month' AS m
@@ -74,9 +65,7 @@ export async function getFinanceDashboardService(pool) {
     `
   );
 
-  const lastMonthExpense = toMoney(lastMonthRes.rows[0]?.last_month_expense);
-
-  const trendRes = await pool.query(
+  const trendPromise = pool.query(
     `
     WITH months AS (
       SELECT generate_series(
@@ -103,6 +92,25 @@ export async function getFinanceDashboardService(pool) {
     ORDER BY m.m ASC
     `
   );
+
+  const [totalsRes, paidThisMonthRes, pendingRunsRes, lastMonthRes, trendRes] = await Promise.all([
+    totalsPromise,
+    paidThisMonthPromise,
+    pendingRunsPromise,
+    lastMonthPromise,
+    trendPromise
+  ]);
+
+  const totalGross = toMoney(totalsRes.rows[0]?.total_gross);
+  const totalDeductions = toMoney(totalsRes.rows[0]?.total_deductions);
+  const totalNet = totalGross - totalDeductions;
+  const totalEmployees = Number(totalsRes.rows[0]?.total_employees || 0);
+
+  const totalPaidThisMonth = toMoney(paidThisMonthRes.rows[0]?.total_paid);
+
+  const pendingPayrolls = Number(pendingRunsRes.rows[0]?.c || 0);
+
+  const lastMonthExpense = toMoney(lastMonthRes.rows[0]?.last_month_expense);
 
   const monthlyExpenseTrend = (trendRes.rows || []).map((r) => ({
     month: r.month,

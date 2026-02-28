@@ -7,6 +7,22 @@ export async function getSystemConfigMap(pool) {
   return map;
 }
 
+export async function getSystemConfigValues(pool, keys) {
+  const list = Array.isArray(keys) ? keys.map((k) => String(k)) : [];
+  if (list.length === 0) return {};
+
+  const res = await pool.query(
+    'SELECT key, value FROM system_config WHERE key = ANY($1::text[])',
+    [list]
+  );
+
+  const out = {};
+  for (const row of res.rows || []) {
+    out[row.key] = row.value;
+  }
+  return out;
+}
+
 export async function getSystemConfigValue(pool, key) {
   const res = await pool.query('SELECT value FROM system_config WHERE key = $1', [key]);
   return res.rows[0]?.value ?? null;

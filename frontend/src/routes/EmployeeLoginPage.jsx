@@ -26,7 +26,7 @@ export function EmployeeLoginPage() {
 
       const { accessToken, forcePasswordChange } = res;
       setToken(accessToken);
-      await refresh();
+      await refresh(accessToken);
 
       if (forcePasswordChange) {
         navigate('/change-password');

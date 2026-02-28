@@ -23,7 +23,7 @@ export function AdminLoginPage() {
       });
       const { accessToken } = res;
       setToken(accessToken);
-      await refresh();
+      await refresh(accessToken);
     } catch (err) {
       const msg = err.payload?.error?.issues?.map(i => i.message).join(', ') || err.message || 'Login failed';
       setError(msg);

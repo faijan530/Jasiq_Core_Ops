@@ -1,5 +1,5 @@
 import { forbidden } from '../../../shared/kernel/errors.js';
-import { getSystemConfigValue } from '../../../shared/kernel/systemConfig.js';
+import { getSystemConfigValues } from '../../../shared/kernel/systemConfig.js';
 
 function toBool(value) {
   if (value === null || value === undefined) return false;
@@ -22,10 +22,7 @@ export async function readOpsConfig(pool) {
     'APPROVAL_SLA_HOURS'
   ];
 
-  const values = {};
-  for (const k of keys) {
-    values[k] = await getSystemConfigValue(pool, k);
-  }
+  const values = await getSystemConfigValues(pool, keys);
 
   return {
     opsInboxEnabled: toBool(values.OPS_INBOX_ENABLED),

@@ -1,4 +1,4 @@
-import { readOpsConfig, assertOpsInboxEnabled } from '../services/opsPolicy.service.js';
+import { assertOpsInboxEnabled } from '../services/opsPolicy.service.js';
 
 function addHours(iso, hours) {
   const d = new Date(iso);
@@ -19,8 +19,7 @@ function normalizeItem(row) {
   };
 }
 
-export async function queryOpsInbox(pool, { actorId, divisionId, limit }) {
-  const cfg = await readOpsConfig(pool);
+export async function queryOpsInboxWithConfig(pool, cfg, { actorId, divisionId, limit }) {
   assertOpsInboxEnabled(cfg);
 
   const slaHours = cfg.approvalSlaHours;
@@ -136,4 +135,10 @@ export async function queryOpsInbox(pool, { actorId, divisionId, limit }) {
   // Division items will be further filtered by route middleware (divisionId) and permission scopes.
 
   return (res.rows || []).map((r) => normalizeItem(r));
+}
+
+export async function queryOpsInbox(pool, { actorId, divisionId, limit }) {
+  const { readOpsConfig } = await import('../services/opsPolicy.service.js');
+  const cfg = await readOpsConfig(pool);
+  return queryOpsInboxWithConfig(pool, cfg, { actorId, divisionId, limit });
 }

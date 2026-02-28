@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 import { apiFetch, getAuthToken, setAuthToken } from '../api/client.js';
 
@@ -131,7 +131,7 @@ export function BootstrapProvider({ children }) {
     if (!currentToken) {
       setBootstrap(null);
       setStatus('idle');
-      return;
+      return null;
     }
 
     setStatus('loading');
@@ -139,23 +139,29 @@ export function BootstrapProvider({ children }) {
 
     try {
       const payload = await apiFetch('/api/v1/app/bootstrap');
-      setBootstrap(normalizeBootstrap(payload));
+      const normalized = normalizeBootstrap(payload);
+      setBootstrap(normalized);
       setStatus('ready');
+      return normalized;
     } catch (err) {
       if (err.status === 401) {
         setAuthToken(null);
         setTokenState(null);
         setBootstrap(null);
         setStatus('idle');
-        return;
+        return null;
       }
 
       setError(err);
       setStatus('error');
+      return null;
     }
   }, [token]);
 
+  const didInitRef = useRef(false);
   useEffect(() => {
+    if (didInitRef.current) return;
+    didInitRef.current = true;
     refresh();
   }, [refresh]);
 

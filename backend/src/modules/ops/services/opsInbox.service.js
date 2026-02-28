@@ -4,7 +4,7 @@ import { withTransaction } from '../../../shared/persistence/transaction.js';
 import { writeAuditLog } from '../../../shared/kernel/audit.js';
 import { badRequest, conflict, notFound } from '../../../shared/kernel/errors.js';
 
-import { queryOpsInbox } from '../repositories/opsInbox.query.js';
+import { queryOpsInbox, queryOpsInboxWithConfig } from '../repositories/opsInbox.query.js';
 import { assertCanAccessDivision } from './divisionScopePolicy.service.js';
 import { assertHasPermission } from './permissionPolicy.service.js';
 import { readOpsConfig, assertOpsInboxEnabled } from './opsPolicy.service.js';
@@ -74,7 +74,7 @@ export async function listOpsInboxService(pool, { actorId, divisionId, limit }) 
     await assertHasPermission(pool, { actorId, permissionCode: 'OPS_INBOX_READ', divisionId: null });
   }
 
-  const items = await queryOpsInbox(pool, { actorId, divisionId: divisionId || null, limit: Number(limit || 50) });
+  const items = await queryOpsInboxWithConfig(pool, cfg, { actorId, divisionId: divisionId || null, limit: Number(limit || 50) });
   return { items };
 }
 

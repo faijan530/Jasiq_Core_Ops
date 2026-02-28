@@ -15,18 +15,17 @@ export function LoginPage() {
   const canSubmit = useMemo(() => email.trim().length > 0 && password.trim().length > 0, [email, password]);
 
   async function handleLoginSuccess(data) {
-    localStorage.setItem('accessToken', data.accessToken);
     setToken(data.accessToken);
 
-    await refresh();
+    const nextBootstrap = await refresh(data.accessToken);
 
     if (data.forcePasswordChange) {
       navigate('/change-password');
       return;
     }
 
-    // Get role from bootstrap data (rbac.roles[0]) instead of JWT token
-    const role = bootstrap?.rbac?.roles?.[0];
+    // Get role from the freshly fetched bootstrap payload
+    const role = nextBootstrap?.rbac?.roles?.[0];
 
     const roleRedirectMap = {
       SUPER_ADMIN: '/super-admin/dashboard',

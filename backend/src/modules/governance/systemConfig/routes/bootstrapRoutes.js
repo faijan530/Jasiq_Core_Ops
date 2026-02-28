@@ -2,7 +2,14 @@ import { Router } from 'express';
 
 import { asyncHandler } from '../../../../shared/kernel/asyncHandler.js';
 import { getUserGrants } from '../../../../shared/kernel/authorization.js';
-import { getSystemConfigMap, isAttendanceEnabled, isEmployeeEnabled, isMonthCloseEnabled, isProjectsEnabled } from '../../../../shared/kernel/systemConfig.js';
+import { getSystemConfigMap } from '../../../../shared/kernel/systemConfig.js';
+
+function parseFlag(systemConfig, key) {
+  const raw = systemConfig?.[key]?.value ?? null;
+  if (raw === null || raw === undefined) return false;
+  const v = String(raw).trim().toLowerCase();
+  return v === 'true' || v === '1' || v === 'yes' || v === 'enabled' || v === 'on';
+}
 
 function buildNavigation({ permissions, features }) {
   const items = [
@@ -213,15 +220,17 @@ export function bootstrapRoutes({ pool }) {
     '/bootstrap',
     asyncHandler(async (req, res) => {
       const userId = req.auth.userId;
-      const grants = await getUserGrants(pool, userId);
-      const systemConfig = await getSystemConfigMap(pool);
+      const [grants, systemConfig] = await Promise.all([
+        getUserGrants(pool, userId),
+        getSystemConfigMap(pool)
+      ]);
 
       const features = {
         flags: {
-          PROJECTS_ENABLED: await isProjectsEnabled(pool),
-          MONTH_CLOSE_ENABLED: await isMonthCloseEnabled(pool),
-          EMPLOYEE_ENABLED: await isEmployeeEnabled(pool),
-          ATTENDANCE_ENABLED: await isAttendanceEnabled(pool)
+          PROJECTS_ENABLED: parseFlag(systemConfig, 'PROJECTS_ENABLED'),
+          MONTH_CLOSE_ENABLED: parseFlag(systemConfig, 'MONTH_CLOSE_ENABLED'),
+          EMPLOYEE_ENABLED: parseFlag(systemConfig, 'EMPLOYEE_ENABLED'),
+          ATTENDANCE_ENABLED: parseFlag(systemConfig, 'ATTENDANCE_ENABLED')
         }
       };
 
