@@ -22,8 +22,7 @@ export function assertStatusTransition(fromStatus, toStatus) {
   if (fromStatus === toStatus) return;
 
   if (fromStatus === 'EXITED') {
-    throw badRequest('Cannot change status after EXITED');
-  }
+     }
 }
 
 export function assertNotExited(employee) {

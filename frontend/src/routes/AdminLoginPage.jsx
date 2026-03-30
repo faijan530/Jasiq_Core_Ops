@@ -1,9 +1,11 @@
 import React, { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 import { useBootstrap } from '../state/bootstrap.jsx';
 import { apiFetch } from '../api/client.js';
 
 export function AdminLoginPage() {
+  const navigate = useNavigate();
   const { setToken, refresh } = useBootstrap();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -23,7 +25,21 @@ export function AdminLoginPage() {
       });
       const { accessToken } = res;
       setToken(accessToken);
-      await refresh(accessToken);
+      const nextBootstrap = await refresh(accessToken);
+
+      const role = nextBootstrap?.rbac?.roles?.[0];
+
+      const roleRedirectMap = {
+        SUPER_ADMIN: '/super-admin/dashboard',
+        COREOPS_ADMIN: '/super-admin/ops/dashboard',
+        HR_ADMIN: '/hr/dashboard',
+        FINANCE_ADMIN: '/finance/dashboard',
+        MANAGER: '/manager/dashboard',
+        EMPLOYEE: '/employee/dashboard'
+      };
+
+      const redirectPath = roleRedirectMap[role] || '/';
+      navigate(redirectPath);
     } catch (err) {
       const msg = err.payload?.error?.issues?.map(i => i.message).join(', ') || err.message || 'Login failed';
       setError(msg);

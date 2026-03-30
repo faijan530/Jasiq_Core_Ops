@@ -8,3 +8,4 @@ ALTER TABLE month_close
 CREATE INDEX IF NOT EXISTS idx_month_close_month_scope ON month_close(month, scope);
 
 COMMIT;
+       
