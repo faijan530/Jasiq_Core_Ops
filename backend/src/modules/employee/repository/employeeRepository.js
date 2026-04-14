@@ -472,7 +472,7 @@ export async function assignUserRole(client, { userId, roleName }) {
   await client.query(
     `INSERT INTO user_role (id, user_id, role_id, scope, division_id)
      VALUES (gen_random_uuid(), $1, $2, 'COMPANY', NULL)
-     ON CONFLICT (user_id, role_id) DO UPDATE SET
+     ON CONFLICT (user_id, role_id, scope, division_id) DO UPDATE SET
        role_id = EXCLUDED.role_id,
        scope = EXCLUDED.scope,
        division_id = EXCLUDED.division_id`,
