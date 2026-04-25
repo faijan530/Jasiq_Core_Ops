@@ -39,7 +39,7 @@ export function requirePermission({ pool, permissionCode, getDivisionId }) {
       const userId = req.auth?.userId;
       const grants = await getUserGrants(pool, userId);
 
-      if (grants.permissions.includes('SYSTEM_FULL_ACCESS') || grants.roles.includes('SUPER_ADMIN')) {
+      if (grants.permissions.includes('SYSTEM_FULL_ACCESS') || grants.roles.includes('SUPER_ADMIN') || grants.roles.includes('FOUNDER')) {
         req.authorization = {
           roles: grants.roles,
           permissions: grants.permissions
@@ -81,7 +81,7 @@ export function requireAnyPermission({ pool, permissionCodes, getDivisionId }) {
       const userId = req.auth?.userId;
       const grants = await getUserGrants(pool, userId);
 
-      if (grants.permissions.includes('SYSTEM_FULL_ACCESS') || grants.roles.includes('SUPER_ADMIN')) {
+      if (grants.permissions.includes('SYSTEM_FULL_ACCESS') || grants.roles.includes('SUPER_ADMIN') || grants.roles.includes('FOUNDER')) {
         req.authorization = {
           roles: grants.roles,
           permissions: grants.permissions
