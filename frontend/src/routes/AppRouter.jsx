@@ -228,10 +228,10 @@ export function AppRouter() {
   const permissions = bootstrap?.rbac?.permissions || [];
   const canReadApprovals = permissions.includes('TIMESHEET_APPROVAL_QUEUE_READ');
 
-  // SUPER_ADMIN should never render other panels (Finance/HR/Manager/Employee).
-  // If the user is SUPER_ADMIN but somehow lands on another panel path, force redirect.
+  // SUPER_ADMIN and FOUNDER should never render other panels (Finance/HR/Manager/Employee).
+  // If the user is SUPER_ADMIN or FOUNDER but somehow lands on another panel path, force redirect.
   if (
-    roles.includes('SUPER_ADMIN') &&
+    (roles.includes('SUPER_ADMIN') || roles.includes('FOUNDER')) &&
     (location.pathname.startsWith('/finance') ||
       location.pathname.startsWith('/hr') ||
       location.pathname.startsWith('/manager') ||
@@ -252,7 +252,7 @@ export function AppRouter() {
       <Route
         path="/super-admin/*"
         element={
-          <RoleRoute allowedRoles={["SUPER_ADMIN", "COREOPS_ADMIN"]}>
+          <RoleRoute allowedRoles={["SUPER_ADMIN", "COREOPS_ADMIN", "FOUNDER"]}>
             <SuperAdminLayout />
           </RoleRoute>
         }
