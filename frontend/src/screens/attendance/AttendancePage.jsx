@@ -739,9 +739,9 @@ export function AttendancePage() {
       />
 
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pb-8">
-        <div className="mt-4 grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <div className="lg:col-span-4 xl:col-span-3">
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm">
+        <div className="mt-4 grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6">
+          <div className="lg:col-span-4 xl:col-span-3 space-y-4">
+            <div className="bg-white rounded-xl md:rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
               <div className="p-4 border-b border-slate-200">
                 <div className="text-sm font-semibold text-slate-900">Controls</div>
                 <div className="mt-1 text-xs text-slate-500">Month close status: {monthStatus}</div>
@@ -815,10 +815,10 @@ export function AttendancePage() {
 
           <div className="lg:col-span-8 xl:col-span-9">
             {view === 'monthly' ? (
-              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm">
-                <div className="p-4 border-b border-slate-200 flex items-start justify-between gap-4">
+              <div className="bg-white rounded-xl md:rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="p-4 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div>
-                    <div className="text-sm font-semibold text-slate-900">
+                    <div className="text-sm font-bold text-slate-900">
                       {canWrite
                         ? 'Attendance Overview'
                         : 'Attendance'}
@@ -827,9 +827,9 @@ export function AttendancePage() {
                       {filteredEmployees.length} employees · {days.length} days
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     {isMonthClosed ? (
-                      <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-900">
+                      <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-[10px] md:text-xs font-semibold text-amber-900">
                         <span aria-hidden>🔒</span>
                         Month locked
                       </span>
@@ -840,9 +840,9 @@ export function AttendancePage() {
                       <button 
                         onClick={() => setOverrideEnabled(prev => !prev)}
                         className={cx(
-                          "rounded-lg border px-3 py-1 text-xs font-medium",
+                          "rounded-lg border px-2 md:px-3 py-1 text-[10px] md:text-xs font-medium transition-all",
                           overrideEnabled 
-                            ? "border-blue-300 bg-blue-50 text-blue-700" 
+                            ? "border-blue-300 bg-blue-50 text-blue-700 shadow-sm ring-1 ring-blue-200" 
                             : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
                         )}
                       >
@@ -854,16 +854,16 @@ export function AttendancePage() {
                     {canBulk && (
                       <button 
                         onClick={() => setBulkModalOpen(true)}
-                        className="rounded-lg bg-blue-600 px-3 py-1 text-xs font-medium text-white hover:bg-blue-700"
+                        className="rounded-lg bg-blue-600 px-2 md:px-3 py-1 text-[10px] md:text-xs font-medium text-white hover:bg-blue-700 shadow-sm transition-colors active:scale-95"
                       >
-                        Bulk Attendance
+                        Bulk
                       </button>
                     )}
                     
-                    <div className="hidden sm:flex items-center gap-2 text-xs text-slate-600">
-                      <span className="inline-flex h-3 w-3 rounded bg-emerald-200" /> Present
-                      <span className="inline-flex h-3 w-3 rounded bg-rose-200" /> Absent
-                      <span className="inline-flex h-3 w-3 rounded bg-amber-200" /> Leave
+                    <div className="hidden xs:flex items-center gap-1.5 text-[10px] text-slate-500 ml-1">
+                      <span className="inline-flex h-2 w-2 rounded-full bg-emerald-400" /> P
+                      <span className="inline-flex h-2 w-2 rounded-full bg-rose-400" /> A
+                      <span className="inline-flex h-2 w-2 rounded-full bg-amber-400" /> L
                     </div>
                   </div>
                 </div>

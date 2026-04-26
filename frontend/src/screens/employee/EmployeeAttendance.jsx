@@ -155,21 +155,21 @@ export function EmployeeAttendance() {
   const calendarDays = getDaysInMonth(currentDate);
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-3xl p-8 text-white shadow-xl relative overflow-hidden">
+    <div className="w-full max-w-7xl mx-auto space-y-4 md:space-y-8 animate-in fade-in duration-500">
+      <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-xl md:rounded-3xl p-5 md:p-8 text-white shadow-xl relative overflow-hidden w-full">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32 blur-3xl"></div>
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div>
-            <h1 className="text-3xl font-bold">Attendance Records</h1>
-            <p className="text-blue-100 mt-2 opacity-90">Track your daily presence and manage your work schedule.</p>
+          <div className="min-w-0">
+            <h1 className="text-xl md:text-3xl font-bold break-words">Attendance Records</h1>
+            <p className="text-blue-100 mt-1 md:mt-2 opacity-90 text-xs md:text-base leading-relaxed">Track your daily presence and manage your schedule.</p>
           </div>
-          <div className="flex items-center gap-4 bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/20">
+          <div className="flex items-center gap-3 md:gap-4 bg-white/10 backdrop-blur-md rounded-xl md:rounded-2xl p-2.5 md:p-4 border border-white/20 self-start md:self-auto">
             <div className="text-right">
-              <div className="text-xs font-semibold uppercase tracking-wider opacity-70">Current View</div>
-              <div className="text-lg font-bold">{currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</div>
+              <div className="text-[10px] md:text-xs font-semibold uppercase tracking-wider opacity-70">Current View</div>
+              <div className="text-base md:text-lg font-bold">{currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</div>
             </div>
-            <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
-               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl bg-white/20 flex items-center justify-center">
+               <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
             </div>
@@ -177,9 +177,9 @@ export function EmployeeAttendance() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
         <div className="lg:col-span-1 space-y-8">
-          <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200">
+          <div className="bg-white rounded-2xl md:rounded-3xl p-5 md:p-6 shadow-sm border border-slate-200">
             <h3 className="text-lg font-bold text-slate-900 mb-4">Daily Check-in</h3>
             {!todayMarked ? (
               <div className="space-y-4">
@@ -208,17 +208,17 @@ export function EmployeeAttendance() {
                 </div>
               </div>
             ) : (
-              <div className="bg-emerald-50 rounded-2xl p-6 border border-emerald-100 text-center">
-                <div className="w-16 h-16 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-lg mx-auto mb-4">
-                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+              <div className="bg-emerald-50 rounded-2xl p-4 md:p-6 border border-emerald-100 text-center">
+                <div className="w-12 h-12 md:w-16 md:h-16 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-lg mx-auto mb-3 md:mb-4">
+                  <svg className="w-6 h-6 md:w-8 md:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
                 </div>
-                <h4 className="text-emerald-900 font-bold text-lg">Already Marked</h4>
-                <p className="text-emerald-700 text-sm mt-1">Status: <span className="font-bold">{todayAttendanceStatus}</span></p>
+                <h4 className="text-emerald-900 font-bold text-base md:text-lg">Already Marked</h4>
+                <p className="text-emerald-700 text-xs md:text-sm mt-1">Status: <span className="font-bold">{todayAttendanceStatus}</span></p>
               </div>
             )}
           </div>
 
-          <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200">
+          <div className="bg-white rounded-2xl md:rounded-3xl p-5 md:p-6 shadow-sm border border-slate-200">
             <h3 className="text-lg font-bold text-slate-900 mb-4">View Records</h3>
             <div className="space-y-4">
               <div>
@@ -243,9 +243,9 @@ export function EmployeeAttendance() {
         </div>
 
         <div className="lg:col-span-2">
-          <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
-            <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-              <h3 className="text-xl font-bold text-slate-900">Attendance Calendar</h3>
+          <div className="bg-white rounded-2xl md:rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="p-5 md:p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <h3 className="text-lg md:text-xl font-bold text-slate-900">Attendance Calendar</h3>
               <div className="flex gap-2">
                 {['Present', 'Absent', 'Leave'].map(l => (
                   <div key={l} className="flex items-center gap-1.5">
@@ -255,13 +255,13 @@ export function EmployeeAttendance() {
                 ))}
               </div>
             </div>
-            <div className="p-6">
-              <div className="grid grid-cols-7 gap-3">
+            <div className="p-0 md:p-6">
+              <div className="grid grid-cols-7 gap-px md:gap-3 w-full border-t border-slate-100 md:border-none">
                 {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
-                  <div key={d} className="text-center py-2 text-xs font-bold text-slate-400 uppercase tracking-widest">{d}</div>
+                  <div key={d} className="text-center py-2 md:py-2 text-[8px] md:text-xs font-bold text-slate-400 uppercase tracking-tighter md:tracking-widest flex-1 min-w-0 border-b border-slate-50 md:border-none">{d}</div>
                 ))}
                 {calendarDays.map((date, idx) => {
-                  if (!date) return <div key={`empty-${idx}`} className="aspect-square"></div>;
+                  if (!date) return <div key={`empty-${idx}`} className="aspect-square w-full min-w-0"></div>;
                   const record = getAttendanceForDate(date);
                   const status = getStatusDisplay(record?.status);
                   const isDayToday = isToday(date);
@@ -270,14 +270,15 @@ export function EmployeeAttendance() {
                     <div 
                       key={date.toISOString()}
                       className={`
-                        aspect-square rounded-2xl border-2 flex flex-col items-center justify-center gap-1 transition-all relative
-                        ${isDayToday ? 'border-blue-500 bg-blue-50 shadow-md scale-105 z-10' : 'border-slate-50 hover:border-slate-200 hover:bg-slate-50'}
+                        aspect-square w-full min-w-0 rounded-none md:rounded-2xl border-r border-b md:border-2 flex flex-col items-center justify-center gap-0 md:gap-1 transition-all relative
+                        ${isDayToday ? 'bg-blue-50/50 shadow-inner' : 'hover:bg-slate-50'}
                       `}
                     >
-                      <span className={`text-sm font-bold ${isDayToday ? 'text-blue-700' : 'text-slate-900'}`}>{date.getDate()}</span>
+                      <span className={`text-[10px] md:text-sm font-bold ${isDayToday ? 'text-blue-600' : 'text-slate-600'}`}>{date.getDate()}</span>
                       {record && (
-                        <div className={`text-[10px] px-2 py-0.5 rounded-full font-bold border ${status.class}`}>
-                          {status.text}
+                        <div className={`text-[8px] md:text-[10px] px-1 md:px-2 py-0.5 rounded-full font-bold border ${status.class}`}>
+                          <span className="hidden md:inline">{status.text}</span>
+                          <span className="md:hidden">{status.icon}</span>
                         </div>
                       )}
                     </div>
@@ -289,9 +290,9 @@ export function EmployeeAttendance() {
         </div>
       </div>
 
-      <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="p-6 border-b border-slate-100">
-          <h3 className="text-xl font-bold text-slate-900">Daily Log</h3>
+      <div className="bg-white rounded-2xl md:rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="p-5 md:p-6 border-b border-slate-100">
+          <h3 className="text-lg md:text-xl font-bold text-slate-900">Daily Log</h3>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left">

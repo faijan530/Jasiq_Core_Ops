@@ -38,6 +38,116 @@ const icons = {
     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
     </svg>
+  ),
+  'my-attendance': (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  ),
+  'ops-dashboard': (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4V7m-9 10V7a2 2 0 012-2h6a2 2 0 012 2v10m-10 0h10" />
+    </svg>
+  ),
+  'ops-inbox': (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4V7m-9 10V7a2 2 0 012-2h6a2 2 0 012 2v10m-10 0h10" />
+    </svg>
+  ),
+  'ops-alerts': (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4V7m-9 10V7a2 2 0 012-2h6a2 2 0 012 2v10m-10 0h10" />
+    </svg>
+  ),
+  'ops-overrides': (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4V7m-9 10V7a2 2 0 012-2h6a2 2 0 012 2v10m-10 0h10" />
+    </svg>
+  ),
+  'ops-data-quality': (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4V7m-9 10V7a2 2 0 012-2h6a2 2 0 012 2v10m-10 0h10" />
+    </svg>
+  ),
+  'reimbursements': (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  ),
+  'expense-categories': (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  ),
+  'expense-payments': (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  ),
+  'expense-adjustments': (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  ),
+  'revenue': (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4V7m-9 10V7a2 2 0 012-2h6a2 2 0 012 2v10m-10 0h10" />
+    </svg>
+  ),
+  'revenue-approvals': (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4V7m-9 10V7a2 2 0 012-2h6a2 2 0 012 2v10m-10 0h10" />
+    </svg>
+  ),
+  'revenue-reports': (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4V7m-9 10V7a2 2 0 012-2h6a2 2 0 012 2v10m-10 0h10" />
+    </svg>
+  ),
+  'revenue-categories': (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4V7m-9 10V7a2 2 0 012-2h6a2 2 0 012 2v10m-10 0h10" />
+    </svg>
+  ),
+  'revenue-clients': (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4V7m-9 10V7a2 2 0 012-2h6a2 2 0 012 2v10m-10 0h10" />
+    </svg>
+  ),
+  'report-revenue': (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4V7m-9 10V7a2 2 0 012-2h6a2 2 0 012 2v10m-10 0h10" />
+    </svg>
+  ),
+  'report-expense': (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4V7m-9 10V7a2 2 0 012-2h6a2 2 0 012 2v10m-10 0h10" />
+    </svg>
+  ),
+  'report-pnl': (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4V7m-9 10V7a2 2 0 012-2h6a2 2 0 012 2v10m-10 0h10" />
+    </svg>
+  ),
+  'report-receivables': (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4V7m-9 10V7a2 2 0 012-2h6a2 2 0 012 2v10m-10 0h10" />
+    </svg>
+  ),
+  'report-payables': (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4V7m-9 10V7a2 2 0 012-2h6a2 2 0 012 2v10m-10 0h10" />
+    </svg>
+  ),
+  'report-cashflow': (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4V7m-9 10V7a2 2 0 012-2h6a2 2 0 012 2v10m-10 0h10" />
+    </svg>
+  ),
+  'audit-logs': (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4V7m-9 10V7a2 2 0 012-2h6a2 2 0 012 2v10m-10 0h10" />
+    </svg>
   )
 };
 
@@ -74,33 +184,33 @@ export function FinanceSidebar({ open, setOpen }) {
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', path: '/finance/dashboard' },
-    { id: 'reports', label: 'Operations', path: '/finance/ops/dashboard' },
-    { id: 'reports', label: '  Inbox', path: '/finance/ops/inbox' },
-    { id: 'reports', label: '  Alerts', path: '/finance/ops/alerts' },
-    { id: 'reports', label: '  Overrides', path: '/finance/ops/overrides' },
-    { id: 'reports', label: '  Data Quality', path: '/finance/ops/data-quality' },
+    { id: 'ops-dashboard', label: 'Operations', path: '/finance/ops/dashboard' },
+    { id: 'ops-inbox', label: '  Inbox', path: '/finance/ops/inbox' },
+    { id: 'ops-alerts', label: '  Alerts', path: '/finance/ops/alerts' },
+    { id: 'ops-overrides', label: '  Overrides', path: '/finance/ops/overrides' },
+    { id: 'ops-data-quality', label: '  Data Quality', path: '/finance/ops/data-quality' },
     { id: 'payroll', label: 'Payroll', path: '/finance/payroll' },
     { id: 'ledger', label: 'Ledger', path: '/finance/ledger' },
-    { id: 'expenses', label: 'Reimbursements', path: '/finance/reimbursements' },
+    { id: 'reimbursements', label: 'Reimbursements', path: '/finance/reimbursements' },
     { id: 'expenses', label: 'Expenses', path: '/finance/expenses' },
-    { id: 'expenses', label: 'Expense Categories', path: '/finance/expenses/categories' },
-    { id: 'expenses', label: 'Expense Payments', path: '/finance/expenses/payments' },
-    { id: 'expenses', label: 'Adjustments', path: '/finance/expenses/adjustments' },
-    { id: 'reports', label: 'Revenue', path: '/finance/revenue' },
-    { id: 'reports', label: 'Revenue Approvals', path: '/finance/revenue/approvals' },
-    { id: 'reports', label: 'Revenue Reports', path: '/finance/revenue/reports' },
-    { id: 'reports', label: 'Revenue Categories', path: '/finance/revenue/categories' },
-    { id: 'reports', label: 'Revenue Clients', path: '/finance/revenue/clients' },
+    { id: 'expense-categories', label: 'Expense Categories', path: '/finance/expenses/categories' },
+    { id: 'expense-payments', label: 'Expense Payments', path: '/finance/expenses/payments' },
+    { id: 'expense-adjustments', label: 'Expense Adjustments', path: '/finance/expenses/adjustments' },
+    { id: 'revenue', label: 'Revenue', path: '/finance/revenue' },
+    { id: 'revenue-approvals', label: 'Revenue Approvals', path: '/finance/revenue/approvals' },
+    { id: 'revenue-reports', label: 'Revenue Reports', path: '/finance/revenue/reports' },
+    { id: 'revenue-categories', label: 'Revenue Categories', path: '/finance/revenue/categories' },
+    { id: 'revenue-clients', label: 'Revenue Clients', path: '/finance/revenue/clients' },
     { id: 'reports', label: 'Reports', path: '/finance/reports/dashboard' },
-    { id: 'reports', label: '  Revenue', path: '/finance/reports/revenue' },
-    { id: 'reports', label: '  Expense', path: '/finance/reports/expense' },
-    { id: 'reports', label: '  Profit & Loss', path: '/finance/reports/pnl' },
-    { id: 'reports', label: '  Receivables', path: '/finance/reports/receivables' },
-    { id: 'reports', label: '  Payables', path: '/finance/reports/payables' },
-    { id: 'reports', label: '  Cashflow', path: '/finance/reports/cashflow' },
+    { id: 'report-revenue', label: '  Revenue', path: '/finance/reports/revenue' },
+    { id: 'report-expense', label: '  Expense', path: '/finance/reports/expense' },
+    { id: 'report-pnl', label: '  Profit & Loss', path: '/finance/reports/pnl' },
+    { id: 'report-receivables', label: '  Receivables', path: '/finance/reports/receivables' },
+    { id: 'report-payables', label: '  Payables', path: '/finance/reports/payables' },
+    { id: 'report-cashflow', label: '  Cashflow', path: '/finance/reports/cashflow' },
     { id: 'month-close', label: 'Month Close', path: '/finance/month-close' },
-    { id: 'dashboard', label: 'My Attendance', path: '/finance/my-attendance' },
-    ...(canViewAudit ? [{ id: 'reports', label: 'Audit Logs', path: '/finance/audit-logs' }] : [])
+    { id: 'my-attendance', label: 'My Attendance', path: '/finance/my-attendance' },
+    ...(canViewAudit ? [{ id: 'audit-logs', label: 'Audit Logs', path: '/finance/audit-logs' }] : [])
   ];
 
   return (

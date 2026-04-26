@@ -96,7 +96,7 @@ export function FinanceLayout() {
 
       <FinanceSidebar open={mobileMenuOpen} setOpen={setMobileMenuOpen} />
 
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col min-w-0">
         <header className="sticky top-0 z-30 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white shadow-lg border-b border-slate-700/50 backdrop-blur-sm">
           <div className="flex items-center justify-between h-16 px-4 lg:px-6">
             <div className="flex items-center gap-3 flex-1">
@@ -143,8 +143,8 @@ export function FinanceLayout() {
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto bg-gradient-to-br from-slate-50 via-white to-slate-50">
-          <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+        <main className="flex-1 overflow-y-auto bg-gradient-to-br from-slate-50 via-white to-slate-50 min-w-0">
+          <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-7xl mx-auto min-w-0">
             <Outlet />
           </div>
         </main>
