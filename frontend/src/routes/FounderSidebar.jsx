@@ -11,6 +11,21 @@ const icons = {
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
     </svg>
   ),
+  divisions: (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+    </svg>
+  ),
+  projects: (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+    </svg>
+  ),
+  roles: (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+    </svg>
+  ),
   employees: (
     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -21,9 +36,9 @@ const icons = {
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
     </svg>
   ),
-  'leave-balances': (
+  timesheets: (
     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
     </svg>
   ),
   'leave-overview': (
@@ -31,30 +46,46 @@ const icons = {
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
     </svg>
   ),
-  'leave-approvals': (
+  payroll: (
     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
     </svg>
   ),
-  'timesheet-approvals': (
+  finance: (
     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+    </svg>
+  ),
+  reports: (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v1a1 1 0 001 1h4a1 1 0 001-1v-1m3-2V8a2 2 0 00-2-2H8a2 2 0 00-2 2v8m5-4h.01M9 13h.01M15 13h.01M12 13h.01M12 17h.01M9 9h.01M15 9h.01" />
+    </svg>
+  ),
+  'system-config': (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
     </svg>
   ),
   'month-close': (
     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
     </svg>
+  ),
+  'audit-logs': (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+    </svg>
   )
 };
 
-export function HrSidebar({ open, setOpen }) {
+export function FounderSidebar({ open, setOpen }) {
   const { token, setToken } = useBootstrap();
   const { bootstrap } = useBootstrap();
   const location = useLocation();
 
-  const userEmail = bootstrap?.user?.email || 'HR Admin';
   const permissions = bootstrap?.rbac?.permissions || [];
+  const canViewAudit = permissions.includes('GOV_AUDIT_READ');
 
   const isMobile = open !== undefined; // If open prop is provided, we're in mobile mode
 
@@ -63,6 +94,8 @@ export function HrSidebar({ open, setOpen }) {
       setOpen(false);
     }
   };
+
+  const userEmail = bootstrap?.user?.email || 'Founder';
 
   function cx(...parts) {
     return parts.filter(Boolean).join(' ');
@@ -78,38 +111,27 @@ export function HrSidebar({ open, setOpen }) {
   };
 
   const navItems = [
-    { id: 'dashboard', label: 'Dashboard', path: '/hr/dashboard' }, // Always visible
-    { id: 'month-close', label: 'Operations', header: true },
-    { id: 'month-close', label: '  Inbox', path: '/hr/ops/inbox' },
-    { id: 'month-close', label: '  Alerts', path: '/hr/ops/alerts' },
-    { id: 'month-close', label: '  Data Quality', path: '/hr/ops/data-quality' },
-    { id: 'employees', label: 'Employees', path: '/hr/employees', requiredPermission: 'EMPLOYEE_READ' },
-    { id: 'attendance', label: 'My Attendance', path: '/hr/my-attendance' },
-    { id: 'attendance', label: 'Attendance', path: '/hr/attendance', requiredPermission: 'ATTENDANCE_CORRECT' },
-    { id: 'timesheet-approvals', label: 'Timesheet Approvals', path: '/hr/timesheets/approvals', requiredPermission: 'TIMESHEET_APPROVAL_QUEUE_READ' },
-    { 
-      id: 'leave-balances', 
-      label: 'Leave Balances', 
-      path: '/hr/leave/balances', 
-      requiredPermissions: ['LEAVE_TYPE_READ', 'LEAVE_BALANCE_GRANT'] // OR condition
-    },
-    { id: 'leave-approvals', label: 'Leave Approvals', path: '/hr/leave/approvals', requiredPermissions: ['LEAVE_APPROVE_L1', 'LEAVE_APPROVE_L2'] },
-    { id: 'leave-overview', label: 'Leave Overview', path: '/hr/leave/overview', requiredPermission: 'LEAVE_REQUEST_READ' },
-    { 
-      id: 'month-close', 
-      label: 'Month Close', 
-      path: '/hr/month-close', 
-      requiredPermissions: ['GOV_MONTH_CLOSE_READ', 'MONTH_CLOSE_MANAGE'] // OR condition
-    },
-    { id: 'month-close', label: 'Audit Logs', path: '/hr/audit-logs', requiredPermission: 'GOV_AUDIT_READ' }
+    { id: 'dashboard', label: 'Dashboard', path: '/founder/dashboard' },
+    { id: 'ops-dashboard', label: 'Operations', path: '/founder/ops/dashboard' },
+    { id: 'ops-inbox', label: '  Inbox', path: '/founder/ops/inbox' },
+    { id: 'ops-alerts', label: '  Alerts', path: '/founder/ops/alerts' },
+    { id: 'ops-overrides', label: '  Overrides', path: '/founder/ops/overrides' },
+    { id: 'ops-data-quality', label: '  Data Quality', path: '/founder/ops/data-quality' },
+    { id: 'reimbursements', label: 'Reimbursements', path: '/founder/reimbursements' },
+    { id: 'revenue', label: 'Revenue', path: '/founder/revenue' },
+    { id: 'revenue-categories', label: 'Revenue Categories', path: '/founder/revenue/categories' },
+    { id: 'revenue-clients', label: 'Revenue Clients', path: '/founder/revenue/clients' },
+    { id: 'divisions', label: 'Divisions', path: '/founder/divisions' },
+    { id: 'projects', label: 'Projects', path: '/founder/projects' },
+    { id: 'employees', label: 'Employees', path: '/founder/employees' },
+    { id: 'attendance', label: 'My Attendance', path: '/founder/my-attendance' },
+    { id: 'attendance', label: 'Attendance', path: '/founder/attendance' },
+    { id: 'timesheets', label: 'Timesheets', path: '/founder/timesheets' },
+    { id: 'leave-overview', label: 'Leave Overview', path: '/founder/leave/overview' },
+    { id: 'system-config', label: 'System Config', path: '/founder/system-config' },
+    { id: 'month-close', label: 'Month Close', path: '/founder/month-close' },
+    ...(canViewAudit ? [{ id: 'audit-logs', label: 'Audit Logs', path: '/founder/audit-logs' }] : [])
   ];
-
-  const visibleNavItems = navItems.filter((item) => {
-    if (!item.requiredPermission && !item.requiredPermissions) return true; // Dashboard - always visible
-    if (item.requiredPermission) return permissions.includes(item.requiredPermission); // Single permission check
-    if (item.requiredPermissions) return item.requiredPermissions.some(perm => permissions.includes(perm)); // OR condition
-    return false;
-  });
 
   return (
     <>
@@ -129,10 +151,10 @@ export function HrSidebar({ open, setOpen }) {
             {/* Mobile Header */}
             <div className="flex items-center justify-between p-4 border-b border-slate-200/60 bg-white/80 backdrop-blur-sm">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-lg flex items-center justify-center shadow-md">
-                  <span className="text-white font-bold text-xs">HR</span>
+                <div className="w-8 h-8 bg-gradient-to-br from-indigo-600 to-purple-700 rounded-lg flex items-center justify-center shadow-md">
+                  <span className="text-white font-bold text-xs">F</span>
                 </div>
-                <span className="font-semibold text-slate-800 text-sm">HR Admin</span>
+                <span className="font-semibold text-slate-800 text-sm">Founder Panel</span>
               </div>
               <button
                 onClick={handleClose}
@@ -147,18 +169,8 @@ export function HrSidebar({ open, setOpen }) {
 
             {/* Navigation */}
             <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-              {visibleNavItems.map((item) => {
-                if (item.header) {
-                  return (
-                    <div
-                      key={`${item.id}-${item.label}`}
-                      className="px-3 pt-4 pb-2 text-xs font-semibold text-slate-500 uppercase tracking-wider"
-                    >
-                      {item.label}
-                    </div>
-                  );
-                }
-                const isActive = location.pathname === item.path || (item.path !== '/hr/dashboard' && location.pathname.startsWith(item.path));
+              {navItems.map((item) => {
+                const isActive = location.pathname === item.path || (item.path !== '/founder/dashboard' && location.pathname.startsWith(item.path));
                 return (
                   <NavLink
                     key={item.id}
@@ -169,20 +181,20 @@ export function HrSidebar({ open, setOpen }) {
                         'group relative flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium text-sm transition-all duration-200',
                         'hover:bg-slate-100/80',
                         isActive
-                          ? 'bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 shadow-sm border border-blue-200/50'
+                          ? 'bg-gradient-to-r from-purple-50 to-indigo-50 text-purple-700 shadow-sm border border-purple-200/50'
                           : 'text-slate-700 hover:text-slate-900'
                       )
                     }
                   >
                     <span className={cx(
                       'flex-shrink-0 transition-transform duration-200',
-                      isActive ? 'scale-110 text-blue-600' : 'text-slate-500 group-hover:text-slate-700'
+                      isActive ? 'scale-110 text-purple-600' : 'text-slate-500 group-hover:text-slate-700'
                     )}>
-                      {icons[item.id]}
+                      {icons[item.id] || icons['reports']}
                     </span>
                     <span className="truncate">{item.label}</span>
                     {isActive && (
-                      <span className="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-blue-500 to-indigo-600 rounded-r-full" />
+                      <span className="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-purple-500 to-indigo-600 rounded-r-full" />
                     )}
                   </NavLink>
                 );
@@ -211,11 +223,11 @@ export function HrSidebar({ open, setOpen }) {
           {/* Desktop Header */}
           <div className="p-6 border-b border-slate-200/60">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-xl flex items-center justify-center shadow-lg">
-                <span className="text-white font-bold">HR</span>
+              <div className="w-10 h-10 bg-gradient-to-br from-indigo-600 to-purple-700 rounded-xl flex items-center justify-center shadow-lg">
+                <span className="text-white font-bold">F</span>
               </div>
               <div>
-                <div className="text-sm font-bold text-slate-800">HR Admin</div>
+                <div className="text-sm font-bold text-slate-800">Founder Panel</div>
                 <div className="text-xs text-slate-500">JASIQ CoreOps</div>
               </div>
             </div>
@@ -223,18 +235,8 @@ export function HrSidebar({ open, setOpen }) {
 
           {/* Desktop Navigation */}
           <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-            {visibleNavItems.map((item) => {
-              if (item.header) {
-                return (
-                  <div
-                    key={`${item.id}-${item.label}`}
-                    className="px-3 pt-4 pb-2 text-xs font-semibold text-slate-500 uppercase tracking-wider"
-                  >
-                    {item.label}
-                  </div>
-                );
-              }
-              const isActive = location.pathname === item.path || (item.path !== '/hr/dashboard' && location.pathname.startsWith(item.path));
+            {navItems.map((item) => {
+              const isActive = location.pathname === item.path || (item.path !== '/founder/dashboard' && location.pathname.startsWith(item.path));
               return (
                 <NavLink
                   key={item.id}
@@ -244,25 +246,42 @@ export function HrSidebar({ open, setOpen }) {
                       'group relative flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium text-sm transition-all duration-200',
                       'hover:bg-slate-100/80',
                       isActive
-                        ? 'bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 shadow-sm border border-blue-200/50'
+                        ? 'bg-gradient-to-r from-purple-50 to-indigo-50 text-purple-700 shadow-sm border border-purple-200/50'
                         : 'text-slate-700 hover:text-slate-900'
                     )
                   }
                 >
                   <span className={cx(
                     'flex-shrink-0 transition-transform duration-200',
-                    isActive ? 'scale-110 text-blue-600' : 'text-slate-500 group-hover:text-slate-700'
+                    isActive ? 'scale-110 text-purple-600' : 'text-slate-500 group-hover:text-slate-700'
                   )}>
-                    {icons[item.id]}
+                    {icons[item.id] || icons['reports']}
                   </span>
                   <span className="truncate">{item.label}</span>
                   {isActive && (
-                    <span className="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-blue-500 to-indigo-600 rounded-r-full" />
+                    <span className="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-purple-500 to-indigo-600 rounded-r-full" />
                   )}
                 </NavLink>
               );
             })}
           </nav>
+
+          {/* Desktop User Profile Section */}
+          <div className="p-3 border-t border-slate-200/60 bg-gradient-to-t from-slate-50 to-transparent">
+            <div className="flex items-center gap-3 p-3 rounded-xl bg-white/60 backdrop-blur-sm border border-slate-200/50 shadow-sm">
+              <div className="w-9 h-9 bg-gradient-to-br from-slate-600 to-slate-800 rounded-full flex items-center justify-center text-white font-semibold text-sm shadow-inner">
+                {userEmail?.charAt(0).toUpperCase() || 'F'}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-medium text-slate-800 text-sm truncate">{userEmail}</div>
+                <div className="text-xs text-slate-500 truncate">Founder</div>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse shadow-sm" />
+                <span className="text-xs text-slate-500 font-medium">Online</span>
+              </div>
+            </div>
+          </div>
 
           {/* Desktop Logout */}
           <div className="p-4 border-t border-slate-200/60">

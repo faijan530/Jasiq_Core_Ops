@@ -165,8 +165,11 @@ export function AuditPage() {
   const title = 'Audit Logs';
 
   const permissions = bootstrap?.rbac?.permissions || [];
-  const canExport = permissions.includes('GOV_AUDIT_EXPORT') || permissions.includes('SYSTEM_FULL_ACCESS');
-  const hasRead = permissions.includes('GOV_AUDIT_READ') || permissions.includes('SYSTEM_FULL_ACCESS');
+  const roles = bootstrap?.rbac?.roles || [];
+  const isFounder = roles.includes('FOUNDER');
+  
+  const canExport = isFounder || permissions.includes('GOV_AUDIT_EXPORT') || permissions.includes('SYSTEM_FULL_ACCESS');
+  const hasRead = isFounder || permissions.includes('GOV_AUDIT_READ') || permissions.includes('SYSTEM_FULL_ACCESS');
   // Debug: uncomment to see permissions in console
   console.log('Audit permissions:', { permissions, canExport, hasRead });
 

@@ -38,13 +38,13 @@ export function ManagerTeamLeavePage() {
   // Fetch leave types from DB
   const fetchLeaveTypes = async () => {
     try {
-      console.log('Fetching leave types from DB...');
+
       const response = await apiFetch('/api/v1/leave/types');
       const types = response || [];
-      console.log('Leave types fetched:', types);
+
       setLeaveTypes(Array.isArray(types) ? types : []);
     } catch (err) {
-      console.error('Failed to fetch leave types:', err);
+
       // Set empty array to prevent map errors
       setLeaveTypes([]);
     }
@@ -53,25 +53,23 @@ export function ManagerTeamLeavePage() {
   // Fetch team leave requests
   const fetchTeamLeave = async () => {
     if (!userId) {
-      console.log('Leave: No userId found, skipping fetch');
+
       return;
     }
     
-    console.log('Leave: User ID:', userId);
-    console.log('Leave: User permissions:', permissions);
-    console.log('Leave: Has permission:', hasPermission);
+
     
     try {
       setError(null);
       
       const statusParam = selectedStatus || 'all';
-      console.log('Fetching team leave with status:', statusParam);
+
       
       const response = await apiFetch(`/api/v1/leave/team?status=${encodeURIComponent(statusParam)}`);
-      console.log('Team leave API response:', response);
+
       
       let leavesData = response || [];
-      console.log('Leave data before filtering:', leavesData);
+
 
       // Build employee dropdown options from the actual leave response (before filters)
       const employeeById = new Map();
@@ -112,7 +110,7 @@ export function ManagerTeamLeavePage() {
         leavesData = leavesData.filter(leave => leave.leaveType === selectedLeaveType);
       }
       
-      console.log('Leave data after all filtering:', leavesData);
+
       setLeaves(leavesData);
       
       // Calculate summary from real data
@@ -122,9 +120,9 @@ export function ManagerTeamLeavePage() {
       const rejected = leavesData.filter(l => l.status === 'REJECTED').length;
       
       setSummary({ total, pendingL1, approved, rejected });
-      console.log('Leave summary set:', { total, pendingL1, approved, rejected });
+
     } catch (err) {
-      console.error('Failed to fetch team leave requests:', err);
+
       if (err.status === 403) {
         setError('You do not have permission to view team leave. Required permission: LEAVE_APPROVE_TEAM');
       } else {
@@ -155,7 +153,7 @@ export function ManagerTeamLeavePage() {
         // Fetch leave data
         await fetchTeamLeave();
       } catch (err) {
-        console.error('Error initializing data:', err);
+
       } finally {
         setLoading(false);
       }
@@ -195,9 +193,9 @@ export function ManagerTeamLeavePage() {
       setSelectedLeave(null);
       fetchTeamLeave();
       
-      console.log('Leave request approved successfully');
+
     } catch (err) {
-      console.error('Failed to approve leave:', err);
+
     } finally {
       setSubmitting(false);
     }
@@ -218,9 +216,9 @@ export function ManagerTeamLeavePage() {
       setRejectReason('');
       fetchTeamLeave();
       
-      console.log('Leave request rejected successfully');
+
     } catch (err) {
-      console.error('Failed to reject leave:', err);
+
     } finally {
       setSubmitting(false);
     }

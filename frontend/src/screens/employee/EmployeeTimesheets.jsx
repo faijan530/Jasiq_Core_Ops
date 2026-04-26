@@ -7,7 +7,6 @@ function cx(...parts) {
   return parts.filter(Boolean).join(' ');
 }
 
-// Debounce utility function
 function debounce(func, wait) {
   let timeout;
   return function executedFunction(...args) {
@@ -33,27 +32,23 @@ export function EmployeeTimesheets() {
   const [viewTimesheet, setViewTimesheet] = useState(null);
   const [userNameCache, setUserNameCache] = useState({});
   
-  // Current week state
   const [currentWeek, setCurrentWeek] = useState({
-    weekStart: null,  // Use null instead of empty string
+    weekStart: null,
     totalHours: 0,
     status: 'DRAFT',
     locked: false,
     entries: []
   });
 
-  // Employee scope and division info
   const employee = bootstrap?.employee;
   const employeeScope = employee?.scope || 'DIVISION';
   const employeeDivision = employee?.divisionId;
   const systemConfig = bootstrap?.systemConfig || {};
   const maxHoursPerDay = parseInt(systemConfig?.TIMESHEET_MAX_HOURS_PER_DAY?.value) || 8;
 
-  // Auto-save state
   const [autoSaveStatus, setAutoSaveStatus] = useState({});
   const autoSaveTimeouts = useRef({});
 
-  // Get current week range
   const getCurrentWeekRange = () => {
     const now = new Date();
     const currentDay = now.getDay();
@@ -62,78 +57,57 @@ export function EmployeeTimesheets() {
     return monday.toISOString().split('T')[0];
   };
 
-  // Initialize current week entries
   const initializeWeekEntries = (weekStart) => {
     const weekEntries = [];
     const baseDate = new Date(weekStart);
-    
     for (let i = 0; i < 7; i++) {
       const currentDate = new Date(baseDate);
       currentDate.setDate(baseDate.getDate() + i);
       const dateStr = currentDate.toISOString().split('T')[0];
-      
       weekEntries.push({
         date: dateStr,
         hours: '',
         division: employeeScope === 'COMPANY' ? '' : employeeDivision,
+        task: '',
         description: '',
         project: null,
+        projectName: '',
         isExpanded: false
       });
     }
-    
     return weekEntries;
   };
 
-  // Fetch timesheets data
   useEffect(() => {
     async function fetchTimesheetsData() {
       try {
         setLoading(true);
-        
-        // Fetch current employee's timesheets (headers only)
         const response = await apiFetch('/api/v1/timesheets/me');
         const timesheetsData = response.items || response || [];
         setTimesheets(Array.isArray(timesheetsData) ? timesheetsData : []);
         
-        // Auto-load logic: Try to find existing draft first
         let currentWeekData = null;
-        
         if (timesheetsData.length > 0) {
-          // Priority 1: Find latest DRAFT timesheet
           const draftTimesheet = timesheetsData.find(ts => ts.status === 'DRAFT');
-          if (draftTimesheet) {
-            currentWeekData = draftTimesheet;
-          } else {
-            // Priority 2: If no draft, find most recent timesheet
-            currentWeekData = timesheetsData[0]; // Assuming API returns sorted by date
-          }
+          currentWeekData = draftTimesheet || timesheetsData[0];
         }
         
         if (currentWeekData) {
-          // Fetch full timesheet details including worklogs
           const detailResponse = await apiFetch(`/api/v1/timesheets/me/${currentWeekData.id}`);
           const data = detailResponse.item || detailResponse;
-          
-          // Proper mapping from backend response structure
           const header = data?.header || data;
           const worklogs = data?.worklogs ?? [];
-          
           const weekStart = header?.periodStart;
+          const totalHours = header?.totalHours ?? worklogs?.reduce((sum, w) => sum + (w.hours ?? 0), 0) ?? 0;
           
-          // Use totalHours from backend if available, otherwise calculate
-          const totalHours = header?.totalHours ?? worklogs?.reduce(
-            (sum, w) => sum + (w.hours ?? 0),
-            0
-          ) ?? 0;
-          
-          // Map worklogs to entries format
           const mappedEntries = worklogs && worklogs.length > 0 
             ? worklogs.map(worklog => ({
                 date: worklog.workDate,
                 hours: worklog.hours?.toString() || '0',
-                description: worklog.task || worklog.description || '',
-                project: worklog.projectId || null
+                task: worklog.task || '',
+                description: worklog.description || '',
+                project: worklog.projectId || null,
+                projectName: worklog.projectName || ''
               }))
             : initializeWeekEntries(weekStart);
           
@@ -146,7 +120,6 @@ export function EmployeeTimesheets() {
             approvalMetadata: header?.approvalMetadata || null
           });
         } else {
-          // Fallback: Initialize normally using getCurrentWeekRange()
           const weekStart = getCurrentWeekRange();
           setCurrentWeek({
             weekStart,
@@ -157,7 +130,6 @@ export function EmployeeTimesheets() {
             approvalMetadata: null
           });
         }
-        
         setError(null);
       } catch (err) {
         setError(err);
@@ -165,446 +137,108 @@ export function EmployeeTimesheets() {
         setLoading(false);
       }
     }
-
     fetchTimesheetsData();
   }, []);
 
-  // Calculate total hours
   const totalHours = useMemo(() => {
     return currentWeek.entries.reduce((sum, entry) => sum + (parseFloat(entry.hours) || 0), 0);
   }, [currentWeek.entries]);
 
-  // Validation checks
-  const validationChecks = useMemo(() => {
-    const checks = {
-      totalHoursValid: totalHours > 0,
-      descriptionsCompleted: currentWeek.entries.every(entry => 
-        !entry.hours || parseFloat(entry.hours) === 0 || (entry.description && entry.description.trim().length > 0)
-      ),
-      noFutureEntries: currentWeek.entries.every(entry => {
-        if (!entry.hours || parseFloat(entry.hours) === 0) return true;
-        const entryDate = new Date(entry.date);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        return entryDate <= today;
-      }),
-      divisionValid: employeeScope === 'DIVISION' || currentWeek.entries.every(entry => 
-        !entry.hours || parseFloat(entry.hours) === 0 || entry.division
-      )
-    };
-    
-    return {
-      ...checks,
-      allValid: Object.values(checks).every(Boolean)
-    };
-  }, [currentWeek.entries, totalHours, employeeScope]);
-
-  // Fetch worklogs for a specific timesheet and calculate total hours
-  const fetchTimesheetTotalHours = async (timesheetId) => {
-    try {
-      const response = await apiFetch(`/api/v1/timesheets/me/${timesheetId}`);
-      const data = response.item || response;
-      const worklogs = data?.worklogs ?? [];
-      return worklogs.reduce((sum, w) => sum + (w.hours || 0), 0);
-    } catch (err) {
-      console.error('Error fetching worklogs for total hours:', err);
-      return 0;
-    }
-  };
-
-  // State for storing total hours for previous timesheets
-  const [previousTimesheetsHours, setPreviousTimesheetsHours] = useState({});
-
-  // Fetch total hours for previous timesheets when timesheets change
-  useEffect(() => {
-    const fetchTotalHoursForPreviousTimesheets = async () => {
-      const previousWeeks = timesheets.filter(week => week.status !== 'DRAFT');
-      const hoursMap = {};
-      
-      for (const timesheet of previousWeeks) {
-        if (timesheet.id && !timesheet.totalHours) {
-          hoursMap[timesheet.id] = await fetchTimesheetTotalHours(timesheet.id);
-        } else {
-          hoursMap[timesheet.id] = timesheet.totalHours || 0;
-        }
-      }
-      
-      setPreviousTimesheetsHours(hoursMap);
-    };
-    
-    if (timesheets.length > 0) {
-      fetchTotalHoursForPreviousTimesheets();
-    }
-  }, [timesheets]);
-
-  // Ensure week is loaded on refresh - only if we have a valid weekStart
-  useEffect(() => {
-    // Remove this useEffect as it's causing the weekStart to be reset
-    // The initial data loading in the main useEffect handles this properly
-  }, []);
-
-  // Auto-save function with debounce
   const autoSaveEntry = useCallback(debounce(async (entry) => {
-    // Only auto-save if hours > 0 and description not empty
-    if (!entry.hours || parseFloat(entry.hours) === 0 || !entry.description || !entry.description.trim()) {
-      return;
-    }
-
+    if (!entry.hours || parseFloat(entry.hours) === 0 || !entry.task || !entry.task.trim() || !entry.projectName || !entry.description) return;
     try {
       setAutoSaveStatus(prev => ({ ...prev, [entry.date]: 'saving' }));
-
       await apiFetch('/api/v1/timesheets/me', {
         method: 'POST',
         body: {
           workDate: entry.date,
-          task: entry.description,
+          task: entry.task,
           hours: Number(entry.hours),
           description: entry.description || null,
-          projectId: entry.project || null
+          projectId: entry.project || null,
+          projectName: entry.projectName || null
         }
       });
-
       setAutoSaveStatus(prev => ({ ...prev, [entry.date]: 'saved' }));
-      
-      // Clear saved status after 2 seconds
-      setTimeout(() => {
-        setAutoSaveStatus(prev => ({ ...prev, [entry.date]: null }));
-      }, 2000);
-
+      setTimeout(() => setAutoSaveStatus(prev => ({ ...prev, [entry.date]: null })), 2000);
     } catch (err) {
-      console.error('Auto-save failed:', err);
       setAutoSaveStatus(prev => ({ ...prev, [entry.date]: 'error' }));
-      
-      // Clear error status after 3 seconds
-      setTimeout(() => {
-        setAutoSaveStatus(prev => ({ ...prev, [entry.date]: null }));
-      }, 3000);
+      setTimeout(() => setAutoSaveStatus(prev => ({ ...prev, [entry.date]: null })), 3000);
     }
   }, 800), []);
 
-  // Handle field changes with auto-save
   const handleEntryChange = (index, field, value) => {
     const updatedWeek = { ...currentWeek };
     updatedWeek.entries = [...updatedWeek.entries];
-    updatedWeek.entries[index] = {
-      ...updatedWeek.entries[index],
-      [field]: value
-    };
+    updatedWeek.entries[index] = { ...updatedWeek.entries[index], [field]: value };
     setCurrentWeek(updatedWeek);
 
-    // Trigger auto-save for hours, description, or project changes
-    if (field === 'hours' || field === 'description' || field === 'project') {
+    if (field === 'hours' || field === 'task' || field === 'description' || field === 'project' || field === 'projectName') {
       const entry = updatedWeek.entries[index];
-      
-      // Clear existing timeout for this entry
-      if (autoSaveTimeouts.current[entry.date]) {
-        clearTimeout(autoSaveTimeouts.current[entry.date]);
-      }
-      
-      // Set new timeout for auto-save
-      autoSaveTimeouts.current[entry.date] = setTimeout(() => {
-        autoSaveEntry(entry);
-      }, 800);
+      if (autoSaveTimeouts.current[entry.date]) clearTimeout(autoSaveTimeouts.current[entry.date]);
+      autoSaveTimeouts.current[entry.date] = setTimeout(() => autoSaveEntry(entry), 800);
     }
   };
 
-  // Load week data with worklogs
   const loadWeek = async (startDate) => {
+    if (!startDate) return;
     try {
-      // Validate startDate
-      if (!startDate || startDate === '' || startDate === undefined) {
-        console.warn('Invalid startDate provided to loadWeek:', startDate);
-        return;
-      }
-      
-      console.log('Loading week for startDate:', startDate);
-      
       const res = await apiFetch("/api/v1/timesheets/me");
       const sheet = res.items?.find(ts => ts.periodStart === startDate);
-
       const baseWeek = initializeWeekEntries(startDate);
-
       if (!sheet) {
-        console.log('No existing sheet found, creating new week for:', startDate);
-        setCurrentWeek({
-          weekStart: startDate,
-          status: "DRAFT",
-          locked: false,
-          entries: baseWeek,
-          totalHours: 0,
-          approvalMetadata: null
-        });
+        setCurrentWeek({ weekStart: startDate, status: "DRAFT", locked: false, entries: baseWeek, totalHours: 0, approvalMetadata: null });
         return;
       }
-
-      // Fetch full timesheet details including worklogs
       const detailResponse = await apiFetch(`/api/v1/timesheets/me/${sheet.id}`);
       const data = detailResponse.item || detailResponse;
-
-      console.log('Full sheet data:', data);
-
-      // Proper mapping from backend response structure
       const header = data?.header || data;
       const worklogs = data?.worklogs ?? [];
-
-      // Use totalHours from backend if available, otherwise calculate
-      const totalHours = header?.totalHours ?? worklogs?.reduce(
-        (sum, w) => sum + (w.hours ?? 0),
-        0
-      ) ?? 0;
-
-      // Generate week entries by merging base week with worklogs
+      const totalHours = header?.totalHours ?? worklogs?.reduce((sum, w) => sum + (w.hours ?? 0), 0) ?? 0;
       const mergedEntries = baseWeek.map(day => {
         const log = worklogs.find(w => w.workDate === day.date);
-        if (log) {
-          return {
-            ...day,
-            hours: log.hours?.toString() || '0',
-            description: log.task || log.description || '',
-            project: log.projectId || null
-          };
-        }
-        return {
-          ...day,
-          hours: '0',
-          description: '',
-          project: null
-        };
+        return log ? { ...day, hours: log.hours?.toString() || '0', task: log.task || '', description: log.description || '', project: log.projectId || null, projectName: log.projectName || '' } : { ...day, hours: '0', task: '', description: '', project: null, projectName: '' };
       });
-
-      const newWeekState = {
-        weekStart: header?.periodStart ?? startDate,
-        status: header?.status ?? "DRAFT",
-        locked: header?.locked ?? false,
-        entries: mergedEntries,
-        totalHours: totalHours,
-        approvalMetadata: header?.approvalMetadata || null
-      };
-
-      console.log('Setting week state from loadWeek:', newWeekState);
-      setCurrentWeek(newWeekState);
-
-    } catch (err) {
-      console.error('Error loading week:', err);
-    }
+      setCurrentWeek({ weekStart: header?.periodStart ?? startDate, status: header?.status ?? "DRAFT", locked: header?.locked ?? false, entries: mergedEntries, totalHours: totalHours, approvalMetadata: header?.approvalMetadata || null });
+    } catch (err) {}
   };
 
-  // Toggle row expansion
-  const toggleRowExpansion = (index) => {
-    const newExpanded = new Set(expandedRows);
-    if (newExpanded.has(index)) {
-      newExpanded.delete(index);
-    } else {
-      newExpanded.add(index);
-    }
-    setExpandedRows(newExpanded);
-  };
-
-  // Handle timesheet errors with friendly messages
-  const handleTimesheetError = (error) => {
-    // Safely extract error information
-    const errorCode = error?.response?.data?.error?.code;
-    const errorMessage = error?.response?.data?.error?.message || '';
-    const status = error?.response?.status;
-    
-    // Internal server error
-    if (errorCode === "INTERNAL") {
-      setError({
-        title: 'Server Error',
-        message: "We're having trouble saving your timesheet right now. Please try again in a moment."
-      });
-      return;
-    }
-    
-    // Duplicate key constraint violation
-    if (errorMessage.includes("duplicate key value")) {
-      setError({
-        title: 'Duplicate Timesheet',
-        message: 'A timesheet for this period already exists. Please refresh the page.'
-      });
-      return;
-    }
-    
-    // Hours limit exceeded
-    if (errorMessage.includes("Total hours exceed")) {
-      setError({
-        title: 'Hours Limit Exceeded',
-        message: 'You have exceeded the maximum allowed 8 hours for a day. Please adjust your entries.'
-      });
-      return;
-    }
-    
-    // Validation error (400 status)
-    if (status === 400) {
-      setError({
-        title: 'Validation Error',
-        message: 'Please fill all required fields before submitting.'
-      });
-      return;
-    }
-    
-    // Generic fallback for any other error
-    setError({
-      title: 'Submission Error',
-      message: 'Something went wrong. Please try again.'
-    });
-  };
-
-  // Submit week
   const handleSubmitWeek = async () => {
     try {
       setSubmitting(true);
-      
-      // Get valid entries
-      const validEntries = currentWeek.entries.filter(entry => 
-        parseFloat(entry.hours) > 0 && entry.description && entry.description.trim() !== ''
-      );
-      
+      const validEntries = currentWeek.entries.filter(entry => parseFloat(entry.hours) > 0 && entry.task && entry.task.trim() !== '' && entry.projectName && entry.description);
       if (validEntries.length === 0) {
-        setError({
-          title: 'Validation Error',
-          message: 'Please fill all required fields before submitting.'
-        });
+        setError({ title: 'Validation Error', message: 'Please fill all required fields before submitting.' });
         return;
       }
-      
-      console.log(`Submitting ${validEntries.length} entries sequentially...`);
-      
       let timesheetId = null;
-      
-      // Step 1: Save all worklogs (draft stage)
       for (const entry of validEntries) {
-        const payload = {
-          workDate: entry.date,
-          task: entry.description,
-          hours: Number(entry.hours),
-          description: entry.description || null,
-          projectId: entry.project || null
-        };
-        
-        console.log('Submitting entry:', payload);
-        
-        try {
-          const response = await apiFetch('/api/v1/timesheets/me', {
-            method: 'POST',
-            body: payload
-          });
-          console.log('Entry submitted successfully:', entry.date);
-          
-          // Extract timesheet ID from the first successful response
-          if (!timesheetId && response?.header?.id) {
-            timesheetId = response.header.id;
-            console.log('Found timesheet ID:', timesheetId);
-          }
-        } catch (entryError) {
-          console.error('Failed to submit entry:', entry.date, entryError);
-          throw entryError; // Stop loop on first error
-        }
-      }
-      
-      if (!timesheetId) {
-        throw new Error('No timesheet ID found after saving worklogs');
-      }
-      
-      console.log('All entries submitted successfully, submitting timesheet...');
-      
-      // Step 2: Explicitly mark timesheet header as SUBMITTED
-      const submitResponse = await apiFetch(`/api/v1/timesheets/${timesheetId}/submit`, {
-        method: 'POST',
-        body: {}
-      });
-      
-      console.log('Submit response:', submitResponse);
-      
-      // Step 3: Replace local state with response data
-      const submittedTimesheet = submitResponse.item || submitResponse;
-      console.log('Submitted timesheet data:', submittedTimesheet);
-      
-      if (submittedTimesheet) {
-        // Proper mapping from backend response structure
-        const header = submittedTimesheet?.header || submittedTimesheet;
-        const worklogs = submittedTimesheet?.worklogs ?? [];
-        
-        // Use totalHours from backend if available, otherwise calculate
-        const totalHours = header?.totalHours ?? worklogs?.reduce(
-          (sum, w) => sum + (w.hours ?? 0),
-          0
-        ) ?? 0;
-        
-        // Map worklogs to entries format
-        const mappedEntries = worklogs && worklogs.length > 0 
-          ? worklogs.map(worklog => ({
-              date: worklog.workDate,
-              hours: worklog.hours?.toString() || '0',
-              description: worklog.task || worklog.description || '',
-              project: worklog.projectId || null
-            }))
-          : initializeWeekEntries(currentWeek.weekStart);
-        
-        // Create new state object with proper mapping
-        const newWeekState = {
-          weekStart: header?.periodStart ?? currentWeek.weekStart,
-          status: header?.status ?? "DRAFT",
-          locked: header?.locked ?? false,
-          entries: mappedEntries,
-          totalHours: totalHours,
-          approvalMetadata: header?.approvalMetadata || null
-        };
-        
-        console.log('Setting new week state:', newWeekState);
-        console.log('New status will be:', header?.status);
-        
-        // Force state update
-        setCurrentWeek(newWeekState);
-        
-        // Also update timesheets list with calculated totalHours
-        const listResponse = await apiFetch('/api/v1/timesheets/me');
-        const timesheetsData = listResponse.items || listResponse || [];
-        
-        // Update the submitted timesheet in the list with correct totalHours
-        const updatedTimesheets = Array.isArray(timesheetsData) ? timesheetsData.map(ts => {
-          if (ts.id === header?.id) {
-            return {
-              ...ts,
-              totalHours: totalHours,  // Use calculated totalHours from submit response
-              status: header?.status,
-              submittedAt: header?.submittedAt || ts.submittedAt
-            };
-          }
-          return ts;
-        }) : timesheetsData;
-        
-        setTimesheets(updatedTimesheets);
-        
-        // Show success message
-        setError({
-          title: 'Success',
-          message: 'Timesheet submitted successfully.'
+        const response = await apiFetch('/api/v1/timesheets/me', {
+          method: 'POST',
+          body: { workDate: entry.date, task: entry.task, hours: Number(entry.hours), description: entry.description || null, projectId: entry.project || null, projectName: entry.projectName || null }
         });
-      } else {
-        throw new Error('No timesheet data returned from submit API');
+        if (!timesheetId && response?.header?.id) timesheetId = response.header.id;
       }
-      
+      if (!timesheetId) throw new Error('No timesheet ID found');
+      const submitResponse = await apiFetch(`/api/v1/timesheets/${timesheetId}/submit`, { method: 'POST', body: {} });
+      const header = submitResponse.item || submitResponse;
+      const worklogs = submitResponse?.worklogs ?? [];
+      const totalHours = header?.totalHours ?? worklogs?.reduce((sum, w) => sum + (w.hours ?? 0), 0) ?? 0;
+      setCurrentWeek(prev => ({ ...prev, status: header?.status || 'SUBMITTED', totalHours }));
+      const listResponse = await apiFetch('/api/v1/timesheets/me');
+      setTimesheets(listResponse.items || listResponse || []);
     } catch (err) {
-      console.error('Submission error:', err);
-      handleTimesheetError(err);
+      setError({ title: 'Submission Error', message: err.message || 'Something went wrong.' });
     } finally {
       setSubmitting(false);
     }
   };
 
-  // Status badge styling
   const getStatusBadge = (status) => {
-    const styles = {
-      DRAFT: 'bg-slate-100 text-slate-800',
-      SUBMITTED: 'bg-blue-100 text-blue-800',
-      APPROVED: 'bg-emerald-100 text-emerald-800',
-      LOCKED: 'bg-slate-800 text-white'
-    };
-    return styles[status] || styles.DRAFT;
+    const styles = { DRAFT: 'bg-blue-50 text-blue-700 border-blue-200', SUBMITTED: 'bg-amber-50 text-amber-700 border-amber-200', APPROVED: 'bg-emerald-50 text-emerald-700 border-emerald-200', REJECTED: 'bg-rose-50 text-rose-700 border-rose-200' };
+    return styles[status] || 'bg-slate-50 text-slate-700 border-slate-200';
   };
 
-  // Week day names
   const weekDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
   const fmtDateTime = (v) => {
@@ -613,9 +247,7 @@ export function EmployeeTimesheets() {
       const d = new Date(v);
       if (!Number.isFinite(d.getTime())) return String(v);
       return d.toLocaleString();
-    } catch {
-      return String(v);
-    }
+    } catch { return String(v); }
   };
 
   const openTimesheetView = async (ts) => {
@@ -624,51 +256,10 @@ export function EmployeeTimesheets() {
       setViewTimesheetStatus('loading');
       setViewTimesheetError(null);
       setViewTimesheet(null);
-
-      if (!ts?.id) {
-        throw new Error('Timesheet id missing');
-      }
-
+      if (!ts?.id) throw new Error('Timesheet id missing');
       const detail = await apiFetch(`/api/v1/timesheets/me/${ts.id}`);
       const payload = detail?.item || detail;
       const header = payload?.header || payload;
-
-      const idsToResolve = [
-        header?.submittedBy,
-        header?.approvedL1By,
-        header?.approvedL2By,
-        header?.rejectedBy
-      ]
-        .filter(Boolean)
-        .map((x) => String(x));
-
-      const uniq = Array.from(new Set(idsToResolve));
-      const missing = uniq.filter((id) => userNameCache[id] === undefined);
-      if (missing.length > 0) {
-        try {
-          const r = await apiFetch(`/api/v1/app/users/resolve?ids=${encodeURIComponent(missing.join(','))}`);
-          const items = Array.isArray(r?.items) ? r.items : [];
-          setUserNameCache((prev) => {
-            const next = { ...prev };
-            for (const it of items) {
-              if (it?.id) next[String(it.id)] = it.displayName || null;
-            }
-            for (const id of missing) {
-              if (next[String(id)] === undefined) next[String(id)] = null;
-            }
-            return next;
-          });
-        } catch {
-          setUserNameCache((prev) => {
-            const next = { ...prev };
-            for (const id of missing) {
-              if (next[String(id)] === undefined) next[String(id)] = null;
-            }
-            return next;
-          });
-        }
-      }
-
       setViewTimesheet({
         id: header?.id,
         periodStart: header?.periodStart,
@@ -684,7 +275,6 @@ export function EmployeeTimesheets() {
         rejectedBy: header?.rejectedBy,
         rejectedReason: header?.rejectedReason
       });
-
       setViewTimesheetStatus('ready');
     } catch (e) {
       setViewTimesheetError(e);
@@ -705,430 +295,120 @@ export function EmployeeTimesheets() {
     return v || String(id);
   };
 
-  if (loading) {
-    return (
-      <div className="p-6">
-        <LoadingState message="Loading timesheets…" />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="p-6">
-        <ErrorState error={error} />
-      </div>
-    );
-  }
+  if (loading) return <div className="p-8"><LoadingState /></div>;
+  if (error && error.title !== 'Success') return <div className="p-8"><ErrorState error={error} onRetry={() => window.location.reload()} /></div>;
 
   const isEditable = currentWeek?.status === "DRAFT" || currentWeek?.status === "REJECTED";
-  const isReadOnly = !isEditable;
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
-      {/* Top Context Panel */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 mb-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Week</label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="date"
-                  value={currentWeek.weekStart}
-                  onChange={(e) => {
-                    const selectedDate = e.target.value;
-                    setCurrentWeek(prev => ({ ...prev, weekStart: selectedDate }));
-                    loadWeek(selectedDate);   // IMPORTANT
-                  }}
-                  className="rounded-md border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-                <span className="text-sm text-slate-600">
-                  {currentWeek.weekStart && new Date(currentWeek.weekStart).toLocaleDateString()} - 
-                  {currentWeek.weekStart && new Date(new Date(currentWeek.weekStart).getTime() + 6 * 24 * 60 * 60 * 1000).toLocaleDateString()}
-                </span>
-              </div>
+    <div className="p-6 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
+      <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-3xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32 blur-3xl"></div>
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="space-y-4 md:space-y-2">
+            <h1 className="text-2xl md:text-3xl font-bold">Timesheet Entry</h1>
+            <div className="flex items-center gap-3 bg-white/10 backdrop-blur-md px-4 py-2 rounded-xl border border-white/20 w-fit">
+              <input 
+                type="date" 
+                value={currentWeek.weekStart || ''} 
+                onChange={(e) => loadWeek(e.target.value)} 
+                className="bg-transparent border-none text-white font-bold focus:ring-0 cursor-pointer text-sm"
+              />
+              <div className="w-1 h-4 bg-white/30 rounded-full"></div>
+              <span className="text-blue-100 font-medium text-xs md:text-sm">Commencing</span>
             </div>
-            
-            {employeeScope === 'COMPANY' && (
-              <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-1 text-xs font-medium text-amber-800">
-                Shared
+          </div>
+          <div className="flex items-center justify-between md:justify-end gap-4 md:gap-8 border-t border-white/10 pt-6 md:pt-0 md:border-none">
+            <div className="text-left md:text-right">
+              <div className="text-[10px] font-bold uppercase tracking-widest opacity-70">Total Hours</div>
+              <div className="text-3xl md:text-4xl font-black">{totalHours}</div>
+            </div>
+            <div className="h-12 w-px bg-white/20 hidden md:block"></div>
+            <div className="space-y-2">
+              <span className={cx('px-4 py-1.5 rounded-full text-[10px] font-bold border block text-center', getStatusBadge(currentWeek.status))}>
+                {currentWeek.status}
               </span>
-            )}
-          </div>
-          
-          <div className="flex items-center gap-4">
-            <div className="text-right">
-              <div className="text-sm text-slate-600">Total Hours</div>
-              <div className="text-lg font-semibold text-slate-900">{totalHours}</div>
+              {isEditable && (
+                <button
+                  onClick={handleSubmitWeek}
+                  disabled={submitting || totalHours === 0}
+                  className="px-6 py-2 bg-white text-blue-700 rounded-xl font-bold hover:bg-blue-50 transition-all shadow-lg disabled:opacity-50 text-sm"
+                >
+                  {submitting ? '...' : 'Submit'}
+                </button>
+              )}
             </div>
-            <span className={cx('inline-flex px-3 py-1 text-sm font-medium rounded-full', getStatusBadge(currentWeek.status))}>
-              {currentWeek.status}
-            </span>
           </div>
         </div>
-
-        {/* Approval Metadata */}
-        {currentWeek.approvalMetadata && (
-          <div className="border-t border-slate-200 pt-4 mt-4">
-            <div className="flex items-center gap-6 text-sm text-slate-600">
-              {currentWeek.approvalMetadata.submittedAt && (
-                <div>Submitted at {new Date(currentWeek.approvalMetadata.submittedAt).toLocaleString()}</div>
-              )}
-              {currentWeek.approvalMetadata.approvedBy && (
-                <div>Approved by {currentWeek.approvalMetadata.approvedBy}</div>
-              )}
-              {currentWeek.approvalMetadata.approvedAt && (
-                <div>Approved at {new Date(currentWeek.approvalMetadata.approvedAt).toLocaleString()}</div>
-              )}
-              {currentWeek.approvalMetadata.rejectionReason && (
-                <div className="text-rose-600">Reason: {currentWeek.approvalMetadata.rejectionReason}</div>
-              )}
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* Weekly Table */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm mb-6">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-slate-200">
-            <thead className="bg-slate-50">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Date</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Hours</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Description</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider w-8"></th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-slate-200">
-              {currentWeek.entries.map((entry, index) => {
-                const isExpanded = expandedRows.has(index);
-                const isFuture = new Date(entry.date) > new Date();
-                
-                return (
-                  <React.Fragment key={index}>
-                    <tr className={isFuture ? 'bg-amber-50' : ''}>
-                      <td className="px-4 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-slate-900">
-                          {weekDays[index]}
-                        </div>
-                        <div className="text-sm text-slate-600">
-                          {new Date(entry.date).toLocaleDateString()}
-                        </div>
-                        {isFuture && (
-                          <div className="text-xs text-amber-600 mt-1">Future date</div>
-                        )}
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap">
-                        <input
-                          type="number"
-                          min="0"
-                          max={maxHoursPerDay}
-                          step="0.5"
-                          value={entry.hours ?? '0'}
-                          onChange={(e) => handleEntryChange(index, 'hours', e.target.value)}
-                          disabled={isReadOnly}
-                          className="w-20 px-2 py-1 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-slate-500 disabled:bg-slate-50"
-                          placeholder="0"
-                        />
-                        {parseFloat(entry.hours) > maxHoursPerDay && (
-                          <div className="text-xs text-rose-600 mt-1">Max {maxHoursPerDay} hours</div>
-                        )}
-                      </td>
-                      <td className="px-4 py-4">
-                        <input
-                          type="text"
-                          value={entry.description ?? ""}
-                          onChange={(e) => handleEntryChange(index, 'description', e.target.value)}
-                          disabled={isReadOnly}
-                          className="w-full px-2 py-1 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-slate-500 disabled:bg-slate-50"
-                          placeholder="Task description"
-                        />
-                        {entry.hours && parseFloat(entry.hours) > 0 && !entry.description && (
-                          <div className="text-xs text-rose-600 mt-1">Description required</div>
-                        )}
-                        {/* Auto-save status indicator */}
-                        {autoSaveStatus[entry.date] && (
-                          <div className={cx(
-                            'text-xs mt-1 flex items-center gap-1',
-                            autoSaveStatus[entry.date] === 'saving' && 'text-blue-600',
-                            autoSaveStatus[entry.date] === 'saved' && 'text-green-600',
-                            autoSaveStatus[entry.date] === 'error' && 'text-red-600'
-                          )}>
-                            {autoSaveStatus[entry.date] === 'saving' && (
-                              <>
-                                <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
-                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                </svg>
-                                Saving...
-                              </>
-                            )}
-                            {autoSaveStatus[entry.date] === 'saved' && (
-                              <>
-                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                </svg>
-                                Saved
-                              </>
-                            )}
-                            {autoSaveStatus[entry.date] === 'error' && (
-                              <>
-                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                                Save failed
-                              </>
-                            )}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap">
-                        <button
-                          onClick={() => toggleRowExpansion(index)}
-                          disabled={isReadOnly}
-                          className="text-slate-400 hover:text-slate-600 disabled:opacity-50"
-                        >
-                          <svg
-                            className={cx('w-4 h-4 transition-transform', isExpanded && 'rotate-90')}
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                          </svg>
-                        </button>
-                      </td>
-                    </tr>
-                    
-                    {/* Expanded Row */}
-                    {isExpanded && (
-                      <tr className="bg-slate-50">
-                        <td colSpan="4" className="px-4 py-4">
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            {employeeScope === 'COMPANY' && (
-                              <div>
-                                <label className="block text-xs font-medium text-slate-700 mb-1">Division</label>
-                                <select
-                                  value={entry.division || ''}
-                                  onChange={(e) => handleEntryChange(index, 'division', e.target.value)}
-                                  disabled={isReadOnly}
-                                  className="w-full rounded-md border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                >
-                                  <option value="">Select Division</option>
-                                  {bootstrap?.divisions?.map(div => (
-                                    <option key={div.id} value={div.id}>{div.name}</option>
-                                  ))}
-                                </select>
-                                {entry.hours && parseFloat(entry.hours) > 0 && !entry.division && (
-                                  <div className="text-xs text-rose-600 mt-1">Division required</div>
-                                )}
-                              </div>
-                            )}
-                            
-                            <div>
-                              <label className="block text-xs font-medium text-slate-700 mb-1">Project / Program</label>
-                              <input
-                                type="text"
-                                value={entry.project || ''}
-                                onChange={(e) => handleEntryChange(index, 'project', e.target.value)}
-                                disabled={isReadOnly}
-                                className="w-full rounded-md border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                placeholder="Optional"
-                              />
-                            </div>
-                            
-                            <div>
-                              <label className="block text-xs font-medium text-slate-700 mb-1">Work Type</label>
-                              <select
-                                value={entry.workType || ''}
-                                onChange={(e) => handleEntryChange(index, 'workType', e.target.value)}
-                                disabled={isReadOnly}
-                                className="w-full rounded-md border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                              >
-                                <option value="">Select Type</option>
-                                <option value="DEVELOPMENT">Development</option>
-                                <option value="MEETING">Meeting</option>
-                                <option value="REVIEW">Review</option>
-                                <option value="PLANNING">Planning</option>
-                                <option value="OTHER">Other</option>
-                              </select>
-                            </div>
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </React.Fragment>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Validation Checklist and Submit Button */}
-        {!isReadOnly && (
-          <div className="border-t border-slate-200 p-4">
-            <div className="flex items-center justify-between">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2 text-sm">
-                  <span className={validationChecks.totalHoursValid ? 'text-emerald-600' : 'text-rose-600'}>
-                    {validationChecks.totalHoursValid ? '✓' : '❌'}
-                  </span>
-                  <span className={validationChecks.totalHoursValid ? 'text-slate-700' : 'text-slate-500'}>
-                    Total hours valid
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <span className={validationChecks.descriptionsCompleted ? 'text-emerald-600' : 'text-rose-600'}>
-                    {validationChecks.descriptionsCompleted ? '✓' : '❌'}
-                  </span>
-                  <span className={validationChecks.descriptionsCompleted ? 'text-slate-700' : 'text-slate-500'}>
-                    All descriptions completed
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <span className={validationChecks.noFutureEntries ? 'text-emerald-600' : 'text-rose-600'}>
-                    {validationChecks.noFutureEntries ? '✓' : '❌'}
-                  </span>
-                  <span className={validationChecks.noFutureEntries ? 'text-slate-700' : 'text-slate-500'}>
-                    No future entries
-                  </span>
-                </div>
-                {employeeScope === 'COMPANY' && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <span className={validationChecks.divisionValid ? 'text-emerald-600' : 'text-rose-600'}>
-                      {validationChecks.divisionValid ? '✓' : '❌'}
-                    </span>
-                    <span className={validationChecks.divisionValid ? 'text-slate-700' : 'text-slate-500'}>
-                      Division assigned
-                    </span>
-                  </div>
-                )}
-              </div>
-              
-              <button
-                onClick={handleSubmitWeek}
-                disabled={!validationChecks.allValid || submitting}
-                className="px-6 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 disabled:bg-slate-300 disabled:cursor-not-allowed transition-colors"
-              >
-                {submitting ? 'Submitting...' : 'Submit Week'}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Post-submission messages */}
-        {currentWeek.status === 'SUBMITTED' && (
-          <div className="border-t border-slate-200 p-4 bg-blue-50">
-            <div className="flex items-center gap-2 text-blue-800">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <span className="text-sm">Timesheet submitted. Awaiting manager review.</span>
-            </div>
-          </div>
-        )}
-        
-        {currentWeek.status === 'APPROVED' && (
-          <div className="border-t border-slate-200 p-4 bg-emerald-50">
-            <div className="flex items-center gap-2 text-emerald-800">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <span className="text-sm">Timesheet approved.</span>
-            </div>
-          </div>
-        )}
-        
-        {currentWeek.status === 'REJECTED' && (
-          <div className="border-t border-slate-200 p-4 bg-rose-50">
-            <div className="flex items-center gap-2 text-rose-800">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <span className="text-sm font-medium">Timesheet rejected.</span>
-            </div>
-            {currentWeek.approvalMetadata?.rejectedReason && (
-              <div className="mt-2 text-sm text-rose-700">
-                Reason: {currentWeek.approvalMetadata.rejectedReason}
-              </div>
-            )}
-          </div>
-        )}
-        
-        {currentWeek.status === 'LOCKED' && (
-          <div className="border-t border-slate-200 p-4 bg-slate-100">
-            <div className="flex items-center gap-2 text-slate-700">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-              </svg>
-              <span className="text-sm">This week is locked due to month close.</span>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Previous Timesheets */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-        <h2 className="text-lg font-semibold text-slate-900 mb-4">Previous Timesheets</h2>
-        
-        {(() => {
-          // Filter out DRAFT weeks and show all submitted/approved timesheets
-          const previousWeeks = timesheets
-            .filter(week => week.status !== 'DRAFT')
-            .sort((a, b) => new Date(b.periodStart) - new Date(a.periodStart));
-          
-          console.log('Previous weeks data:', previousWeeks);
-          console.log('Timesheets data:', timesheets);
-          
-          return previousWeeks.length === 0 ? (
-            <div className="text-center py-8 text-slate-500">
-              <div className="text-4xl mb-2">📊</div>
-              <div>No previous timesheets found</div>
-              <div className="text-sm mt-1">Your submitted timesheets will appear here</div>
-            </div>
-          ) : (
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+        <div className="lg:col-span-3 space-y-6">
+          {/* Desktop Table View */}
+          <div className="hidden md:block bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-slate-200">
-                <thead className="bg-slate-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Week Start</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Total Hours</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Status</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Submitted On</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Action</th>
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-100">
+                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest w-32">Day / Date</th>
+                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest w-48">Project</th>
+                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Task & Work Details</th>
+                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest w-24">Hours</th>
+                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest w-24 text-right">Status</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-slate-200">
-                  {previousWeeks.map((timesheet) => {
-                    // Use fetched total hours or fallback to existing value
-                    const totalHours = previousTimesheetsHours[timesheet.id] ?? timesheet.totalHours ?? 0;
-                    
+                <tbody className="divide-y divide-slate-50">
+                  {currentWeek.entries.map((entry, idx) => {
+                    const isFuture = new Date(entry.date) > new Date();
+                    const saveStatus = autoSaveStatus[entry.date];
                     return (
-                      <tr key={timesheet.id || timesheet.periodStart}>
-                        <td className="px-4 py-4 whitespace-nowrap text-sm text-slate-900">
-                          {timesheet.periodStart ? new Date(timesheet.periodStart).toLocaleDateString() : '—'}
+                      <tr key={idx} className={cx('group transition-colors', isFuture ? 'bg-slate-50/30 opacity-60' : 'hover:bg-slate-50/50')}>
+                        <td className="px-6 py-4 align-top">
+                          <div className="font-bold text-slate-900 whitespace-nowrap">{weekDays[idx]}</div>
+                          <div className="text-[10px] text-slate-400 font-black uppercase tracking-tight">{new Date(entry.date).toLocaleDateString()}</div>
                         </td>
-                        <td className="px-4 py-4 whitespace-nowrap text-sm text-slate-900">
-                          {totalHours}
+                        <td className="px-6 py-4 align-top">
+                          <input
+                            type="text"
+                            value={entry.projectName}
+                            onChange={(e) => handleEntryChange(idx, 'projectName', e.target.value)}
+                            disabled={!isEditable || isFuture}
+                            className="w-full px-4 py-2 rounded-xl border-2 border-slate-100 focus:border-blue-500 outline-none transition-all font-bold text-sm disabled:bg-transparent placeholder:text-slate-300"
+                            placeholder={isFuture ? 'Locked' : 'Project Name'}
+                          />
                         </td>
-                        <td className="px-4 py-4 whitespace-nowrap">
-                          <span className={cx('inline-flex px-2 py-1 text-xs font-medium rounded-full', getStatusBadge(timesheet.status))}>
-                            {timesheet.status}
-                          </span>
+                        <td className="px-6 py-4 align-top space-y-2">
+                          <input
+                            type="text"
+                            value={entry.task}
+                            onChange={(e) => handleEntryChange(idx, 'task', e.target.value)}
+                            disabled={!isEditable || isFuture}
+                            className="w-full px-4 py-2 rounded-xl border-2 border-slate-100 focus:border-blue-500 outline-none transition-all font-bold text-sm disabled:bg-transparent placeholder:text-slate-300"
+                            placeholder={isFuture ? 'Locked' : 'Main Task'}
+                          />
+                          <textarea
+                            value={entry.description}
+                            onChange={(e) => handleEntryChange(idx, 'description', e.target.value)}
+                            disabled={!isEditable || isFuture}
+                            rows="1"
+                            className="w-full px-4 py-2 rounded-xl border-2 border-slate-100 focus:border-blue-500 outline-none transition-all text-xs font-medium disabled:bg-transparent placeholder:text-slate-300 resize-none overflow-hidden min-h-[40px]"
+                            placeholder={isFuture ? '' : 'Work details & notes...'}
+                          />
                         </td>
-                        <td className="px-4 py-4 whitespace-nowrap text-sm text-slate-900">
-                          {timesheet.submittedAt ? new Date(timesheet.submittedAt).toLocaleDateString() : '—'}
+                        <td className="px-6 py-4 align-top">
+                          <input
+                            type="number"
+                            value={entry.hours}
+                            onChange={(e) => handleEntryChange(idx, 'hours', e.target.value)}
+                            disabled={!isEditable || isFuture}
+                            className="w-16 px-3 py-2 rounded-xl border-2 border-slate-100 focus:border-blue-500 outline-none transition-all font-bold text-center disabled:bg-transparent placeholder:text-slate-300"
+                            placeholder="0"
+                          />
                         </td>
-                        <td className="px-4 py-4 whitespace-nowrap text-right">
-                          <button
-                            type="button"
-                            onClick={() => openTimesheetView(timesheet)}
-                            className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-blue-700 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors border border-blue-200"
-                          >
-                            View
-                          </button>
+                        <td className="px-6 py-4 text-right">
+                          {saveStatus === 'saving' && <span className="text-[10px] font-bold text-blue-500 animate-pulse">SAVING...</span>}
+                          {saveStatus === 'saved' && <span className="text-[10px] font-bold text-emerald-500">SAVED ✓</span>}
+                          {saveStatus === 'error' && <span className="text-[10px] font-bold text-rose-500">ERROR ✕</span>}
                         </td>
                       </tr>
                     );
@@ -1136,121 +416,216 @@ export function EmployeeTimesheets() {
                 </tbody>
               </table>
             </div>
-          );
-        })()}
-      </div>
+          </div>
 
-      {viewTimesheetOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="relative w-full max-w-2xl rounded-2xl bg-white border border-slate-200 shadow-2xl overflow-hidden">
-            <div className="bg-gradient-to-r from-slate-50 to-blue-50 px-6 py-4 border-b border-slate-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-lg font-bold text-slate-900">Timesheet</div>
-                  <div className="text-xs text-slate-600 mt-0.5">{viewTimesheet?.id ? `ID: ${viewTimesheet.id}` : ''}</div>
-                </div>
-                <button
-                  onClick={closeTimesheetView}
-                  className="p-2 rounded-lg hover:bg-white hover:bg-opacity-70 transition-colors"
-                  aria-label="Close"
-                >
-                  <svg className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-
-            <div className="p-6">
-              {viewTimesheetStatus === 'loading' && <LoadingState message="Loading timesheet…" />}
-              {viewTimesheetStatus === 'error' && <ErrorState error={viewTimesheetError} />}
-
-              {viewTimesheetStatus === 'ready' && viewTimesheet && (
-                <div className="space-y-5">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="rounded-xl border border-slate-200 p-4">
-                      <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Period</div>
-                      <div className="mt-1 text-sm font-medium text-slate-900">
-                        {viewTimesheet.periodStart || '—'} to {viewTimesheet.periodEnd || '—'}
-                      </div>
+          {/* Mobile Card View */}
+          <div className="md:hidden space-y-4">
+            {currentWeek.entries.map((entry, idx) => {
+              const isFuture = new Date(entry.date) > new Date();
+              const saveStatus = autoSaveStatus[entry.date];
+              return (
+                <div key={idx} className={cx('bg-white rounded-2xl p-4 shadow-sm border border-slate-200 space-y-4', isFuture ? 'opacity-60 bg-slate-50/30' : '')}>
+                  <div className="flex justify-between items-center border-b border-slate-50 pb-3">
+                    <div>
+                      <div className="font-bold text-slate-900">{weekDays[idx]}</div>
+                      <div className="text-[10px] text-slate-400 font-bold">{new Date(entry.date).toLocaleDateString()}</div>
                     </div>
-                    <div className="rounded-xl border border-slate-200 p-4">
-                      <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Status</div>
-                      <div className="mt-1 text-sm font-medium text-slate-900">{viewTimesheet.status || '—'}</div>
+                    <div className="flex items-center gap-3">
+                      <div className="text-right">
+                        <div className="text-[10px] font-bold text-slate-400 uppercase">Hours</div>
+                        <input
+                          type="number"
+                          value={entry.hours}
+                          onChange={(e) => handleEntryChange(idx, 'hours', e.target.value)}
+                          disabled={!isEditable || isFuture}
+                          className="w-14 px-2 py-1 rounded-lg border border-slate-200 focus:border-blue-500 outline-none font-bold text-center bg-slate-50 disabled:bg-transparent"
+                        />
+                      </div>
+                      <div className="min-w-[40px] text-right">
+                        {saveStatus === 'saving' && <div className="w-2 h-2 bg-blue-500 rounded-full animate-ping ml-auto"></div>}
+                        {saveStatus === 'saved' && <span className="text-[10px] font-bold text-emerald-500">✓</span>}
+                        {saveStatus === 'error' && <span className="text-[10px] font-bold text-rose-500">✕</span>}
+                      </div>
                     </div>
                   </div>
 
-                  <div>
-                    <div className="text-sm font-semibold text-slate-900 mb-2">Approval Timeline</div>
-                    <div className="grid grid-cols-1 gap-3">
-                      <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                        <div className="flex items-start justify-between gap-4">
-                          <div>
-                            <div className="text-sm font-semibold text-slate-800">Submitted</div>
-                            <div className="text-xs text-slate-600 mt-1">{fmtDateTime(viewTimesheet.submittedAt)}</div>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-xs font-semibold text-slate-500">By</div>
-                            <div className="text-sm font-medium text-slate-900">{displayNameOrId(viewTimesheet.submittedBy)}</div>
-                          </div>
+                  <div className="space-y-3">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Project Name</label>
+                      <input
+                        type="text"
+                        value={entry.projectName}
+                        onChange={(e) => handleEntryChange(idx, 'projectName', e.target.value)}
+                        disabled={!isEditable || isFuture}
+                        className="w-full px-3 py-2 rounded-xl border border-slate-100 bg-slate-50/50 focus:border-blue-500 outline-none transition-all font-bold text-sm disabled:bg-transparent"
+                        placeholder="e.g. Internal Audit"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Task Title</label>
+                      <input
+                        type="text"
+                        value={entry.task}
+                        onChange={(e) => handleEntryChange(idx, 'task', e.target.value)}
+                        disabled={!isEditable || isFuture}
+                        className="w-full px-3 py-2 rounded-xl border border-slate-100 bg-slate-50/50 focus:border-blue-500 outline-none transition-all font-bold text-sm disabled:bg-transparent"
+                        placeholder="What did you do?"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Work Description</label>
+                      <textarea
+                        value={entry.description}
+                        onChange={(e) => handleEntryChange(idx, 'description', e.target.value)}
+                        disabled={!isEditable || isFuture}
+                        rows="2"
+                        className="w-full px-3 py-2 rounded-xl border border-slate-100 bg-slate-50/50 focus:border-blue-500 outline-none transition-all text-xs font-medium disabled:bg-transparent resize-none"
+                        placeholder="Detailed notes..."
+                      />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200">
+            <h3 className="text-lg font-bold text-slate-900 mb-4">Recent Weeks</h3>
+            <div className="space-y-3">
+              {timesheets.slice(0, 5).map((ts) => (
+                <div key={ts.id} className="p-4 rounded-2xl border border-slate-100 hover:border-blue-100 transition-all group cursor-pointer" onClick={() => loadWeek(ts.periodStart)}>
+                  <div className="flex justify-between items-start mb-1">
+                    <div className="text-sm font-bold text-slate-900">{new Date(ts.periodStart).toLocaleDateString()}</div>
+                    <span className={cx('text-[10px] px-2 py-0.5 rounded-full font-bold border', getStatusBadge(ts.status))}>{ts.status}</span>
+                  </div>
+                  <div className="text-xs text-slate-500 font-medium">{ts.totalHours || 0} Hours logged</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="bg-blue-50 rounded-3xl p-6 border border-blue-100">
+            <div className="flex items-center gap-3 text-blue-700 mb-3">
+               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+               <span className="font-bold">Guidelines</span>
+            </div>
+            <ul className="space-y-4 text-sm text-slate-600 font-medium">
+              <li>• Descriptions are mandatory for all entries.</li>
+              <li>• Maximum {maxHoursPerDay} hours per day allowed.</li>
+              <li>• Timesheet tagging and project allocation is required.</li>
+              <li>• Weekly submission is mandatory.</li>
+              <li>• Contact your reporting manager for manual corrections.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      {viewTimesheetOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
+            <div className="bg-slate-50 p-6 border-b border-slate-200 flex justify-between items-center">
+              <div>
+                <h3 className="text-xl font-bold text-slate-900">Timesheet Summary</h3>
+                <div className="text-xs font-bold text-slate-400 mt-0.5 uppercase tracking-wider">Reference: {viewTimesheet?.id || '...'}</div>
+              </div>
+              <button onClick={closeTimesheetView} className="hover:bg-slate-200 p-2 rounded-xl text-slate-500 transition-colors">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            
+            <div className="p-8 space-y-6">
+              {viewTimesheetStatus === 'loading' ? (
+                <div className="py-20 flex flex-col items-center justify-center">
+                  <div className="w-12 h-12 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin"></div>
+                  <span className="mt-4 text-sm font-bold text-slate-400 uppercase tracking-widest">Retrieving Details...</span>
+                </div>
+              ) : viewTimesheetStatus === 'error' ? (
+                <div className="py-20 text-center text-rose-600 font-bold">Failed to load timesheet details.</div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 gap-6">
+                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                      <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Period Coverage</div>
+                      <div className="text-sm font-bold mt-1 text-slate-900">
+                        {new Date(viewTimesheet.periodStart).toLocaleDateString()} - {new Date(viewTimesheet.periodEnd).toLocaleDateString()}
+                      </div>
+                    </div>
+                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                      <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Global Status</div>
+                      <div className="mt-1">
+                        <span className={cx('inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold border', getStatusBadge(viewTimesheet.status))}>
+                          {viewTimesheet.status}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">Approval Workflow</div>
+                    <div className="space-y-3">
+                      <div className="p-4 rounded-xl border border-blue-100 bg-blue-50/30 flex justify-between items-center">
+                        <div>
+                          <div className="text-[10px] font-bold text-blue-400 uppercase">Submitted By</div>
+                          <div className="text-sm font-bold text-slate-900">{displayNameOrId(viewTimesheet.submittedBy)}</div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-[10px] font-bold text-blue-400 uppercase">Timestamp</div>
+                          <div className="text-xs font-medium text-slate-600">{fmtDateTime(viewTimesheet.submittedAt)}</div>
                         </div>
                       </div>
 
-                      <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
-                        <div className="flex items-start justify-between gap-4">
-                          <div>
-                            <div className="text-sm font-semibold text-blue-800">Approved by L1</div>
-                            <div className="text-xs text-blue-700 mt-1">{fmtDateTime(viewTimesheet.approvedL1At)}</div>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-xs font-semibold text-blue-700">By</div>
-                            <div className="text-sm font-medium text-blue-900">{displayNameOrId(viewTimesheet.approvedL1By)}</div>
-                          </div>
+                      <div className="p-4 rounded-xl border border-slate-100 flex justify-between items-center">
+                        <div>
+                          <div className="text-[10px] font-bold text-slate-400 uppercase">L1 Manager Approval</div>
+                          <div className="text-sm font-bold text-slate-900">{displayNameOrId(viewTimesheet.approvedL1By)}</div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-[10px] font-bold text-slate-400 uppercase">Timestamp</div>
+                          <div className="text-xs font-medium text-slate-600">{fmtDateTime(viewTimesheet.approvedL1At)}</div>
                         </div>
                       </div>
 
-                      <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-                        <div className="flex items-start justify-between gap-4">
-                          <div>
-                            <div className="text-sm font-semibold text-emerald-800">Approved by L2</div>
-                            <div className="text-xs text-emerald-700 mt-1">{fmtDateTime(viewTimesheet.approvedL2At)}</div>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-xs font-semibold text-emerald-700">By</div>
-                            <div className="text-sm font-medium text-emerald-900">{displayNameOrId(viewTimesheet.approvedL2By)}</div>
-                          </div>
+                      <div className="p-4 rounded-xl border border-slate-100 flex justify-between items-center">
+                        <div>
+                          <div className="text-[10px] font-bold text-slate-400 uppercase">L2 Manager Approval</div>
+                          <div className="text-sm font-bold text-slate-900">{displayNameOrId(viewTimesheet.approvedL2By)}</div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-[10px] font-bold text-slate-400 uppercase">Timestamp</div>
+                          <div className="text-xs font-medium text-slate-600">{fmtDateTime(viewTimesheet.approvedL2At)}</div>
                         </div>
                       </div>
 
                       {viewTimesheet.rejectedAt && (
-                        <div className="rounded-xl border border-rose-200 bg-rose-50 p-4">
-                          <div className="flex items-start justify-between gap-4">
+                        <div className="p-4 rounded-xl border border-rose-100 bg-rose-50 flex flex-col gap-3">
+                          <div className="flex justify-between items-center">
                             <div>
-                              <div className="text-sm font-semibold text-rose-800">Rejected</div>
-                              <div className="text-xs text-rose-700 mt-1">{fmtDateTime(viewTimesheet.rejectedAt)}</div>
+                              <div className="text-[10px] font-bold text-rose-400 uppercase">Rejected By</div>
+                              <div className="text-sm font-bold text-rose-900">{displayNameOrId(viewTimesheet.rejectedBy)}</div>
                             </div>
                             <div className="text-right">
-                              <div className="text-xs font-semibold text-rose-700">By</div>
-                              <div className="text-sm font-medium text-rose-900">{displayNameOrId(viewTimesheet.rejectedBy)}</div>
+                              <div className="text-[10px] font-bold text-rose-400 uppercase">Timestamp</div>
+                              <div className="text-xs font-medium text-rose-700">{fmtDateTime(viewTimesheet.rejectedAt)}</div>
                             </div>
                           </div>
-                          {viewTimesheet.rejectedReason ? (
-                            <div className="mt-3 text-sm text-rose-800 whitespace-pre-wrap">Reason: {viewTimesheet.rejectedReason}</div>
-                          ) : null}
+                          <div className="pt-2 border-t border-rose-200">
+                             <div className="text-[10px] font-bold text-rose-400 uppercase mb-1">Reason for Rejection</div>
+                             <p className="text-sm text-rose-900 font-medium italic">"{viewTimesheet.rejectedReason || 'No reason specified.'}"</p>
+                          </div>
                         </div>
                       )}
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-end">
-                    <button
-                      onClick={closeTimesheetView}
-                      className="px-5 py-2.5 rounded-xl border border-slate-200 bg-white text-sm font-medium text-slate-700 hover:bg-slate-50"
-                    >
-                      Close
-                    </button>
-                  </div>
-                </div>
+                  <button 
+                    onClick={closeTimesheetView}
+                    className="w-full py-4 bg-slate-900 text-white font-bold rounded-2xl hover:bg-slate-800 transition-all shadow-lg shadow-slate-200"
+                  >
+                    Close Review
+                  </button>
+                </>
               )}
             </div>
           </div>

@@ -81,7 +81,7 @@ export function MyLeavePage() {
       setFormData({ leaveType: '', startDate: '', endDate: '', reason: '' });
       refresh();
     } catch (error) {
-      console.error('Failed to submit leave:', error);
+
     }
   };
 

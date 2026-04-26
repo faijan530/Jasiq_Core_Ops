@@ -2,8 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardService } from '../../services/dashboardService.js';
 import { LoadingState, ErrorState } from '../../components/States.jsx';
+import { useBootstrap } from '../../state/bootstrap.jsx';
 
 export function SuperAdminDashboard() {
+  const { bootstrap } = useBootstrap();
   const navigate = useNavigate();
   const [stats, setStats] = useState({
     employees: 0,
@@ -14,15 +16,20 @@ export function SuperAdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const roles = bootstrap?.rbac?.roles || [];
+  const isFounder = roles.includes('FOUNDER');
+  const routePrefix = isFounder ? '/founder' : '/super-admin';
+  const dashboardTitle = isFounder ? 'Founder Dashboard' : 'Super Admin Dashboard';
+
   // Navigation handlers with error handling
   const handleNavigate = (path) => {
+    // If path starts with /super-admin, replace with routePrefix
+    const targetPath = path.startsWith('/super-admin') ? path.replace('/super-admin', routePrefix) : path;
     try {
-      console.log('Navigating to:', path);
-      navigate(path);
+      navigate(targetPath);
     } catch (error) {
-      console.error('Navigation failed:', error);
       // Fallback: use window.location if navigate fails
-      window.location.href = path;
+      window.location.href = targetPath;
     }
   };
 
@@ -65,7 +72,7 @@ export function SuperAdminDashboard() {
           </svg>
         </div>
         <h1 className="text-4xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">
-          Super Admin Dashboard
+          {dashboardTitle}
         </h1>
         <p className="text-lg text-slate-600 max-w-2xl mx-auto">
           Welcome to JASIQ CoreOps. Manage your organization with powerful tools and insights.
@@ -190,7 +197,7 @@ export function SuperAdminDashboard() {
         <h2 className="text-2xl font-bold text-slate-900 mb-6">Quick Actions</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <div
-            onClick={() => navigate('/super-admin/employees/create')}
+            onClick={() => handleNavigate('/super-admin/employees/create')}
             className="group cursor-pointer rounded-xl border border-slate-200 p-6 transition-all duration-200 hover:shadow-lg hover:border-blue-300 hover:bg-blue-50"
           >
             <div className="flex items-center gap-4">
@@ -207,7 +214,7 @@ export function SuperAdminDashboard() {
           </div>
 
           <div
-            onClick={() => navigate('/super-admin/divisions/create')}
+            onClick={() => handleNavigate('/super-admin/divisions/create')}
             className="group cursor-pointer rounded-xl border border-slate-200 p-6 transition-all duration-200 hover:shadow-lg hover:border-emerald-300 hover:bg-emerald-50"
           >
             <div className="flex items-center gap-4">
@@ -224,7 +231,7 @@ export function SuperAdminDashboard() {
           </div>
 
           <div
-            onClick={() => navigate('/super-admin/system-config')}
+            onClick={() => handleNavigate('/super-admin/system-config')}
             className="group cursor-pointer rounded-xl border border-slate-200 p-6 transition-all duration-200 hover:shadow-lg hover:border-purple-300 hover:bg-purple-50"
           >
             <div className="flex items-center gap-4">

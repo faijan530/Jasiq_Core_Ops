@@ -2,51 +2,52 @@ import React, { useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { useMediaQuery } from '../hooks/useMediaQuery.js';
 
-import { HrSidebar } from './HrSidebar.jsx';
+import { FounderSidebar } from './FounderSidebar.jsx';
 
 // Page title mapping
 const getPageTitle = (pathname) => {
   const titleMap = {
-    '/hr/dashboard': 'Dashboard',
-    '/hr/employees': 'Employees',
-    '/hr/employees/create': 'Create Employee',
-    '/hr/attendance': 'Attendance',
-    '/hr/timesheets/approvals': 'Timesheet Approvals',
-    '/hr/leave/balances': 'Leave Balances',
-    '/hr/leave/approvals': 'Leave Approvals',
-    '/hr/leave/overview': 'Leave Overview',
-    '/hr/month-close': 'Month Close',
-    '/hr/my-attendance': 'My Attendance'
+    '/founder/dashboard': 'Dashboard',
+    '/founder/revenue': 'Revenue',
+    '/founder/revenue/categories': 'Revenue Categories',
+    '/founder/revenue/clients': 'Revenue Clients',
+    '/founder/divisions': 'Divisions',
+    '/founder/divisions/create': 'Create Division',
+    '/founder/projects': 'Projects',
+    '/founder/employees': 'Employees',
+    '/founder/attendance': 'Attendance',
+    '/founder/timesheets': 'Timesheets',
+    '/founder/leave/overview': 'Leave Overview',
+    '/founder/system-config': 'System Configuration',
+    '/founder/month-close': 'Month Close',
+    '/founder/audit-logs': 'Audit Logs',
+    '/founder/my-attendance': 'My Attendance'
   };
   
   // Check for exact matches first
   if (titleMap[pathname]) return titleMap[pathname];
   
   // Check for dynamic routes
-  if (pathname.startsWith('/hr/employees/')) return 'Employee Profile';
+  if (pathname.startsWith('/founder/employees/')) return 'Employee Profile';
+  if (pathname.startsWith('/founder/divisions/')) return 'Division Details';
   
-  return 'HR';
+  return 'Founder Panel';
 };
 
 const getPageIcon = (pathname) => {
-  if (pathname.startsWith('/hr/dashboard')) return (
+  if (pathname.startsWith('/founder/dashboard')) return (
     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
     </svg>
   );
-  if (pathname.startsWith('/hr/employees')) return (
+  if (pathname.startsWith('/founder/divisions')) return (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+    </svg>
+  );
+  if (pathname.startsWith('/founder/employees')) return (
     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-    </svg>
-  );
-  if (pathname.startsWith('/hr/attendance') || pathname.startsWith('/hr/my-attendance')) return (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-    </svg>
-  );
-  if (pathname.startsWith('/hr/leave')) return (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
     </svg>
   );
   return (
@@ -57,7 +58,7 @@ const getPageIcon = (pathname) => {
   );
 };
 
-export function HrLayout() {
+export function FounderLayout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
   const isMobile = useMediaQuery('(max-width: 1023px)');
@@ -70,11 +71,11 @@ export function HrLayout() {
     <div className="h-screen flex overflow-hidden">
       {/* Desktop Sidebar - Fixed */}
       <aside className="w-64 bg-white border-r hidden lg:flex flex-col">
-        <HrSidebar />
+        <FounderSidebar />
       </aside>
 
-      {/* Mobile Sidebar - Using HrSidebar component */}
-      <HrSidebar 
+      {/* Mobile Sidebar - Using FounderSidebar component */}
+      <FounderSidebar 
         open={mobileMenuOpen} 
         setOpen={setMobileMenuOpen} 
       />
@@ -113,25 +114,17 @@ export function HrLayout() {
             
             {/* Right: Brand/Logo */}
             <div className="flex items-center gap-4">
-              {isTablet && (
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center shadow-lg">
-                    <span className="text-white font-bold text-sm">JC</span>
-                  </div>
-                  <span className="text-sm font-semibold text-white">CoreOps</span>
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                  <span className="text-white font-bold">JC</span>
                 </div>
-              )}
-              {!isMobile && !isTablet && (
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
-                    <span className="text-white font-bold">JC</span>
-                  </div>
+                {!isMobile && !isTablet && (
                   <div>
                     <div className="text-sm font-bold text-white">JASIQ CoreOps</div>
-                    <div className="text-xs text-slate-300">HR Panel</div>
+                    <div className="text-xs text-slate-300">Founder Panel</div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </div>
         </header>

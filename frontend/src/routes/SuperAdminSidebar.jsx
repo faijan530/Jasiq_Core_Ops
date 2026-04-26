@@ -76,6 +76,21 @@ const icons = {
     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
     </svg>
+  ),
+  'ops-dashboard': (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v1a1 1 0 001 1h4a1 1 0 001-1v-1m3-2V8a2 2 0 00-2-2H8a2 2 0 00-2 2v8m5-4h.01M9 13h.01M15 13h.01M12 13h.01M12 17h.01M9 9h.01M15 9h.01" />
+    </svg>
+  ),
+  'reimbursements': (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v1a1 1 0 001 1h4a1 1 0 001-1v-1m3-2V8a2 2 0 00-2-2H8a2 2 0 00-2 2v8m5-4h.01M9 13h.01M15 13h.01M12 13h.01M12 17h.01M9 9h.01M15 9h.01" />
+    </svg>
+  ),
+  'revenue': (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v1a1 1 0 001 1h4a1 1 0 001-1v-1m3-2V8a2 2 0 00-2-2H8a2 2 0 00-2 2v8m5-4h.01M9 13h.01M15 13h.01M12 13h.01M12 17h.01M9 9h.01M15 9h.01" />
+    </svg>
   )
 };
 
@@ -112,15 +127,15 @@ export function SuperAdminSidebar({ open, setOpen }) {
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', path: '/super-admin/dashboard' },
-    { id: 'reports', label: 'Operations', path: '/super-admin/ops/dashboard' },
-    { id: 'reports', label: '  Inbox', path: '/super-admin/ops/inbox' },
-    { id: 'reports', label: '  Alerts', path: '/super-admin/ops/alerts' },
-    { id: 'reports', label: '  Overrides', path: '/super-admin/ops/overrides' },
-    { id: 'reports', label: '  Data Quality', path: '/super-admin/ops/data-quality' },
-    { id: 'reports', label: 'Reimbursements', path: '/super-admin/reimbursements' },
-    { id: 'reports', label: 'Revenue', path: '/super-admin/revenue' },
-    { id: 'reports', label: 'Revenue Categories', path: '/super-admin/revenue/categories' },
-    { id: 'reports', label: 'Revenue Clients', path: '/super-admin/revenue/clients' },
+    { id: 'ops-dashboard', label: 'Operations', path: '/super-admin/ops/dashboard' },
+    { id: 'ops-inbox', label: '  Inbox', path: '/super-admin/ops/inbox' },
+    { id: 'ops-alerts', label: '  Alerts', path: '/super-admin/ops/alerts' },
+    { id: 'ops-overrides', label: '  Overrides', path: '/super-admin/ops/overrides' },
+    { id: 'ops-data-quality', label: '  Data Quality', path: '/super-admin/ops/data-quality' },
+    { id: 'reimbursements', label: 'Reimbursements', path: '/super-admin/reimbursements' },
+    { id: 'revenue', label: 'Revenue', path: '/super-admin/revenue' },
+    { id: 'revenue-categories', label: 'Revenue Categories', path: '/super-admin/revenue/categories' },
+    { id: 'revenue-clients', label: 'Revenue Clients', path: '/super-admin/revenue/clients' },
     { id: 'divisions', label: 'Divisions', path: '/super-admin/divisions' },
     { id: 'projects', label: 'Projects', path: '/super-admin/projects' },
     { id: 'employees', label: 'Employees', path: '/super-admin/employees' },
@@ -189,7 +204,7 @@ export function SuperAdminSidebar({ open, setOpen }) {
                       'flex-shrink-0 transition-transform duration-200',
                       isActive ? 'scale-110 text-blue-600' : 'text-slate-500 group-hover:text-slate-700'
                     )}>
-                      {icons[item.id]}
+                      {icons[item.id] || icons['reports']}
                     </span>
                     <span className="truncate">{item.label}</span>
                     {isActive && (
@@ -254,7 +269,7 @@ export function SuperAdminSidebar({ open, setOpen }) {
                     'flex-shrink-0 transition-transform duration-200',
                     isActive ? 'scale-110 text-blue-600' : 'text-slate-500 group-hover:text-slate-700'
                   )}>
-                    {icons[item.id]}
+                    {icons[item.id] || icons['reports']}
                   </span>
                   <span className="truncate">{item.label}</span>
                   {isActive && (

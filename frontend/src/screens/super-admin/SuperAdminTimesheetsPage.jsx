@@ -58,6 +58,7 @@ export function SuperAdminTimesheetsPage() {
   const roles = bootstrap?.rbac?.roles || [];
   const canReadQueue = permissions.includes('TIMESHEET_APPROVAL_QUEUE_READ');
   const isSuperAdmin = roles.includes('SUPER_ADMIN');
+  const isFounder = roles.includes('FOUNDER');
 
   const systemConfig = bootstrap?.systemConfig || {};
   const timesheetEnabled = isTruthyConfig(systemConfig?.TIMESHEET_ENABLED?.value ?? systemConfig?.TIMESHEET_ENABLED);
@@ -72,7 +73,7 @@ export function SuperAdminTimesheetsPage() {
     path: '/api/v1/timesheets/approvals', 
     page, 
     pageSize, 
-    enabled: canReadQueue && timesheetEnabled 
+    enabled: (canReadQueue || isFounder) && timesheetEnabled 
   });
 
   // Production-safe: Always provide safe defaults

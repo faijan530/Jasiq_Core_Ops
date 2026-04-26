@@ -3,10 +3,13 @@ import React, { useMemo } from 'react';
 import { Table } from '../Table.jsx';
 import { StatusBadge } from './StatusBadge.jsx';
 
-function money(v) {
+import { useBootstrap } from '../../state/bootstrap.jsx';
+
+function money(v, bootstrap) {
   const n = Number(v);
   if (!Number.isFinite(n)) return '—';
-  return n.toLocaleString('en-IN', { style: 'currency', currency: 'INR' });
+  const currency = bootstrap?.systemConfig?.CURRENCY?.value || 'USD';
+  return n.toLocaleString(undefined, { style: 'currency', currency });
 }
 
 function dt(v) {
@@ -15,12 +18,13 @@ function dt(v) {
 }
 
 export function ReimbursementTable({ rows, loading, empty, onRowClick, variant }) {
+  const { bootstrap } = useBootstrap();
   const columns = useMemo(() => {
     if (variant === 'manager') {
       return [
         { key: 'employeeName', title: 'Employee', render: (v, r) => <span className="text-slate-900 font-medium">{v || '—'}</span> },
         { key: 'title', title: 'Title', render: (v) => <span className="text-slate-900 font-medium">{v || '—'}</span> },
-        { key: 'totalAmount', title: 'Amount', render: (v) => <span className="text-slate-700">{money(v)}</span> },
+        { key: 'totalAmount', title: 'Amount', render: (v) => <span className="text-slate-700">{money(v, bootstrap)}</span> },
         { key: 'scope', title: 'Scope', render: (v) => <span className="text-slate-700">{String(v || '—')}</span> },
         { key: 'submittedAt', title: 'Submitted', render: (v) => <span className="text-slate-700">{dt(v)}</span> },
         { key: 'receiptCount', title: 'Receipts', render: (v) => <span className="text-slate-700">{v ?? '—'}</span> },
@@ -32,9 +36,9 @@ export function ReimbursementTable({ rows, loading, empty, onRowClick, variant }
     return [
       { key: 'claimDate', title: 'Claim Date', render: (v) => <span className="text-slate-700">{dt(v)}</span> },
       { key: 'title', title: 'Title', render: (v) => <span className="text-slate-900 font-medium">{v || '—'}</span> },
-      { key: 'totalAmount', title: 'Amount', render: (v) => <span className="text-slate-700">{money(v)}</span> },
+      { key: 'totalAmount', title: 'Amount', render: (v) => <span className="text-slate-700">{money(v, bootstrap)}</span> },
       { key: 'status', title: 'Status', render: (v) => <StatusBadge status={v} /> },
-      { key: 'dueAmount', title: 'Due', render: (v) => <span className="text-slate-700">{money(v)}</span> }
+      { key: 'dueAmount', title: 'Due', render: (v) => <span className="text-slate-700">{money(v, bootstrap)}</span> }
     ];
   }, [variant]);
 

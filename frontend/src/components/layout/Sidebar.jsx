@@ -22,12 +22,10 @@ export function Sidebar({ open, setOpen, role }) {
   const visiblePages = pageRegistry.filter(page => {
     // For now, show all Manager pages to fix the missing pages issue
     if (bootstrap?.rbac?.role === 'MANAGER' || role === 'Manager') {
-      console.log('Manager role detected, showing all Manager pages:', page.label);
       return true;
     }
     
     const hasPermission = !page.permission || permissions.includes(page.permission);
-    console.log('Page:', page.label, 'Permission:', page.permission, 'Has Permission:', hasPermission, 'User Permissions:', permissions);
     return hasPermission;
   });
 

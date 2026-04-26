@@ -69,13 +69,13 @@ export function ManagerRevenueCreatePage() {
         });
 
         if (!res.ok) {
-          console.error('Failed to load divisions', res.status);
+
           return;
         }
 
         const contentType = res.headers.get('content-type') || '';
         if (!contentType.includes('application/json')) {
-          console.error('Failed to load divisions (non-JSON response)');
+
           return;
         }
 
@@ -83,7 +83,7 @@ export function ManagerRevenueCreatePage() {
         const items = Array.isArray(payload?.items) ? payload.items : Array.isArray(payload) ? payload : [];
         if (!cancelled) setDivisions(items);
       } catch (e) {
-        console.error('Failed to load divisions', e);
+
       } finally {
         if (!cancelled) setDivisionsLoading(false);
       }

@@ -93,6 +93,12 @@ export function employeeRoutes({ pool }) {
     controller.update
   );
 
+  router.delete(
+    '/:id',
+    requirePermission('EMPLOYEE_WRITE'),
+    controller.delete
+  );
+
   router.post(
     '/:id/change-scope',
     requirePermission('EMPLOYEE_WRITE'),

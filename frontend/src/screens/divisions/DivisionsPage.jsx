@@ -7,6 +7,7 @@ import { EmptyState, ErrorState, ForbiddenState, LoadingState } from '../../comp
 import { useMutation } from '../../hooks/useMutation.js';
 import { usePagedQuery } from '../../hooks/usePagedQuery.js';
 import { useBootstrap } from '../../state/bootstrap.jsx';
+import { getRoleBasePathFromRoles } from '../../utils/roleRouting.js';
 
 export function DivisionsPage() {
   const { bootstrap } = useBootstrap();
@@ -138,7 +139,8 @@ export function DivisionsPage() {
   }, [detail.data, items, mode, selectedId]);
 
   const openDivision = (divisionId) => {
-    navigate(`/super-admin/divisions/${divisionId}`);
+    const basePath = getRoleBasePathFromRoles(roles);
+    navigate(`${basePath}/divisions/${divisionId}`);
   };
 
   const headerMonthLabel = useMemo(() => {
@@ -188,11 +190,14 @@ export function DivisionsPage() {
       <div className="flex justify-center mb-6">
         <div className="flex items-center gap-4">
           {isSuperAdmin ? (
-            <button
-              type="button"
-              className="group relative inline-flex items-center gap-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-green-600 px-6 py-3 text-sm font-semibold text-white shadow-lg hover:shadow-xl hover:from-emerald-700 hover:to-green-700 transition-all duration-200 transform hover:scale-105"
-              onClick={() => navigate('/super-admin/divisions/create')}
-            >
+              <button
+                type="button"
+                className="group relative inline-flex items-center gap-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-green-600 px-6 py-3 text-sm font-semibold text-white shadow-lg hover:shadow-xl hover:from-emerald-700 hover:to-green-700 transition-all duration-200 transform hover:scale-105"
+                onClick={() => {
+                  const basePath = getRoleBasePathFromRoles(roles);
+                  navigate(`${basePath}/divisions/create`);
+                }}
+              >
               <div className="absolute inset-0 rounded-2xl bg-white opacity-0 group-hover:opacity-20 transition-opacity" />
               <svg className="w-5 h-5 relative" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -232,8 +237,9 @@ export function DivisionsPage() {
               type="button"
               className="inline-flex items-center gap-2 px-4 py-3 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 transition-all duration-200 shadow-sm"
               onClick={() => {
+                const basePath = getRoleBasePathFromRoles(roles);
                 setSearchTerm('');
-                navigate('/super-admin/divisions');
+                navigate(`${basePath}/divisions`);
               }}
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -461,7 +467,8 @@ export function DivisionsPage() {
                   type="button"
                   className="rounded-md border border-slate-400 bg-slate-800 px-3 py-2 text-sm font-medium text-white shadow-md hover:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2"
                   onClick={() => {
-                    navigate('/super-admin/divisions');
+                    const basePath = getRoleBasePathFromRoles(roles);
+                    navigate(`${basePath}/divisions`);
                   }}
                 >
                   ← Back

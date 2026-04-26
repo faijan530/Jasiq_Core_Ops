@@ -1,9 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-
 import { ErrorState } from '../../../components/States.jsx';
 import { useBootstrap } from '../../../state/bootstrap.jsx';
-
 import { reimbursementApi } from '../../../services/reimbursement.api.js';
 import { ReimbursementForm } from '../../../components/reimbursement/ReimbursementForm.jsx';
 
@@ -61,38 +59,49 @@ export function EmployeeReimbursementCreatePage() {
   }
 
   if (!canCreate) {
-    return <ErrorState error={{ status: 403, message: 'Required permission: REIMBURSEMENT_CREATE_SELF' }} />;
+    return <div className="p-8"><ErrorState error={{ status: 403, message: 'Required permission: REIMBURSEMENT_CREATE_SELF' }} /></div>;
   }
 
   return (
-    <div className="max-w-3xl mx-auto space-y-5">
-      <div className="bg-white rounded-2xl border border-slate-200/60 shadow-sm p-5">
-        <h1 className="text-2xl font-bold text-slate-900">New Reimbursement Claim</h1>
-        <p className="text-slate-600 mt-1">Create a draft claim. It will be locked after submission.</p>
+    <div className="p-6 max-w-4xl mx-auto space-y-8 animate-in fade-in duration-500">
+      {/* Page Header */}
+      <div className="bg-slate-900 rounded-3xl p-8 text-white shadow-xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-600/10 rounded-full -mr-32 -mt-32 blur-3xl"></div>
+        <div className="relative z-10 space-y-2">
+          <h1 className="text-3xl font-black tracking-tight">Draft New Claim</h1>
+          <p className="text-slate-400 font-medium">Initialize a new reimbursement request. You can add receipts in the next step.</p>
+        </div>
       </div>
 
-      {error ? <ErrorState error={error} onRetry={create} /> : null}
+      <div className="bg-white rounded-3xl p-10 shadow-sm border border-slate-200 space-y-8">
+        <div className="space-y-6">
+           <ReimbursementForm value={form} onChange={setForm} disabled={status === 'loading'} />
+        </div>
 
-      <div className="bg-white rounded-2xl border border-slate-200/60 shadow-sm p-5">
-        <ReimbursementForm value={form} onChange={setForm} disabled={status === 'loading'} />
+        {error && (
+          <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl flex items-center gap-3 text-rose-700 animate-in slide-in-from-top-2">
+             <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+             <span className="text-xs font-bold uppercase tracking-wide">{error.message || String(error)}</span>
+          </div>
+        )}
 
-        <div className="mt-5 flex items-center justify-end gap-2">
+        <div className="pt-8 border-t border-slate-50 flex flex-col md:flex-row items-center justify-end gap-4">
           <button
             onClick={() => navigate('/employee/reimbursements')}
-            className="px-4 py-2 rounded-xl text-sm font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200"
+            className="w-full md:w-auto px-10 py-4 rounded-2xl border-2 border-slate-200 bg-white text-sm font-black text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-all active:scale-95 uppercase tracking-widest"
           >
             Cancel
           </button>
           <button
             disabled={!canSubmit || status === 'loading'}
             onClick={create}
-            className={`px-4 py-2 rounded-xl text-sm font-semibold transition ${
+            className={`w-full md:w-auto px-12 py-4 rounded-2xl text-sm font-black transition-all active:scale-95 shadow-xl uppercase tracking-widest ${
               !canSubmit || status === 'loading'
-                ? 'bg-slate-200 text-slate-500'
-                : 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700'
+                ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                : 'bg-slate-900 text-white hover:bg-indigo-600'
             }`}
           >
-            {status === 'loading' ? 'Creating…' : 'Create Draft'}
+            {status === 'loading' ? 'Initializing...' : 'Create Draft'}
           </button>
         </div>
       </div>

@@ -150,7 +150,7 @@ export function buildApp({ pool }) {
   // Temporary route to add ATTENDANCE_VIEW_TEAM permission to MANAGER role
   app.post('/api/v1/temp/add-manager-attendance-permission', async (req, res) => {
     try {
-      console.log('Adding ATTENDANCE_VIEW_TEAM permission to MANAGER role...');
+
       
       const result = await pool.query(`
         DO $$
@@ -199,8 +199,7 @@ export function buildApp({ pool }) {
         WHERE r.name = 'MANAGER' AND p.code = 'ATTENDANCE_VIEW_TEAM'
       `);
       
-      console.log('✅ Permission added successfully!');
-      console.log('Verification:', verifyResult.rows);
+
       
       res.json({ 
         success: true, 
@@ -209,7 +208,7 @@ export function buildApp({ pool }) {
       });
       
     } catch (error) {
-      console.error('❌ Error:', error.message);
+
       res.status(500).json({ 
         success: false, 
         error: error.message 

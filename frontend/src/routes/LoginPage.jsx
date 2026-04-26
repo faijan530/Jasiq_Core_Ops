@@ -30,7 +30,7 @@ export function LoginPage() {
     const roleRedirectMap = {
       SUPER_ADMIN: '/super-admin/dashboard',
       COREOPS_ADMIN: '/super-admin/ops/dashboard',
-      FOUNDER: '/super-admin/dashboard',
+      FOUNDER: '/founder/dashboard',
       HR_ADMIN: '/hr/dashboard',
       FINANCE_ADMIN: '/finance/dashboard',
       MANAGER: '/manager/dashboard',

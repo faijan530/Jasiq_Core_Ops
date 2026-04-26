@@ -709,7 +709,7 @@ export function ProjectsPage() {
                   list.refresh();
                 } catch (error) {
                   // Error is handled by the mutation state
-                  console.error('Create project failed:', error);
+
                 }
               }}
             >

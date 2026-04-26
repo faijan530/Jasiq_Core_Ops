@@ -105,7 +105,6 @@ if (process.argv[1] && process.argv[1].endsWith('migrate.js')) {
   const pool = createPool();
   try {
     const res = await runMigrations(pool);
-    console.log(`Migrations complete. Applied: ${res.appliedCount}`);
     await pool.end();
     process.exit(0);
   } catch (err) {

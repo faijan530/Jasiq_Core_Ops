@@ -9,26 +9,19 @@ export function HrLeaveTypesPage() {
   const roles = bootstrap?.rbac?.roles || [];
   const isSuperAdmin = roles.includes('SUPER_ADMIN');
 
-  console.log('[HrLeaveTypesPage] Component loaded', { permissions, isSuperAdmin });
-
-  if (!isSuperAdmin && !permissions.includes('LEAVE_TYPE_READ')) {
-    console.log('[HrLeaveTypesPage] Access denied - missing LEAVE_TYPE_READ permission');
-    return <ForbiddenState />;
+  if (!permissions.includes('LEAVE_TYPE_READ') && !isSuperAdmin) {
+    return (
+      <div className="p-6 text-center text-slate-600">
+        You do not have permission to view leave types.
+      </div>
+    );
   }
-
-  console.log('[HrLeaveTypesPage] Permission check passed, fetching leave types');
 
   const leaveTypes = usePagedQuery({ 
     path: '/api/v1/leave/types', 
     page: 1, 
     pageSize: 100, 
     enabled: true 
-  });
-
-  console.log('[HrLeaveTypesPage] Query state:', { 
-    status: leaveTypes.status, 
-    dataLength: leaveTypes.data?.items?.length,
-    error: leaveTypes.error 
   });
 
   // Header Component
@@ -91,7 +84,7 @@ export function HrLeaveTypesPage() {
                 </svg>
               </div>
               <h3 className="text-lg font-medium text-slate-900 mb-2">No leave types found</h3>
-              <p className="text-sm text-slate-600">No leave types have been configured configured in the system yet.</p>
+              <p className="text-sm text-slate-600">No leave types have been configured in the system yet.</p>
             </div>
           ) : (
             <div className="overflow-x-auto">

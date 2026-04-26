@@ -457,7 +457,6 @@ export function AttendancePage() {
     cellDate.setHours(0, 0, 0, 0);
     
     if (cellDate > today) {
-      console.log('[Attendance Debug] Blocked attempt to open future date:', dateIso);
       return;
     }
     
@@ -532,9 +531,6 @@ export function AttendancePage() {
       } else {
         const message = `${updated.length} updated, ${failed.length} failed`;
         showNotification(message, 'error');
-        
-        // Log failed employees for debugging
-        console.log('Failed bulk updates:', failed);
       }
 
       // Close modal and refresh only on successful response
@@ -581,7 +577,6 @@ export function AttendancePage() {
       // Trigger summary refresh
       refreshSummary();
     } catch (err) {
-      console.error('Failed to refetch month data:', err);
       // Keep existing state on error
     }
   };
@@ -650,8 +645,6 @@ export function AttendancePage() {
       reason: markReason.trim() || undefined
     };
 
-    console.assert(payloadMark.attendanceDate === markSelectedCellDate, 'Payload date mismatch (must submit clicked cell date)');
-
     try {
       if (isHrCorrectOnly) {
         await overrideMutation.run(payloadOverride);
@@ -664,8 +657,6 @@ export function AttendancePage() {
       
       // Trigger comprehensive data refresh after successful override
       setTimeout(() => {
-        console.log('[Attendance Page] Emitting attendance update event');
-        
         // Refresh divisions data
         divisions.refresh?.();
         
@@ -682,7 +673,6 @@ export function AttendancePage() {
         window.dispatchEvent(event);
       }, 100);
     } catch (error) {
-      console.error('[Attendance Page] Override failed:', error);
       const friendlyMessage = getFriendlyErrorMessage(error);
       showNotification(friendlyMessage, 'error');
     }
@@ -692,7 +682,20 @@ export function AttendancePage() {
     return (
       <div>
         <PageHeader title={title} />
-        {monthState.error?.status === 403 ? <ForbiddenState /> : <ErrorState error={monthState.error} />}
+        <div className="p-12">
+          <LoadingState label="Loading attendance data…" />
+        </div>
+      </div>
+    );
+  }
+
+  if (monthState.status === 'error') {
+    return (
+      <div>
+        <PageHeader title={title} />
+        <div className="p-12">
+          {monthState.error?.status === 403 ? <ForbiddenState /> : <ErrorState error={monthState.error} />}
+        </div>
       </div>
     );
   }
@@ -870,132 +873,192 @@ export function AttendancePage() {
                     <EmptyState title="No active employees" description="Attendance applies to ACTIVE employees only." />
                   </div>
                 ) : (
-                  <div className="overflow-auto">
-                    <table className="min-w-full border-separate" style={{ borderSpacing: 0 }}>
-                      <thead className="sticky top-0 bg-white z-10">
-                        <tr>
-                          <th className="sticky left-0 z-20 bg-white border-b border-slate-200 px-3 py-2 text-left text-xs font-semibold text-slate-600">Employee</th>
-                          {days.map((dateIso) => {
-                            const day = parseInt(dateIso.slice(8));
-                            const isToday = day === todayDay;
-                            return (
-                              <th 
-                                key={dateIso} 
-                                className={cx(
-                                  'border-b px-2 py-2 text-center text-xs font-semibold whitespace-nowrap',
-                                  isToday ? 'bg-blue-50 border-b-2 border-b-blue-400 text-blue-900' : 'border-slate-200 text-slate-600'
-                                )}
-                              >
-                                {dateIso.slice(8)}
-                              </th>
-                            );
-                          })}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filteredEmployees.map((e) => {
-                          const divisionLabel = e.primaryDivisionId ? divisionsById[e.primaryDivisionId]?.code || '' : '';
-                          return (
-                            <tr key={e.id} className="hover:bg-slate-50">
-                              <td className="sticky left-0 z-10 bg-white border-b border-slate-100 px-3 py-2">
-                                <div className="flex items-center gap-3">
-                                  <div className="h-9 w-9 rounded-full bg-slate-900 text-white flex items-center justify-center text-sm font-semibold">
-                                    {initialsFromEmployee(e)}
-                                  </div>
-                                  <div className="min-w-0">
-                                    <div className="text-sm font-semibold text-slate-900 truncate">
-                                      {e.employeeCode} · {e.firstName} {e.lastName}
-                                    </div>
-                                    <div className="text-xs text-slate-500 truncate">
-                                      {divisionLabel ? `Division: ${divisionLabel}` : e.scope}
-                                    </div>
-                                  </div>
+                  <>
+                    {/* Mobile Card View */}
+                    <div className="lg:hidden divide-y divide-slate-100">
+                      {filteredEmployees.map((e) => {
+                        const divisionLabel = e.primaryDivisionId ? divisionsById[e.primaryDivisionId]?.code || '' : '';
+                        return (
+                          <div key={e.id} className="p-4 bg-white hover:bg-slate-50">
+                            <div className="flex items-center gap-3 mb-4">
+                              <div className="h-10 w-10 rounded-full bg-slate-900 text-white flex items-center justify-center text-sm font-semibold shrink-0">
+                                {initialsFromEmployee(e)}
+                              </div>
+                              <div className="min-w-0">
+                                <div className="text-sm font-semibold text-slate-900 truncate">
+                                  {e.employeeCode} · {e.firstName} {e.lastName}
                                 </div>
-                              </td>
+                                <div className="text-xs text-slate-500 truncate">
+                                  {divisionLabel ? `Division: ${divisionLabel}` : e.scope}
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {/* Horizontal scroll of days for this employee */}
+                            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
                               {days.map((dateIso) => {
                                 const rec = recordMap.get(`${e.id}:${dateIso}`);
                                 const backendStatus = rec?.status || '';
                                 const displayStatus = normalizeStatusFromBackend(backendStatus);
-                                const day = parseInt(dateIso.slice(8));
                                 const isToday = dateIso === todayISO;
                                 
-                                // Edit logic
                                 const cellDate = new Date(dateIso);
                                 const isFuture = cellDate > today;
-                                
                                 let editable = false;
-
-                                // HR CORRECT ONLY: only editable in override mode (past or today), never future
+                                
                                 if (isHrCorrectOnly) {
                                   editable = Boolean(overrideEnabled && canOverride && !isMonthClosed && !isFuture);
                                 } else {
-                                  // IMPLEMENTATION RULE: Override mode conditions
-                                  // isOverrideMode && monthIsOpen && cellDate <= today
-                                  if (overrideEnabled && canOverride && !isMonthClosed && !isFuture) {
-                                    editable = true;
-                                  }
-
-                                  // Normal self-marking rule (non-HR users only)
-                                  if (!overrideEnabled && !canOverride && isToday && canWrite && !isMonthClosed) {
-                                    editable = true;
-                                  }
-
-                                  // HR/SUPER_ADMIN rule: Can mark today's date with write permission
-                                  if (isToday && canWrite && !isMonthClosed) {
-                                    editable = true;
-                                  }
-
-                                  // FORCE: Future dates are NEVER editable, regardless of any other condition
-                                  if (isFuture) {
-                                    editable = false;
-                                  }
+                                  if (overrideEnabled && canOverride && !isMonthClosed && !isFuture) editable = true;
+                                  if (!overrideEnabled && !canOverride && isToday && canWrite && !isMonthClosed) editable = true;
+                                  if (isToday && canWrite && !isMonthClosed) editable = true;
+                                  if (isFuture) editable = false;
                                 }
-                                
-                                const disabled = !editable;
-                                
+
                                 return (
-                                  <td 
-                                    key={dateIso} 
-                                    className={cx(
-                                      'border-b border-slate-100 px-2 py-2 text-center',
-                                      isToday ? 'bg-blue-50/30' : ''
-                                    )}
-                                  >
+                                  <div key={dateIso} className="flex flex-col items-center shrink-0">
+                                    <span className={cx(
+                                      "text-[10px] mb-1 font-medium",
+                                      isToday ? "text-blue-600 font-bold" : "text-slate-400"
+                                    )}>
+                                      {dateIso.slice(8)}
+                                    </span>
                                     {editable ? (
                                       <button
                                         type="button"
                                         className={cx(
-                                          'w-12 h-9 rounded-lg border text-xs font-semibold',
+                                          'w-10 h-10 rounded-lg border text-xs font-bold flex items-center justify-center',
                                           statusCellClass(backendStatus),
-                                          'hover:shadow-sm',
                                           isToday ? 'ring-2 ring-blue-400' : ''
                                         )}
                                         onClick={() => openMark(e, dateIso)}
-                                        title={backendStatus ? `${backendStatus}` : '—'}
                                       >
                                         {displayStatus || '—'}
                                       </button>
                                     ) : (
-                                      <div
-                                        className={cx(
-                                          'w-12 h-9 inline-flex items-center justify-center rounded-lg border text-xs font-semibold opacity-40 cursor-not-allowed pointer-events-none',
-                                          statusCellClass(backendStatus),
-                                          isToday ? 'ring-2 ring-blue-300' : ''
-                                        )}
-                                        title="Editing restricted"
-                                      >
+                                      <div className={cx(
+                                        'w-10 h-10 rounded-lg border text-xs font-bold flex items-center justify-center opacity-40',
+                                        statusCellClass(backendStatus),
+                                        isToday ? 'ring-2 ring-blue-300' : ''
+                                      )}>
                                         {displayStatus || '—'}
                                       </div>
                                     )}
-                                  </td>
+                                  </div>
                                 );
                               })}
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Desktop Table View */}
+                    <div className="hidden lg:block overflow-auto">
+                      <table className="min-w-full border-separate" style={{ borderSpacing: 0 }}>
+                        <thead className="sticky top-0 bg-white z-10">
+                          <tr>
+                            <th className="sticky left-0 z-20 bg-white border-b border-slate-200 px-3 py-2 text-left text-xs font-semibold text-slate-600">Employee</th>
+                            {days.map((dateIso) => {
+                              const day = parseInt(dateIso.slice(8));
+                              const isToday = dateIso === todayISO;
+                              return (
+                                <th 
+                                  key={dateIso} 
+                                  className={cx(
+                                    'border-b px-2 py-2 text-center text-xs font-semibold whitespace-nowrap',
+                                    isToday ? 'bg-blue-50 border-b-2 border-b-blue-400 text-blue-900' : 'border-slate-200 text-slate-600'
+                                  )}
+                                >
+                                  {dateIso.slice(8)}
+                                </th>
+                              );
+                            })}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredEmployees.map((e) => {
+                            const divisionLabel = e.primaryDivisionId ? divisionsById[e.primaryDivisionId]?.code || '' : '';
+                            return (
+                              <tr key={e.id} className="hover:bg-slate-50">
+                                <td className="sticky left-0 z-10 bg-white border-b border-slate-100 px-3 py-2">
+                                  <div className="flex items-center gap-3">
+                                    <div className="h-9 w-9 rounded-full bg-slate-900 text-white flex items-center justify-center text-sm font-semibold">
+                                      {initialsFromEmployee(e)}
+                                    </div>
+                                    <div className="min-w-0">
+                                      <div className="text-sm font-semibold text-slate-900 truncate">
+                                        {e.employeeCode} · {e.firstName} {e.lastName}
+                                      </div>
+                                      <div className="text-xs text-slate-500 truncate">
+                                        {divisionLabel ? `Division: ${divisionLabel}` : e.scope}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </td>
+                                {days.map((dateIso) => {
+                                  const rec = recordMap.get(`${e.id}:${dateIso}`);
+                                  const backendStatus = rec?.status || '';
+                                  const displayStatus = normalizeStatusFromBackend(backendStatus);
+                                  const isToday = dateIso === todayISO;
+                                  
+                                  const cellDate = new Date(dateIso);
+                                  const isFuture = cellDate > today;
+                                  
+                                  let editable = false;
+                                  if (isHrCorrectOnly) {
+                                    editable = Boolean(overrideEnabled && canOverride && !isMonthClosed && !isFuture);
+                                  } else {
+                                    if (overrideEnabled && canOverride && !isMonthClosed && !isFuture) editable = true;
+                                    if (!overrideEnabled && !canOverride && isToday && canWrite && !isMonthClosed) editable = true;
+                                    if (isToday && canWrite && !isMonthClosed) editable = true;
+                                    if (isFuture) editable = false;
+                                  }
+                                  
+                                  return (
+                                    <td 
+                                      key={dateIso} 
+                                      className={cx(
+                                        'border-b border-slate-100 px-2 py-2 text-center',
+                                        isToday ? 'bg-blue-50/30' : ''
+                                      )}
+                                    >
+                                      {editable ? (
+                                        <button
+                                          type="button"
+                                          className={cx(
+                                            'w-12 h-9 rounded-lg border text-xs font-semibold',
+                                            statusCellClass(backendStatus),
+                                            'hover:shadow-sm',
+                                            isToday ? 'ring-2 ring-blue-400' : ''
+                                          )}
+                                          onClick={() => openMark(e, dateIso)}
+                                          title={backendStatus ? `${backendStatus}` : '—'}
+                                        >
+                                          {displayStatus || '—'}
+                                        </button>
+                                      ) : (
+                                        <div
+                                          className={cx(
+                                            'w-12 h-9 inline-flex items-center justify-center rounded-lg border text-xs font-semibold opacity-40 cursor-not-allowed pointer-events-none',
+                                            statusCellClass(backendStatus),
+                                            isToday ? 'ring-2 ring-blue-300' : ''
+                                          )}
+                                          title="Editing restricted"
+                                        >
+                                          {displayStatus || '—'}
+                                        </div>
+                                      )}
+                                    </td>
+                                  );
+                                })}
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
                 )}
               </div>
             ) : (

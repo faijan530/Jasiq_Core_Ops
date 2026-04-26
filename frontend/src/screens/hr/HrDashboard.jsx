@@ -38,7 +38,7 @@ export function HrDashboard() {
             const leaveData = await apiFetch('/api/v1/leave/requests?status=PENDING&limit=1');
             setPendingLeaveApprovals(leaveData?.total || 0);
           } catch (err) {
-            console.warn('Failed to fetch leave approvals:', err);
+            // Silently handle error
           }
         }
 
@@ -48,7 +48,7 @@ export function HrDashboard() {
             const employeeData = await apiFetch('/api/v1/employees?limit=1');
             setTotalEmployees(employeeData?.total || 0);
           } catch (err) {
-            console.warn('Failed to fetch employees:', err);
+            // Silently handle error
           }
         }
 
@@ -58,8 +58,6 @@ export function HrDashboard() {
             // Fetch current month's attendance to see corrections needed
             const currentMonth = new Date().toISOString().slice(0, 7);
             const attendanceData = await apiFetch(`/api/v1/attendance/hr-month?month=${currentMonth}`);
-            
-            console.log('[HR Dashboard] Raw attendance data:', attendanceData);
             
             // Handle different response formats - look for attendance records array
             let attendanceItems = [];
@@ -73,7 +71,6 @@ export function HrDashboard() {
             } else if (Array.isArray(attendanceData)) {
               attendanceItems = attendanceData;
             } else {
-              console.warn('[HR Dashboard] No attendance records array found in response');
               setAttendanceCorrectionsPending(0);
               return;
             }
@@ -88,14 +85,7 @@ export function HrDashboard() {
             }).length;
             
             setAttendanceCorrectionsPending(correctionsNeeded);
-            console.log('[HR Dashboard] Attendance corrections calculated:', {
-              totalRecords: attendanceItems.length,
-              correctionsNeeded,
-              month: currentMonth,
-              sampleRecords: attendanceItems.slice(0, 3)
-            });
           } catch (err) {
-            console.warn('Failed to fetch attendance corrections:', err);
             setAttendanceCorrectionsPending(0);
           }
         }
@@ -107,7 +97,6 @@ export function HrDashboard() {
             const overrideData = await apiFetch(`/api/v1/leave/requests?month=${currentMonth}&override=true&limit=1`);
             setLeaveOverridesThisMonth(overrideData?.total || 0);
           } catch (err) {
-            console.warn('Failed to fetch leave overrides:', err);
             setLeaveOverridesThisMonth(0);
           }
         }
@@ -130,7 +119,6 @@ export function HrDashboard() {
             }
           }
         } catch (err) {
-          console.warn('Failed to fetch month close status:', err);
           setMonthStatus({ status: 'open', message: 'Month is open for corrections' });
         }
 
@@ -148,7 +136,7 @@ export function HrDashboard() {
         
         setCriticalAlerts(alerts);
       } catch (err) {
-        console.error('Dashboard data fetch error:', err);
+        // Silently handle top-level error
       } finally {
         setLoading(false);
       }
@@ -160,16 +148,12 @@ export function HrDashboard() {
   // Listen for attendance updates to refresh dashboard data
   useEffect(() => {
     const handleAttendanceUpdate = (event) => {
-      console.log('[HR Dashboard] Received attendance update event:', event.detail);
-      
       // Force immediate refresh of attendance corrections
       if (canCorrectAttendance) {
         const fetchAttendanceCorrections = async () => {
           try {
             const currentMonth = new Date().toISOString().slice(0, 7);
             const attendanceData = await apiFetch(`/api/v1/attendance/hr-month?month=${currentMonth}`);
-            
-            console.log('[HR Dashboard] Event refresh - Raw attendance data:', attendanceData);
             
             // Handle different response formats - look for attendance records array
             let attendanceItems = [];
@@ -183,7 +167,6 @@ export function HrDashboard() {
             } else if (Array.isArray(attendanceData)) {
               attendanceItems = attendanceData;
             } else {
-              console.warn('[HR Dashboard] Event refresh - No attendance records array found');
               return;
             }
             
@@ -195,10 +178,9 @@ export function HrDashboard() {
                      recordStr.includes('manual');
             }).length;
             
-            console.log('[HR Dashboard] Event refresh - Updated attendance corrections:', correctionsNeeded);
             setAttendanceCorrectionsPending(correctionsNeeded);
           } catch (err) {
-            console.warn('Failed to refresh attendance corrections:', err);
+            // Silently handle error
           }
         };
         
@@ -219,10 +201,8 @@ export function HrDashboard() {
   // Navigation handlers with error handling
   const handleNavigate = (path) => {
     try {
-      console.log('Navigating to:', path);
       navigate(path);
     } catch (error) {
-      console.error('Navigation failed:', error);
       // Fallback: use window.location if navigate fails
       window.location.href = path;
     }

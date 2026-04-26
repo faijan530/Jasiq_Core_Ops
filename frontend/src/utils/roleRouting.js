@@ -12,6 +12,8 @@ export function getRoleBasePath(role) {
       return "/finance";
     case "MANAGER":
       return "/manager";
+    case "FOUNDER":
+      return "/founder";
     case "EMPLOYEE":
       return "/employee";
     default:

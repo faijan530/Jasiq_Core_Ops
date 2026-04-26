@@ -17,6 +17,7 @@ import {
   changeEmployeeScope,
   changeEmployeeStatus,
   createEmployee,
+  deleteEmployeeService,
   getEmployeeDocumentForDownload,
   getEmployeeWithScopeHistory,
   getEligibleReportingManagers,
@@ -57,9 +58,11 @@ export function employeeController({ pool }) {
             lastName: r.last_name,
             email: r.email,
             phone: r.phone,
+            designation: r.designation || null,
             status: r.status,
             scope: r.scope,
             primaryDivisionId: r.primary_division_id,
+            createdAt: r.created_at,
             updatedAt: r.updated_at
           })),
           total,
@@ -112,17 +115,11 @@ export function employeeController({ pool }) {
     }),
 
     create: asyncHandler(async (req, res) => {
-      console.log('=== employeeController.create debug ===');
-      console.log('Incoming body:', req.body);
-      console.log('req.user:', req.user);
-      console.log('req.auth:', req.auth);
-      
       const body = validate(createEmployeeSchema, req.body);
       const idempotencyKey = cleanIdempotencyKey(req.header('x-idempotency-key'));
 
       // Extract role from validated body
       const role = body.roleId; // roleId is now validated in schema
-      console.log('Extracted role:', role);
       
       // Validate role
       const allowedRoles = ['EMPLOYEE', 'HR_ADMIN', 'FINANCE_ADMIN', 'MANAGER', 'FOUNDER'];
@@ -145,12 +142,7 @@ export function employeeController({ pool }) {
       const elevatedRoles = ['HR_ADMIN', 'FINANCE_ADMIN', 'MANAGER', 'FOUNDER'];
       const isAssigningElevatedRole = elevatedRoles.includes(role);
       
-      console.log('Has SYSTEM_FULL_ACCESS:', hasSystemFullAccess);
-      console.log('Is assigning elevated role:', isAssigningElevatedRole);
-      console.log('Requested role:', role);
-      
       if (isAssigningElevatedRole && !hasSystemFullAccess) {
-        console.log('403: Cannot assign elevated role without SYSTEM_FULL_ACCESS');
         return res.status(403).json({ message: 'Insufficient privilege to assign this role' });
       }
 
@@ -204,8 +196,6 @@ export function employeeController({ pool }) {
         } : null
       });
       } catch (error) {
-        console.log('Database error:', error);
-        
         // Handle unique constraint violations
         if (error.code === '23505') {
           let message = 'Employee already exists';
@@ -222,9 +212,6 @@ export function employeeController({ pool }) {
     }),
 
     update: asyncHandler(async (req, res) => {
-      console.log('=== employeeController.update debug ===');
-      console.log('req.user:', req.user);
-      
       const body = validate(updateEmployeeSchema, req.body);
       const permissions = req.user?.permissions || [];
       const hasSystemFullAccess = permissions.includes('SYSTEM_FULL_ACCESS');
@@ -234,12 +221,7 @@ export function employeeController({ pool }) {
       const isAssigningRestricted = body.roles?.some(role => restrictedRoles.includes(role));
       const isRemovingRestricted = false; // Would need to fetch current roles to check
       
-      console.log('Has SYSTEM_FULL_ACCESS:', hasSystemFullAccess);
-      console.log('Requested roles:', body.roles);
-      console.log('Is assigning restricted:', isAssigningRestricted);
-      
       if ((isAssigningRestricted || isRemovingRestricted) && !hasSystemFullAccess) {
-        console.log('403: Cannot modify HR/FINANCE roles without SYSTEM_FULL_ACCESS');
         return res.status(403).json({ message: 'Insufficient privilege to modify these roles' });
       }
       
@@ -249,6 +231,8 @@ export function employeeController({ pool }) {
         lastName: body.lastName,
         email: body.email,
         phone: body.phone,
+        designation: body.designation,
+        reportingManagerId: body.reportingManagerId,
         roles: body.roles,
         actorId: req.auth.userId,
         actorSystemRoles: hasSystemFullAccess ? ['SUPER_ADMIN'] : [], // Pass minimal required for service compatibility
@@ -263,6 +247,8 @@ export function employeeController({ pool }) {
         lastName: updated.last_name,
         email: updated.email,
         phone: updated.phone,
+        designation: updated.designation,
+        reportingManagerId: updated.reporting_manager_id,
         status: updated.status,
         scope: updated.scope,
         primaryDivisionId: updated.primary_division_id,
@@ -376,6 +362,15 @@ export function employeeController({ pool }) {
       }
 
       res.json({ url: target });
+    }),
+
+    delete: asyncHandler(async (req, res) => {
+      const { id } = req.params;
+      const payload = await getEmployeeWithScopeHistory(pool, { id });
+      if (!payload) throw notFound('Employee not found');
+
+      await deleteEmployeeService(pool, { id });
+      res.status(204).end();
     })
   };
 }

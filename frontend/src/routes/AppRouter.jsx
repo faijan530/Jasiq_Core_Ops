@@ -11,6 +11,7 @@ import { FinanceLayout } from './FinanceLayout.jsx';
 import { ManagerLayout } from './ManagerLayout.jsx';
 import { EmployeeLayout } from './EmployeeLayout.jsx';
 import { SuperAdminLayout } from './SuperAdminLayout.jsx';
+import { FounderLayout } from './FounderLayout.jsx';
 import { NotFoundPage } from './NotFoundPage.jsx';
 import { ForbiddenState } from '../components/States.jsx';
 import { LoadingState } from '../components/States.jsx';
@@ -231,13 +232,24 @@ export function AppRouter() {
   // SUPER_ADMIN and FOUNDER should never render other panels (Finance/HR/Manager/Employee).
   // If the user is SUPER_ADMIN or FOUNDER but somehow lands on another panel path, force redirect.
   if (
-    (roles.includes('SUPER_ADMIN') || roles.includes('FOUNDER')) &&
+    roles.includes('SUPER_ADMIN') &&
     (location.pathname.startsWith('/finance') ||
       location.pathname.startsWith('/hr') ||
       location.pathname.startsWith('/manager') ||
       location.pathname.startsWith('/employee'))
   ) {
     return <Navigate to="/super-admin/dashboard" replace />;
+  }
+
+  if (
+    roles.includes('FOUNDER') &&
+    (location.pathname.startsWith('/finance') ||
+      location.pathname.startsWith('/hr') ||
+      location.pathname.startsWith('/manager') ||
+      location.pathname.startsWith('/employee') ||
+      location.pathname.startsWith('/super-admin'))
+  ) {
+    return <Navigate to="/founder/dashboard" replace />;
   }
 
   return (
@@ -252,7 +264,7 @@ export function AppRouter() {
       <Route
         path="/super-admin/*"
         element={
-          <RoleRoute allowedRoles={["SUPER_ADMIN", "COREOPS_ADMIN", "FOUNDER"]}>
+          <RoleRoute allowedRoles={["SUPER_ADMIN", "COREOPS_ADMIN"]}>
             <SuperAdminLayout />
           </RoleRoute>
         }
@@ -291,6 +303,46 @@ export function AppRouter() {
       </Route>
 
       <Route
+        path="/founder/*"
+        element={
+          <RoleRoute allowedRoles={["FOUNDER"]}>
+            <FounderLayout />
+          </RoleRoute>
+        }
+      >
+        <Route index element={<Navigate to="dashboard" replace />} />
+        <Route path="dashboard" element={<SuperAdminDashboard />} />
+        <Route path="revenue" element={<SuperAdminRevenuePage />} />
+        <Route path="revenue/categories" element={<SuperAdminRevenueCategoriesPage />} />
+        <Route path="revenue/clients" element={<SuperAdminRevenueClientsPage />} />
+        <Route path="reports" element={<Navigate to="reports/dashboard" replace />} />
+        <Route path="reports/dashboard" element={<FinanceReportsDashboardPage />} />
+        <Route path="reports/pnl" element={<FinancePnLPage />} />
+        <Route path="employees" element={<SuperAdminEmployeesPage />} />
+        <Route path="employees/add" element={<CreateEmployeePage />} />
+        <Route path="employees/:id" element={<EmployeeProfilePage />} />
+        <Route path="attendance" element={<HrAttendancePage />} />
+        <Route path="my-attendance" element={<EmployeeAttendance />} />
+        <Route path="divisions" element={<SuperAdminDivisionsPage />} />
+        <Route path="divisions/create" element={<SuperAdminDivisionsPage />} />
+        <Route path="divisions/:id" element={<SuperAdminDivisionsPage />} />
+        <Route path="projects" element={<SuperAdminProjectsPage />} />
+        <Route path="timesheets" element={<SuperAdminTimesheetsPage />} />
+        <Route path="system-config" element={<SuperAdminSystemConfigPage />} />
+        <Route path="month-close" element={<MonthClosePage />} />
+        <Route path="audit-logs" element={<AuditPage />} />
+        <Route path="leave/overview" element={<SuperAdminLeaveOverviewPage />} />
+        <Route path="reimbursements" element={<SuperAdminReimbursementsPage />} />
+        <Route path="reimbursements/:id" element={<SuperAdminReimbursementDetailPage />} />
+        <Route path="ops" element={<Navigate to="dashboard" replace />} />
+        <Route path="ops/dashboard" element={<SuperAdminOpsDashboardPage />} />
+        <Route path="ops/inbox" element={<SuperAdminInboxPage />} />
+        <Route path="ops/alerts" element={<SuperAdminAlertsPage />} />
+        <Route path="ops/overrides" element={<SuperAdminOverridesPage />} />
+        <Route path="ops/data-quality" element={<SuperAdminDataQualityPage />} />
+      </Route>
+
+      <Route
         path="/hr/*"
         element={
           <RoleRoute allowedRoles={["HR_ADMIN"]}>
@@ -301,8 +353,8 @@ export function AppRouter() {
         <Route path="dashboard" element={<HrDashboard />} />
         <Route path="employees" element={<HrEmployeesPage />} />
         <Route path="employees/add" element={<HrEmployeeAddPage />} />
-        <Route path="employees/:id" element={<HrEmployeeViewPage />} />
         <Route path="attendance" element={<HrAttendancePage />} />
+        <Route path="my-attendance" element={<EmployeeAttendance />} />
         <Route path="timesheets" element={<HrTimesheetsPage />} />
         <Route path="timesheets/approvals" element={<HrTimesheetApprovalsPage />} />
         <Route path="leave" element={<HrLeavePage />} />
@@ -359,6 +411,7 @@ export function AppRouter() {
         <Route path="reports/payables" element={<FinancePayablesPage />} />
         <Route path="reports/cashflow" element={<FinanceCashflowPage />} />
         <Route path="month-close" element={<FinanceMonthClosePage />} />
+        <Route path="my-attendance" element={<EmployeeAttendance />} />
 
         <Route path="reimbursements" element={<FinanceReimbursementsPage />} />
         <Route path="reimbursements/:id" element={<FinanceReimbursementDetailPage />} />
@@ -386,7 +439,7 @@ export function AppRouter() {
         <Route path="revenue" element={<ManagerRevenuePage />} />
         <Route path="revenue/create" element={<ManagerRevenueCreatePage />} />
         <Route path="revenue/:id" element={<ManagerRevenueDetailPage />} />
-        <Route path="my-attendance" element={<ManagerMyAttendancePage />} />
+        <Route path="my-attendance" element={<EmployeeAttendance />} />
         <Route path="my-leave" element={<ManagerMyLeavePage />} />
         <Route path="my-timesheets" element={<ManagerMyTimesheetsPage />} />
         <Route path="my-profile" element={<ManagerMyProfilePage />} />

@@ -8,8 +8,9 @@ export function HrAttendancePage() {
   const permissions = bootstrap?.rbac?.permissions || [];
   const roles = bootstrap?.rbac?.roles || [];
   const isSuperAdmin = roles.includes('SUPER_ADMIN');
+  const isFounder = roles.includes('FOUNDER');
 
-  if (!isSuperAdmin && !permissions.includes('ATTENDANCE_VIEW_TEAM') && !permissions.includes('ATTENDANCE_CORRECT')) {
+  if (!isSuperAdmin && !isFounder && !permissions.includes('ATTENDANCE_VIEW_TEAM') && !permissions.includes('ATTENDANCE_CORRECT')) {
     return <ForbiddenState />;
   }
 

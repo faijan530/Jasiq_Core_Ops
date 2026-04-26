@@ -113,11 +113,14 @@ export function EmployeeProfilePage() {
   const canReadMonthClose = hasSystemFullAccess || permissions.includes('GOV_MONTH_CLOSE_READ');
   const canReadAudit = hasSystemFullAccess || permissions.includes('GOV_AUDIT_READ');
 
-  const canIdentityWrite = hasSystemFullAccess || permissions.includes('EMPLOYEE_WRITE');
-  const canCompWrite = hasSystemFullAccess || permissions.includes('EMPLOYEE_COMPENSATION_WRITE');
-  const canDocWrite = hasSystemFullAccess || permissions.includes('EMPLOYEE_DOCUMENT_WRITE');
-
   const isHrAdmin = roles.includes('HR_ADMIN');
+  const isFounder = roles.includes('FOUNDER');
+  
+  // Founders can only see, not create or edit
+  const canIdentityWrite = !isFounder && (hasSystemFullAccess || permissions.includes('EMPLOYEE_WRITE'));
+  const canCompWrite = !isFounder && (hasSystemFullAccess || permissions.includes('EMPLOYEE_COMPENSATION_WRITE'));
+  const canDocWrite = !isFounder && (hasSystemFullAccess || permissions.includes('EMPLOYEE_DOCUMENT_WRITE'));
+
   const canSeeCompensationAction = roles.includes('HR_ADMIN') || roles.includes('FINANCE_ADMIN') || roles.includes('FOUNDER');
 
   const canReadAttendance = hasSystemFullAccess || permissions.includes('ATTENDANCE_READ');
@@ -133,6 +136,17 @@ export function EmployeeProfilePage() {
     for (const d of items) map[d.id] = d;
     return map;
   }, [divisions.data]);
+
+  const [identityModalOpen, setIdentityModalOpen] = useState(false);
+  const [idFirstName, setIdFirstName] = useState('');
+  const [idLastName, setIdLastName] = useState('');
+  const [idPhone, setIdPhone] = useState('');
+  const [idDesignation, setIdDesignation] = useState('');
+  const [idReportingManager, setIdReportingManager] = useState('');
+  const [idReason, setIdReason] = useState('');
+  const [idConfirmText, setIdConfirmText] = useState('');
+
+  const eligibleManagers = usePagedQuery({ path: '/api/v1/employees/eligible-managers', page: 1, pageSize: 500, enabled: identityModalOpen });
 
   const [empState, setEmpState] = useState({ status: 'idle', data: null, error: null, refreshIndex: 0 });
   const refreshEmployee = () => setEmpState((s) => ({ ...s, refreshIndex: s.refreshIndex + 1 }));
@@ -314,15 +328,6 @@ export function EmployeeProfilePage() {
     return apiFetch(`/api/v1/employees/${id}/documents`, { method: 'POST', body: payload });
   });
 
-  const [identityModalOpen, setIdentityModalOpen] = useState(false);
-  const [idFirstName, setIdFirstName] = useState('');
-  const [idLastName, setIdLastName] = useState('');
-  const [idPhone, setIdPhone] = useState('');
-  const [idDesignation, setIdDesignation] = useState('');
-  const [idReportingManager, setIdReportingManager] = useState('');
-  const [idReason, setIdReason] = useState('');
-  const [idConfirmText, setIdConfirmText] = useState('');
-
   const openIdentityModal = () => {
     if (!employee) return;
     setIdFirstName(employee.firstName || '');
@@ -411,7 +416,10 @@ export function EmployeeProfilePage() {
       <div className="mb-6">
         <button
           type="button"
-          onClick={() => navigate('/hr/employees')}
+          onClick={() => {
+            const roles = bootstrap?.rbac?.roles || [];
+            navigate(getEmployeeBasePath(roles));
+          }}
           className="inline-flex items-center gap-2 px-4 py-2 
                      bg-white border border-gray-200 
                      rounded-md shadow-sm
@@ -756,11 +764,21 @@ export function EmployeeProfilePage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700">Designation</label>
-                <input className="mt-1 w-full rounded-md border-slate-300 text-sm" value={idDesignation} onChange={(e) => setIdDesignation(e.target.value)} disabled />
+                <input className="mt-1 w-full rounded-md border-slate-300 text-sm" value={idDesignation} onChange={(e) => setIdDesignation(e.target.value)} disabled={readOnlyMode} />
               </div>
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-slate-700">Reporting Manager</label>
-                <input className="mt-1 w-full rounded-md border-slate-300 text-sm" value={idReportingManager} onChange={(e) => setIdReportingManager(e.target.value)} disabled />
+                <select 
+                  className="mt-1 w-full rounded-md border-slate-300 text-sm" 
+                  value={idReportingManager} 
+                  onChange={(e) => setIdReportingManager(e.target.value)} 
+                  disabled={readOnlyMode || eligibleManagers.status === 'loading'}
+                >
+                  <option value="">No Reporting Manager</option>
+                  {(eligibleManagers.data?.items || []).filter(m => m.id !== id).map(m => (
+                    <option key={m.id} value={m.id}>{m.name} ({m.designation})</option>
+                  ))}
+                </select>
               </div>
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-slate-700">Reason (required)</label>
@@ -792,6 +810,8 @@ export function EmployeeProfilePage() {
                     firstName: idFirstName.trim() || null,
                     lastName: idLastName.trim() || null,
                     phone: idPhone.trim() || null,
+                    designation: idDesignation.trim() || null,
+                    reportingManagerId: idReportingManager || null,
                     reason: idReason.trim()
                   };
                   await updateIdentityMutation.run({ id: employeeId, payload });

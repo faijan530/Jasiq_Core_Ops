@@ -118,7 +118,7 @@ export function EmployeeLayout() {
       {/* Main Content Area */}
       <div className="flex flex-col flex-1 lg:ml-64 min-w-0">
         {/* Sticky Header - Fixed positioning */}
-        <header className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-blue-600 via-blue-700 to-blue-800 text-white shadow-xl border-b border-blue-700/50 backdrop-blur-md lg:left-64">
+        <header className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white shadow-xl border-b border-slate-700/50 backdrop-blur-md lg:left-64">
           <div className="flex items-center justify-between h-16 px-4 sm:px-6 lg:px-8">
             {/* Left: Mobile menu + Page title */}
             <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -141,7 +141,7 @@ export function EmployeeLayout() {
                 <div className="min-w-0">
                   <h1 className="text-lg font-bold tracking-tight text-white truncate">{pageTitle}</h1>
                   {!isMobile && (
-                    <p className="text-xs text-blue-100 mt-0.5 font-medium">Employee Portal</p>
+                    <p className="text-xs text-slate-400 mt-0.5 font-medium">JASIQ CoreOps Platform</p>
                   )}
                 </div>
               </div>
@@ -181,7 +181,7 @@ export function EmployeeLayout() {
         </header>
 
         {/* Scrollable Content Area */}
-        <main className="flex-1 overflow-y-auto bg-gradient-to-br from-blue-50 via-white to-blue-50 pt-16">
+        <main className="flex-1 overflow-y-auto bg-gradient-to-br from-slate-50 via-white to-slate-50 pt-16">
           <div className="w-full px-4 py-6 sm:px-6 lg:px-8 max-w-7xl mx-auto">
             <Outlet />
           </div>

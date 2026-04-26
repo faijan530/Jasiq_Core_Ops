@@ -342,7 +342,7 @@ export function CreateEmployeePage() {
   return (
     <div className="flex-1 bg-white">
       {/* Step Indicator - Sticky */}
-      <div className="sticky top-0 z-10 bg-white border-b border-slate-200 px-6 py-4">
+      <div className="sticky top-0 z-10 bg-white border-b border-slate-200 px-4 sm:px-6 py-4">
         <div className="max-w-4xl mx-auto">
           <div className="flex items-center justify-center">
             {/* Mobile: Compact stepper */}
@@ -377,7 +377,7 @@ export function CreateEmployeePage() {
       </div>
 
       {/* Main Content */}
-      <div className="max-w-4xl mx-auto px-6 py-8">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
         {/* Step 1: Identity */}
         {currentStep === 1 && (
           <div>
@@ -496,18 +496,19 @@ export function CreateEmployeePage() {
               </div>
             </div>
 
-            <div className="mt-8 flex justify-between">
+            <div className="mt-8 flex items-center justify-between gap-4">
               <button
                 onClick={() => navigate(getBackPath())}
-                className="px-4 py-2 text-slate-600 hover:text-slate-900"
+                className="px-4 py-2 text-slate-600 hover:text-slate-900 font-medium"
               >
                 Cancel
               </button>
               <button
                 onClick={handleNext}
-                className="px-6 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800"
+                className="px-6 py-2 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-colors shadow-sm"
               >
-                Continue to Scope
+                <span className="hidden sm:inline">Continue to Scope</span>
+                <span className="sm:hidden">Continue</span>
               </button>
             </div>
           </div>
@@ -535,7 +536,7 @@ export function CreateEmployeePage() {
             {/* Scope Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
               <div
-                className={`border-2 rounded-lg p-6 cursor-pointer transition-colors ${
+                className={`border-2 rounded-lg p-4 sm:p-6 cursor-pointer transition-colors ${
                   formData.scope === 'COMPANY'
                     ? 'border-slate-900 bg-slate-50'
                     : 'border-slate-200 hover:border-slate-400'
@@ -570,7 +571,7 @@ export function CreateEmployeePage() {
               </div>
 
               <div
-                className={`border-2 rounded-lg p-6 cursor-pointer transition-colors ${
+                className={`border-2 rounded-lg p-4 sm:p-6 cursor-pointer transition-colors ${
                   formData.scope === 'DIVISION'
                     ? 'border-slate-900 bg-slate-50'
                     : 'border-slate-200 hover:border-slate-400'
@@ -650,18 +651,19 @@ export function CreateEmployeePage() {
               )}
             </div>
 
-            <div className="flex justify-between">
+            <div className="flex items-center justify-between gap-4">
               <button
                 onClick={handleBack}
-                className="px-4 py-2 text-slate-600 hover:text-slate-900"
+                className="px-4 py-2 text-slate-600 hover:text-slate-900 font-medium"
               >
                 ← Back
               </button>
               <button
                 onClick={handleNext}
-                className="px-6 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800"
+                className="px-6 py-2 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-colors shadow-sm"
               >
-                Continue to Compensation
+                <span className="hidden sm:inline">Continue to Compensation</span>
+                <span className="sm:hidden">Continue</span>
               </button>
             </div>
           </div>
@@ -799,18 +801,19 @@ export function CreateEmployeePage() {
               </div>
             )}
 
-            <div className="mt-8 flex justify-between">
+            <div className="mt-8 flex items-center justify-between gap-4">
               <button
                 onClick={handleBack}
-                className="px-4 py-2 text-slate-600 hover:text-slate-900"
+                className="px-4 py-2 text-slate-600 hover:text-slate-900 font-medium"
               >
                 ← Back
               </button>
               <button
                 onClick={handleNext}
-                className="px-6 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800"
+                className="px-6 py-2 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-colors shadow-sm"
               >
-                Continue to Access
+                <span className="hidden sm:inline">Continue to Access</span>
+                <span className="sm:hidden">Continue</span>
               </button>
             </div>
           </div>
@@ -893,7 +896,7 @@ export function CreateEmployeePage() {
                 )}
                 <div className="space-y-3">
                   {getAvailableRoles().map((role) => (
-                    <label key={role.id} className="flex items-center p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50">
+                    <label key={role.id} className="flex items-center p-4 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 transition-colors shadow-sm active:bg-slate-100">
                       <input
                         type="radio"
                         name="systemRole"
@@ -922,19 +925,19 @@ export function CreateEmployeePage() {
               </div>
             </div>
 
-            <div className="mt-8 flex justify-between">
+            <div className="mt-8 flex items-center justify-between gap-4">
               <button
                 onClick={handleBack}
-                className="px-4 py-2 text-slate-600 hover:text-slate-900"
+                className="px-4 py-2 text-slate-600 hover:text-slate-900 font-medium"
               >
                 ← Back
               </button>
               <button
                 onClick={handleSubmit}
                 disabled={isSubmitting}
-                className="px-6 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 disabled:bg-slate-300"
+                className="px-6 py-2 bg-slate-900 text-white rounded-xl hover:bg-slate-800 disabled:bg-slate-300 transition-colors shadow-sm"
               >
-                {isSubmitting ? 'Creating Employee...' : 'Create Employee'}
+                {isSubmitting ? 'Creating...' : 'Create Employee'}
               </button>
             </div>
           </div>

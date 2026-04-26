@@ -9,17 +9,14 @@ const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KE
 
 export async function sendEmployeeOnboardingEmail({ employeeEmail, firstName, lastName, employeeCode }) {
   if (!employeeEmail) {
-    console.log('No email address provided for employee onboarding');
     return { success: false, error: 'No email address provided' };
   }
 
   if (!resend) {
-    console.log('Email service is not configured (missing RESEND_API_KEY)');
     return { success: false, error: 'Email service not configured' };
   }
 
   if (!process.env.SMTP_FROM) {
-    console.log('SMTP_FROM environment variable is not set');
     return { success: false, error: 'Sender email not configured' };
   }
 
@@ -114,7 +111,6 @@ export async function sendEmployeeOnboardingEmail({ employeeEmail, firstName, la
       return { success: false, error: error.message };
     }
 
-    console.log('Onboarding email sent successfully:', data);
     return { success: true, data };
     
   } catch (error) {

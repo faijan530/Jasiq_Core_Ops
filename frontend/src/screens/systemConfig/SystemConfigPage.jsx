@@ -15,7 +15,9 @@ export function SystemConfigPage() {
   const [pageSize] = useState(200);
 
   const permissions = bootstrap?.rbac?.permissions || [];
-  const canWrite = useMemo(() => permissions.includes('GOV_SYSTEM_CONFIG_WRITE'), [permissions]);
+  const roles = bootstrap?.rbac?.roles || [];
+  const isFounder = roles.includes('FOUNDER');
+  const canWrite = useMemo(() => isFounder || permissions.includes('GOV_SYSTEM_CONFIG_WRITE'), [permissions, isFounder]);
 
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [detailDrawerOpen, setDetailDrawerOpen] = useState(false);

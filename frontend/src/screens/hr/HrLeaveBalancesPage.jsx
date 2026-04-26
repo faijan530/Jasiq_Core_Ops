@@ -10,14 +10,9 @@ export function HrLeaveBalancesPage() {
   const roles = bootstrap?.rbac?.roles || [];
   const isSuperAdmin = roles.includes('SUPER_ADMIN');
 
-  console.log('[HrLeaveBalancesPage] Component loaded', { permissions, isSuperAdmin });
-
   if (!isSuperAdmin && !permissions.includes('LEAVE_BALANCE_GRANT')) {
-    console.log('[HrLeaveBalancesPage] Access denied - missing LEAVE_BALANCE_GRANT permission');
     return <ForbiddenState />;
   }
-
-  console.log('[HrLeaveBalancesPage] Permission check passed, loading page');
 
   // Header Component
   const Header = () => (
@@ -77,7 +72,7 @@ export function HrLeaveBalancesPage() {
       const data = await apiFetch('/api/v1/leave/balances');
       setBalances(data.items || []);
     } catch (err) {
-      console.error('Failed to fetch balances:', err);
+      // Silently handle error
     } finally {
       setLoadingBalances(false);
     }
@@ -115,7 +110,6 @@ export function HrLeaveBalancesPage() {
       });
       fetchBalances(); // Refresh balances
     } catch (err) {
-      console.error('Failed to grant balance:', err);
       setMessage(`Error: ${err.message || 'Failed to grant balance'}`);
     } finally {
       setIsSubmitting(false);

@@ -99,6 +99,7 @@ export function FinanceSidebar({ open, setOpen }) {
     { id: 'reports', label: '  Payables', path: '/finance/reports/payables' },
     { id: 'reports', label: '  Cashflow', path: '/finance/reports/cashflow' },
     { id: 'month-close', label: 'Month Close', path: '/finance/month-close' },
+    { id: 'dashboard', label: 'My Attendance', path: '/finance/my-attendance' },
     ...(canViewAudit ? [{ id: 'reports', label: 'Audit Logs', path: '/finance/audit-logs' }] : [])
   ];
 

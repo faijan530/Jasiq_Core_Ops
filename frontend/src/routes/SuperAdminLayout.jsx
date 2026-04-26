@@ -3,6 +3,8 @@ import { Outlet, useLocation } from 'react-router-dom';
 import { useMediaQuery } from '../hooks/useMediaQuery.js';
 
 import { SuperAdminSidebar } from './SuperAdminSidebar.jsx';
+import { FounderSidebar } from './FounderSidebar.jsx';
+import { useBootstrap } from '../state/bootstrap.jsx';
 
 // Page title mapping
 const getPageTitle = (pathname) => {
@@ -66,22 +68,30 @@ const getPageIcon = (pathname) => {
 
 export function SuperAdminLayout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { bootstrap } = useBootstrap();
   const location = useLocation();
   const isMobile = useMediaQuery('(max-width: 1023px)');
   const isTablet = useMediaQuery('(min-width: 768px) and (max-width: 1023px)');
   
+  const roles = bootstrap?.rbac?.roles || [];
+  const isFounder = roles.includes('FOUNDER');
+  
   const pageTitle = getPageTitle(location.pathname);
   const pageIcon = getPageIcon(location.pathname);
+
+  const Sidebar = isFounder ? FounderSidebar : SuperAdminSidebar;
+  const panelLabel = isFounder ? 'Founder Panel' : 'Super Admin Panel';
+  const panelIcon = isFounder ? 'F' : 'SA';
 
   return (
     <div className="h-screen flex overflow-hidden">
       {/* Desktop Sidebar - Fixed */}
       <aside className="w-64 bg-white border-r hidden lg:flex flex-col">
-        <SuperAdminSidebar />
+        <Sidebar />
       </aside>
 
-      {/* Mobile Sidebar - Using SuperAdminSidebar component */}
-      <SuperAdminSidebar 
+      {/* Mobile Sidebar - Using dynamic Sidebar component */}
+      <Sidebar 
         open={mobileMenuOpen} 
         setOpen={setMobileMenuOpen} 
       />
@@ -129,15 +139,17 @@ export function SuperAdminLayout() {
                 </div>
               )}
               {!isMobile && !isTablet && (
+              <div className="flex items-center gap-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
-                    <span className="text-white font-bold">JC</span>
+                  <div className={`w-9 h-9 bg-gradient-to-br ${isFounder ? 'from-purple-500 to-indigo-600' : 'from-blue-500 to-indigo-600'} rounded-xl flex items-center justify-center shadow-lg`}>
+                    <span className="text-white font-bold">{isFounder ? 'F' : 'JC'}</span>
                   </div>
                   <div>
                     <div className="text-sm font-bold text-white">JASIQ CoreOps</div>
-                    <div className="text-xs text-slate-300">Super Admin Panel</div>
+                    <div className="text-xs text-slate-300">{panelLabel}</div>
                   </div>
                 </div>
+              </div>
               )}
             </div>
           </div>

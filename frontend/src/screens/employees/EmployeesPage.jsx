@@ -118,6 +118,21 @@ function Icon({ name, className }) {
     );
   }
 
+  if (name === 'trash') {
+    return (
+      <svg {...common}>
+        <path
+          d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <path d="M10 11v6M14 11v6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+
   return null;
 }
 
@@ -216,10 +231,14 @@ export function EmployeesPage() {
   const navigate = useNavigate();
 
   const permissions = bootstrap?.rbac?.permissions || [];
+  const roles = bootstrap?.rbac?.roles || [];
+  const isFounder = roles.includes('FOUNDER');
+  
   const hasSystemFullAccess = permissions.includes('SYSTEM_FULL_ACCESS');
-  const canWrite = hasSystemFullAccess || permissions.includes('EMPLOYEE_WRITE');
-  const canCompWrite = hasSystemFullAccess || permissions.includes('EMPLOYEE_COMPENSATION_WRITE');
-  const canDocWrite = hasSystemFullAccess || permissions.includes('EMPLOYEE_DOCUMENT_WRITE');
+  // Founders can only see, not create or edit
+  const canWrite = !isFounder && (hasSystemFullAccess || permissions.includes('EMPLOYEE_WRITE'));
+  const canCompWrite = !isFounder && (hasSystemFullAccess || permissions.includes('EMPLOYEE_COMPENSATION_WRITE'));
+  const canDocWrite = !isFounder && (hasSystemFullAccess || permissions.includes('EMPLOYEE_DOCUMENT_WRITE'));
 
   const [page, setPage] = useState(1);
   const [pageSize] = useState(20);
@@ -394,6 +413,12 @@ export function EmployeesPage() {
   const downloadDocMutation = useMutation(async ({ id, docId }) => {
     return apiFetch(`/api/v1/employees/${id}/documents/${docId}/download`);
   });
+
+  const deleteMutation = useMutation(async ({ id }) => {
+    return apiFetch(`/api/v1/employees/${id}`, { method: 'DELETE' });
+  });
+
+  const [deleteConfirm, setDeleteConfirm] = useState(null); // { id, name }
 
   const [employeeModalOpen, setEmployeeModalOpen] = useState(false);
   const [employeeModalMode, setEmployeeModalMode] = useState('create');
@@ -722,10 +747,10 @@ export function EmployeesPage() {
                       }
                     }}
                   >
-                    <div className="flex items-start justify-between gap-4">
+                    <div className="flex flex-col gap-4">
                       <div className="flex items-start gap-4">
                         <div className={cx(
-                          'h-12 w-12 rounded-full flex items-center justify-center text-sm font-bold shadow-inner',
+                          'h-12 w-12 shrink-0 rounded-full flex items-center justify-center text-sm font-bold shadow-inner',
                           isSelected ? 'bg-blue-600 text-white' : 'bg-gradient-to-br from-slate-700 to-slate-900 text-white'
                         )}>
                           {initialsFromEmployee(e)}
@@ -743,24 +768,36 @@ export function EmployeesPage() {
                           </div>
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        className={cx(
-                          'inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-all duration-200 shadow-sm hover:shadow-md',
-                          isSelected
-                            ? 'bg-blue-600 text-white hover:bg-blue-700'
-                            : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-50'
+                      
+                      <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
+                        <button
+                          type="button"
+                          className={cx(
+                            'flex-1 inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-all duration-200 shadow-sm hover:shadow-md',
+                            isSelected
+                              ? 'bg-blue-600 text-white hover:bg-blue-700'
+                              : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-50'
+                          )}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            navigate(getEmployeeViewPath(bootstrap?.rbac?.roles, e.id));
+                          }}
+                        >
+                          View Details
+                        </button>
+                        {canWrite && (
+                          <button
+                            type="button"
+                            className="inline-flex items-center justify-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-medium border border-rose-200 text-rose-700 bg-rose-50/30 hover:bg-rose-50 transition-colors shadow-sm"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setDeleteConfirm({ id: e.id, name: formatName(e) });
+                            }}
+                          >
+                            <Icon name="trash" className="w-4 h-4" />
+                          </button>
                         )}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          navigate(getEmployeeViewPath(bootstrap?.rbac?.roles, e.id));
-                        }}
-                      >
-                        View
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                        </svg>
-                      </button>
+                      </div>
                     </div>
                   </div>
                 );
@@ -816,13 +853,25 @@ export function EmployeesPage() {
                           </span>
                         </td>
                         <td className="px-4 py-3 text-right">
-                          <button
-                            type="button"
-                            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
-                            onClick={() => navigate(getEmployeeViewPath(bootstrap?.rbac?.roles, e.id))}
-                          >
-                            View
-                          </button>
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              type="button"
+                              className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                              onClick={() => navigate(getEmployeeViewPath(bootstrap?.rbac?.roles, e.id))}
+                            >
+                              View
+                            </button>
+                            {canWrite && (
+                              <button
+                                type="button"
+                                className="inline-flex items-center gap-1.5 rounded-lg border border-rose-300 px-3 py-2 text-sm text-rose-700 hover:bg-rose-50 transition-colors"
+                                onClick={() => setDeleteConfirm({ id: e.id, name: formatName(e) })}
+                              >
+                                <Icon name="trash" className="w-3.5 h-3.5" />
+                                Delete
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -897,6 +946,63 @@ export function EmployeesPage() {
             </div>
           </div>
           <div className="p-4">{ReadOnlyContextPanel}</div>
+        </div>
+      ) : null}
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirm ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-sm mx-4 p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-rose-100 flex items-center justify-center flex-shrink-0">
+                <svg className="w-5 h-5 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                </svg>
+              </div>
+              <div>
+                <h2 className="text-base font-semibold text-slate-900">Delete Employee</h2>
+                <p className="text-sm text-slate-500 mt-0.5">This action cannot be undone.</p>
+              </div>
+            </div>
+            <p className="text-sm text-slate-700 mb-6">
+              Are you sure you want to permanently delete <span className="font-semibold text-slate-900">{deleteConfirm.name}</span>? This will also remove their user account and all associated records from the database.
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                className="flex-1 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+                disabled={deleteMutation.status === 'loading'}
+                onClick={() => setDeleteConfirm(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="flex-1 rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                disabled={deleteMutation.status === 'loading'}
+                onClick={async () => {
+                  try {
+                    await deleteMutation.run({ id: deleteConfirm.id });
+                    setDeleteConfirm(null);
+                    if (selectedId === deleteConfirm.id) {
+                      setSelectedId(null);
+                      setMobileDetailOpen(false);
+                    }
+                    list.refresh?.();
+                  } catch (err) {
+                    // error is surfaced via deleteMutation.error
+                  }
+                }}
+              >
+                {deleteMutation.status === 'loading' ? 'Deleting…' : 'Delete'}
+              </button>
+            </div>
+            {deleteMutation.error ? (
+              <div className="mt-3 rounded-lg bg-rose-50 border border-rose-200 px-3 py-2 text-sm text-rose-800">
+                {deleteMutation.error?.payload?.message || deleteMutation.error?.message || 'Delete failed. Please try again.'}
+              </div>
+            ) : null}
+          </div>
         </div>
       ) : null}
     </div>

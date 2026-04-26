@@ -59,12 +59,12 @@ export function TeamLeavePage() {
   };
 
   const handleApprove = (record) => {
-    console.log('Approve leave:', record);
+
     // This will be implemented with proper API call
   };
 
   const handleReject = (record) => {
-    console.log('Reject leave:', record);
+
     // This will be implemented with proper API call
   };
 

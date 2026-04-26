@@ -30,7 +30,8 @@ const getPageTitle = (pathname) => {
     '/finance/reports/receivables': 'Receivables',
     '/finance/reports/payables': 'Payables',
     '/finance/reports/cashflow': 'Cashflow',
-    '/finance/month-close': 'Month Close'
+    '/finance/month-close': 'Month Close',
+    '/finance/my-attendance': 'My Attendance'
   };
 
   if (titleMap[pathname]) return titleMap[pathname];

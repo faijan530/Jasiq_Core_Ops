@@ -110,6 +110,7 @@ export function timesheetController({ pool }) {
         hours: body.hours,
         description: body.description || null,
         projectId: body.projectId || null,
+        projectName: body.projectName || null,
         actorId: req.user?.id || req.user?.sub,
         requestId: req.requestId
       });
@@ -288,13 +289,6 @@ export function timesheetController({ pool }) {
       const startDate = startOfWeek.toISOString().split('T')[0];
       const endDate = endOfWeek.toISOString().split('T')[0];
 
-      console.log('Timesheet query debug:');
-      console.log('- Input week date:', week);
-      console.log('- Start of week (Monday):', startDate);
-      console.log('- End of week (Sunday):', endDate);
-      console.log('- Number of team employees:', employees.length);
-
-      // Fetch timesheets for team employees in the week
       const statusParam = status === 'ALL' ? null : status;
       const timesheetResult = await pool.query(
         `SELECT th.id, th.employee_id, th.status, th.period_start, th.period_end, th.submitted_at,
@@ -310,8 +304,6 @@ export function timesheetController({ pool }) {
          LIMIT 1000`,
         [employeeIds, endDate, startDate, statusParam]
       );
-
-      console.log('- Query result rows (SUBMITTED):', timesheetResult.rows.length);
 
       const records = [];
       const timesheetMap = new Map();

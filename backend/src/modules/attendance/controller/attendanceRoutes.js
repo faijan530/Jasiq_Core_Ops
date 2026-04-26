@@ -21,7 +21,7 @@ export function attendanceRoutes({ pool }) {
 
   router.get(
     '/me',
-    authorizeRoles(['EMPLOYEE', 'MANAGER', 'HR_ADMIN', 'SUPER_ADMIN']),
+    authorizeRoles(['EMPLOYEE', 'MANAGER', 'HR_ADMIN', 'FINANCE_ADMIN', 'FOUNDER', 'SUPER_ADMIN']),
     async (req, res, next) => {
       try {
         // Resolve employeeId from userId (same as in mark service)
@@ -79,7 +79,7 @@ export function attendanceRoutes({ pool }) {
 
   router.post(
     '/me',
-    authorizeRoles(['EMPLOYEE', 'MANAGER', 'HR_ADMIN', 'SUPER_ADMIN']),
+    authorizeRoles(['EMPLOYEE', 'MANAGER', 'HR_ADMIN', 'FINANCE_ADMIN', 'FOUNDER', 'SUPER_ADMIN']),
     (req, res, next) => {
       req.body = {
         ...(req.body || {}),

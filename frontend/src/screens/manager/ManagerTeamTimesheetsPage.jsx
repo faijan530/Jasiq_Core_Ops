@@ -31,7 +31,7 @@ export function ManagerTeamTimesheetsPage() {
 
   // Force set default week on mount
   useEffect(() => {
-    console.log('Component mounted - forcing week to 2026-W06');
+
     setSelectedWeek('2026-W06');
     
     // Force browser to clear cache for this component
@@ -48,11 +48,11 @@ export function ManagerTeamTimesheetsPage() {
 
   // Convert week format to date format for API
   const getWeekStartDate = (weekString) => {
-    console.log('getWeekStartDate called with:', weekString);
+
     
     if (!weekString) {
       const result = new Date().toISOString().slice(0, 10);
-      console.log('No weekString, using today:', result);
+
       return result;
     }
     
@@ -61,7 +61,7 @@ export function ManagerTeamTimesheetsPage() {
       const year = parseInt(match[1]);
       const week = parseInt(match[2]);
       
-      console.log('Parsed year:', year, 'week:', week);
+
       
       // ISO week date calculation - fixed timezone issue
       const firstDayOfYear = new Date(year, 0, 1);
@@ -76,89 +76,74 @@ export function ManagerTeamTimesheetsPage() {
       // Create date string in local timezone
       const result = `${year_local}-${String(month_local + 1).padStart(2, '0')}-${String(day_local).padStart(2, '0')}`;
       
-      console.log(`Week ${weekString} converts to date: ${result}`);
-      console.log('Calculation details:');
-      console.log('- firstDayOfYear:', firstDayOfYear);
-      console.log('- firstDayOfYear.getDay():', firstDayOfYear.getDay());
-      console.log('- daysOffset:', daysOffset);
-      console.log('- weekStartDate:', weekStartDate);
-      console.log('- Local date components:', { year_local, month_local, day_local });
+
       
       return result;
     }
     
     const result = new Date().toISOString().slice(0, 10);
-    console.log('Invalid format, using today:', result);
+
     return result;
   };
 
   // Fetch team timesheets
   const fetchTeamTimesheets = async () => {
     if (!userId) {
-      console.log('No userId found, skipping fetch');
+
       return;
     }
     
-    console.log('User ID:', userId);
-    console.log('User permissions:', permissions);
-    console.log('Has permission:', hasPermission);
+
     
     try {
       setLoading(true);
       setError(null);
       
       const weekStartDate = getWeekStartDate(selectedWeek);
-      console.log('Fetching team timesheets for week:', weekStartDate);
+
       
       // Fetch team timesheets for selected week
-      console.log('Making API call to:', `/api/v1/timesheets/team?week=${weekStartDate}&status=${selectedStatus}`);
+
       
       // Check if token exists
       const token = localStorage.getItem('jasiq_token');
-      console.log('Auth token exists:', !!token);
-      console.log('Token length:', token?.length || 0);
+
       
       try {
-        console.log('Starting API call with 10 second timeout...');
+
         const response = await apiFetch(`/api/v1/timesheets/team?week=${weekStartDate}&status=${encodeURIComponent(selectedStatus)}`);
-        console.log('Team timesheets API response received:', response);
+
         
         const allRecords = response.records || [];
         let timesheetsData = allRecords;
-        console.log('Timesheets data before filtering:', timesheetsData);
-        console.log('Response structure:', {
-          hasRecords: !!response.records,
-          recordsLength: response.records?.length,
-          responseType: typeof response,
-          responseKeys: Object.keys(response)
-        });
+
 
         // Calculate summary from all records (not only filtered list)
         const pending = allRecords.filter(ts => ts.status === 'SUBMITTED').length;
         const approved = allRecords.filter(ts => ts.status === 'APPROVED').length;
         const rejected = allRecords.filter(ts => ts.status === 'REJECTED').length;
         setSummary({ pending, approved, rejected });
-        console.log('Summary set:', { pending, approved, rejected });
+
 
         // Filter by selected status (backend already filters, this is a safe guard)
         if (selectedStatus && selectedStatus.toLowerCase() !== 'all') {
           timesheetsData = timesheetsData.filter(ts => ts.status === selectedStatus);
         }
-        console.log('Timesheets data after status filter:', timesheetsData);
+
         
         // Filter by selected employee
         if (selectedEmployee !== 'all') {
           timesheetsData = timesheetsData.filter(ts => ts.employeeId === selectedEmployee);
         }
         
-        console.log('Final timesheets data to set:', timesheetsData);
+
         setTeamTimesheets(timesheetsData);
       } catch (apiError) {
-        console.error('API call failed:', apiError);
+
         throw apiError;
       }
     } catch (err) {
-      console.error('Failed to fetch team timesheets:', err);
+
       if (err.status === 403) {
         setError('You do not have permission to view team timesheets. Required permission: TIMESHEET_APPROVE_TEAM');
       } else {
@@ -185,7 +170,7 @@ export function ManagerTeamTimesheetsPage() {
       });
       await fetchTeamTimesheets();
     } catch (err) {
-      console.error('Failed to approve timesheet:', err);
+
     }
   };
 
@@ -216,7 +201,7 @@ export function ManagerTeamTimesheetsPage() {
       setRejectReason('');
       await fetchTeamTimesheets();
     } catch (err) {
-      console.error('Failed to reject timesheet:', err);
+
       setError(err?.message || 'Failed to reject timesheet');
     }
   };
@@ -228,7 +213,7 @@ export function ManagerTeamTimesheetsPage() {
   };
 
   useEffect(() => {
-    console.log('useEffect triggered - userId:', userId, 'selectedWeek:', selectedWeek);
+
     fetchTeamTimesheets();
   }, [userId, selectedWeek, selectedEmployee, selectedStatus]);
 

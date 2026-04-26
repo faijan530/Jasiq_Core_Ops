@@ -106,6 +106,7 @@ function dtoWorklog(row) {
     hours: Number(row.hours),
     description: row.description,
     projectId: row.project_id,
+    projectName: row.project_name,
     updatedAt: row.updated_at,
     version: row.version
   };
@@ -147,7 +148,7 @@ export async function getTimesheetByIdService(pool, { id }) {
   };
 }
 
-export async function upsertWorklogService(pool, { employeeId, workDate, task, hours, description, projectId, actorId, requestId }) {
+export async function upsertWorklogService(pool, { employeeId, workDate, task, hours, description, projectId, projectName, actorId, requestId }) {
   const cfg = await readTimesheetConfig(pool);
   assertTimesheetEnabled(cfg);
 
@@ -159,7 +160,7 @@ export async function upsertWorklogService(pool, { employeeId, workDate, task, h
   const todayDate = await getTodayDateOnly(pool);
   if (!todayDate) throw badRequest('Unable to resolve today date');
 
-  const wl = new Worklog({ workDate, task, hours, description, projectId });
+  const wl = new Worklog({ workDate, task, hours, description, projectId, projectName });
   assertNotFuture(wl.workDate, todayDate);
 
   await assertMonthOpenForDate(pool, { dateIso: wl.workDate });
@@ -249,6 +250,7 @@ export async function upsertWorklogService(pool, { employeeId, workDate, task, h
       hours: wl.hours,
       description: wl.description,
       projectId: wl.projectId,
+      projectName: wl.projectName,
       actorId
     });
 

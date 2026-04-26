@@ -79,19 +79,21 @@ export async function insertEmployee(client, row) {
   );
 }
 
-export async function updateEmployeeProfile(client, { id, firstName, lastName, email, phone, actorId }) {
+export async function updateEmployeeProfile(client, { id, firstName, lastName, email, phone, designation, reportingManagerId, actorId }) {
   const res = await client.query(
     `UPDATE employee
      SET first_name = COALESCE($2, first_name),
          last_name = COALESCE($3, last_name),
          email = COALESCE($4, email),
          phone = COALESCE($5, phone),
+         designation = CASE WHEN $6::text IS NOT NULL THEN $6 ELSE designation END,
+         reporting_manager_id = CASE WHEN $7::uuid IS NOT NULL THEN $7 ELSE reporting_manager_id END,
          updated_at = NOW(),
-         updated_by = $6,
+         updated_by = $8,
          version = version + 1
      WHERE id = $1
      RETURNING *`,
-    [id, firstName ?? null, lastName ?? null, email ?? null, phone ?? null, actorId]
+    [id, firstName ?? null, lastName ?? null, email ?? null, phone ?? null, designation ?? null, reportingManagerId ?? null, actorId]
   );
   return res.rows[0] || null;
 }
@@ -478,4 +480,91 @@ export async function assignUserRole(client, { userId, roleName }) {
        division_id = EXCLUDED.division_id`,
     [userId, roleId]
   );
+}
+
+export async function deleteEmployee(pool, { id }) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // 1. Nullify reporting_manager_id for any employees who report to this one
+    await client.query(
+      'UPDATE employee SET reporting_manager_id = NULL WHERE reporting_manager_id = $1',
+      [id]
+    );
+
+    // 2. Delete timesheet worklogs → then timesheet headers
+    await client.query(
+      `DELETE FROM timesheet_worklog WHERE timesheet_id IN (
+         SELECT id FROM timesheet_header WHERE employee_id = $1
+       )`,
+      [id]
+    );
+    await client.query('DELETE FROM timesheet_header WHERE employee_id = $1', [id]);
+
+    // 3. Delete leave requests (leave_attachment has ON DELETE CASCADE on leave_request_id)
+    await client.query('DELETE FROM leave_request WHERE employee_id = $1', [id]);
+
+    // 4. Delete leave balances
+    await client.query('DELETE FROM leave_balance WHERE employee_id = $1', [id]);
+
+    // 5. Delete attendance records
+    await client.query('DELETE FROM attendance_record WHERE employee_id = $1', [id]);
+
+    // 6. Delete payroll records referencing this employee
+    await client.query('DELETE FROM payslip WHERE employee_id = $1', [id]);
+    await client.query('DELETE FROM payroll_item WHERE employee_id = $1', [id]);
+    await client.query('DELETE FROM payroll_payment WHERE employee_id = $1', [id]);
+
+    // 7. Nullify expense.employee_id (nullable FK — preserve company expense records)
+    await client.query(
+      'UPDATE expense SET employee_id = NULL WHERE employee_id = $1',
+      [id]
+    );
+
+    // 8. Delete reimbursements and their children
+    await client.query(
+      `DELETE FROM reimbursement_receipt WHERE reimbursement_id IN (
+         SELECT id FROM reimbursement WHERE employee_id = $1
+       )`,
+      [id]
+    );
+    await client.query(
+      `DELETE FROM reimbursement_payment WHERE reimbursement_id IN (
+         SELECT id FROM reimbursement WHERE employee_id = $1
+       )`,
+      [id]
+    );
+    await client.query('DELETE FROM reimbursement WHERE employee_id = $1', [id]);
+
+    // 9. Delete employee own child records
+    await client.query('DELETE FROM employee_scope_history WHERE employee_id = $1', [id]);
+    await client.query('DELETE FROM employee_compensation_version WHERE employee_id = $1', [id]);
+    await client.query('DELETE FROM employee_document WHERE employee_id = $1', [id]);
+
+    // 10. Look up and delete linked user account
+    const userRes = await client.query(
+      'SELECT id FROM "user" WHERE employee_id = $1',
+      [id]
+    );
+    const userId = userRes.rows[0]?.id || null;
+    if (userId) {
+      await client.query('DELETE FROM user_role WHERE user_id = $1', [userId]);
+      await client.query('DELETE FROM "user" WHERE id = $1', [userId]);
+    }
+
+    // 11. Finally delete the employee record
+    const res = await client.query(
+      'DELETE FROM employee WHERE id = $1 RETURNING id',
+      [id]
+    );
+
+    await client.query('COMMIT');
+    return res.rows[0] || null;
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
 }

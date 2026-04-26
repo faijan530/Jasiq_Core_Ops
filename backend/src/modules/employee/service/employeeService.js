@@ -20,6 +20,7 @@ import {
   closeActiveEmployeeCompensationVersion,
   closeActiveEmployeeScopeHistory,
   countEmployees,
+  deleteEmployee,
   getActiveEmployeeCompensationVersion,
   getEmployeeByCode,
   getEmployeeById,
@@ -174,8 +175,6 @@ export async function createEmployee(pool, { employeeCode, firstName, lastName, 
     return createdEmployee;
 
     // Send onboarding email after successful employee creation
-    // Email sending disabled - remove this comment to re-enable
-    console.log('Email sending skipped for employee:', createdEmployee.employee_code);
     /*
     if (createdEmployee && createdEmployee.email) {
       // Don't block the response for email sending
@@ -193,7 +192,7 @@ export async function createEmployee(pool, { employeeCode, firstName, lastName, 
   });
 }
 
-export async function updateEmployee(pool, { id, firstName, lastName, email, phone, roles, actorId, actorSystemRoles, requestId, reason }) {
+export async function updateEmployee(pool, { id, firstName, lastName, email, phone, designation, reportingManagerId, roles, actorId, actorSystemRoles, requestId, reason }) {
   return withTransaction(pool, async (client) => {
     const before = await getEmployeeById(client, id);
     if (!before) throw notFound('Employee not found');
@@ -228,6 +227,8 @@ export async function updateEmployee(pool, { id, firstName, lastName, email, pho
       lastName: typeof lastName === 'string' && lastName !== '' ? lastName : null,
       email: typeof email === 'string' && email !== '' ? email : null,
       phone: typeof phone === 'string' && phone !== '' ? phone : null,
+      designation: typeof designation === 'string' && designation !== '' ? designation : null,
+      reportingManagerId: typeof reportingManagerId === 'string' && reportingManagerId !== '' ? reportingManagerId : null,
       actorId
     });
 
@@ -567,4 +568,9 @@ export function toCompensationListDto(rows) {
 
 export function toDocumentListDto(rows) {
   return { items: (rows || []).map(toEmployeeDocumentDto) };
+}
+
+export async function deleteEmployeeService(pool, { id }) {
+  const deleted = await deleteEmployee(pool, { id });
+  return deleted;
 }

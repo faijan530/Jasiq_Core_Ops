@@ -97,10 +97,10 @@ export function MonthClosePage() {
   // Ensure data is fetched and log errors
   useEffect(() => {
     if (list.status === 'error') {
-      console.error('Month Close data fetch error:', list.error);
+
     }
     if (list.data?.items) {
-      console.log('Month Close data loaded:', list.data.items.length, 'items');
+
     }
   }, [list.status, list.data, list.error]);
 
@@ -221,7 +221,7 @@ export function MonthClosePage() {
       setCloseModalOpen(false);
       setSelectedMonth(null);
     } catch (error) {
-      console.error('Failed to close month:', error);
+
     }
   };
 
@@ -231,7 +231,9 @@ export function MonthClosePage() {
            confirmationText === expectedText;
   };
 
-  if (!isSuperAdmin) {
+  const isFounder = roles.includes('FOUNDER');
+
+  if (!isSuperAdmin && !isFounder) {
     return <ForbiddenState />;
   }
 
@@ -275,7 +277,8 @@ export function MonthClosePage() {
                   className="bg-gradient-to-r from-emerald-600 to-green-600 text-white px-4 py-2 rounded-xl font-semibold hover:from-emerald-700 hover:to-green-700 transition-all duration-200 shadow-sm hover:shadow-md"
                   onClick={() => {
                     const { from, to } = monthRangeFromMonthEnd(successState.monthEnd);
-                    navigate(`/super-admin/reports/pnl?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&groupBy=DIVISION&includePayroll=true`);
+                    const routePrefix = isFounder ? '/founder' : '/super-admin';
+                    navigate(`${routePrefix}/reports/pnl?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&groupBy=DIVISION&includePayroll=true`);
                   }}
                 >
                   View Reports

@@ -28,6 +28,8 @@ export const updateEmployeeSchema = Joi.object({
   lastName: Joi.string().trim().max(100).allow('', null),
   email: Joi.string().trim().max(200).allow('', null),
   phone: Joi.string().trim().max(50).allow('', null),
+  designation: Joi.string().trim().max(100).allow('', null),
+  reportingManagerId: Joi.string().uuid().allow(null, ''),
   roles: Joi.array().items(Joi.string().valid('EMPLOYEE', 'MANAGER', 'HR_ADMIN', 'FINANCE_ADMIN')).min(1),
   reason: Joi.string().allow('', null)
 });

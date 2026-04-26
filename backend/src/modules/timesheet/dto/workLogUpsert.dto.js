@@ -6,5 +6,6 @@ export const workLogUpsertSchema = Joi.object({
   task: Joi.string().trim().min(1).max(500).required(),
   hours: Joi.number().positive().precision(2).required(),
   description: Joi.string().allow('', null),
-  projectId: Joi.string().uuid().allow(null)
+  projectId: Joi.string().uuid().allow(null),
+  projectName: Joi.string().trim().allow('', null)
 });

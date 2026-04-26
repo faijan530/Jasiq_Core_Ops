@@ -1,8 +1,14 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useBootstrap } from '../../state/bootstrap.jsx';
+
+function cx(...parts) {
+  return parts.filter(Boolean).join(' ');
+}
 
 export function HelpPage() {
   const navigate = useNavigate();
+  const { bootstrap } = useBootstrap();
 
   const scrollToId = (id) => {
     const el = document.getElementById(id);
@@ -10,170 +16,151 @@ export function HelpPage() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <div className="flex items-start justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Help & Policies</h1>
-          <p className="text-slate-600 mt-1">Find answers, policies, and contacts.</p>
+    <div className="p-6 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
+      {/* Header Section */}
+      <div className="bg-gradient-to-br from-slate-800 via-slate-900 to-black rounded-3xl p-10 text-white shadow-xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/10 rounded-full -mr-48 -mt-48 blur-3xl"></div>
+        <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8">
+          <div className="space-y-4 text-center md:text-left">
+             <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-blue-500/20 rounded-full border border-blue-500/30 text-blue-300 text-xs font-black uppercase tracking-widest">
+                Knowledge Hub
+             </div>
+             <h1 className="text-4xl md:text-5xl font-black tracking-tight">Help & Support</h1>
+             <p className="text-slate-400 text-lg font-medium max-w-xl">Everything you need to navigate our platform, understand policies, and reach out for assistance.</p>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-4 w-full md:w-auto">
+             <button onClick={() => scrollToId('handbook')} className="p-4 bg-white/5 backdrop-blur-md rounded-2xl border border-white/10 hover:bg-white/10 transition-all text-center group">
+                <div className="text-2xl mb-2 group-hover:scale-110 transition-transform">📚</div>
+                <div className="text-xs font-bold uppercase tracking-widest opacity-60">Handbook</div>
+             </button>
+             <button onClick={() => scrollToId('policies')} className="p-4 bg-white/5 backdrop-blur-md rounded-2xl border border-white/10 hover:bg-white/10 transition-all text-center group">
+                <div className="text-2xl mb-2 group-hover:scale-110 transition-transform">⚖️</div>
+                <div className="text-xs font-bold uppercase tracking-widest opacity-60">Policies</div>
+             </button>
+             <button onClick={() => scrollToId('contacts')} className="p-4 bg-white/5 backdrop-blur-md rounded-2xl border border-white/10 hover:bg-white/10 transition-all text-center group">
+                <div className="text-2xl mb-2 group-hover:scale-110 transition-transform">📞</div>
+                <div className="text-xs font-bold uppercase tracking-widest opacity-60">Support</div>
+             </button>
+             <button onClick={() => navigate(-1)} className="p-4 bg-blue-600 rounded-2xl hover:bg-blue-500 transition-all text-center group shadow-lg shadow-blue-900/40">
+                <div className="text-2xl mb-2 group-hover:-translate-x-1 transition-transform">↩</div>
+                <div className="text-xs font-bold uppercase tracking-widest">Go Back</div>
+             </button>
+          </div>
         </div>
       </div>
 
-      <div className="mb-6">
-        <button
-          type="button"
-          onClick={() => navigate(-1)}
-          className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-          Back
-        </button>
-      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* FAQ Section */}
+        <div className="lg:col-span-2 space-y-6">
+          <div className="flex items-center gap-3 px-2">
+             <div className="w-1.5 h-6 bg-blue-600 rounded-full"></div>
+             <h2 className="text-2xl font-black text-slate-900">Common Questions</h2>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+             {[
+               { q: "How do I request leave?", a: "Navigate to 'My Leave' section and use the 'Apply Leave' button. Requests are routed to your manager." },
+               { q: "Submission of timesheets?", a: "Open 'My Timesheets', log your daily tasks, and submit at the end of every week." },
+               { q: "Finding my payslips?", a: "Your financial records are securely stored in the 'My Payslips' section." },
+               { q: "Updating my profile?", a: "Personal details can be updated in 'My Profile'. Some changes require HR verification." }
+             ].map((item, i) => (
+               <div key={i} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow group">
+                  <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-blue-600 font-black mb-4 group-hover:bg-blue-600 group-hover:text-white transition-colors">?</div>
+                  <h3 className="text-lg font-bold text-slate-900 mb-2">{item.q}</h3>
+                  <p className="text-sm text-slate-500 font-medium leading-relaxed">{item.a}</p>
+               </div>
+             ))}
+          </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-          <h2 className="text-lg font-semibold text-slate-900 mb-4">Quick Links</h2>
-          <ul className="space-y-3">
-            <li>
-              <button type="button" onClick={() => scrollToId('handbook')} className="text-blue-600 hover:text-blue-800 flex items-center gap-2">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                Employee Handbook
-              </button>
-            </li>
-            <li>
-              <button type="button" onClick={() => scrollToId('policies')} className="text-blue-600 hover:text-blue-800 flex items-center gap-2">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                </svg>
-                Company Policies
-              </button>
-            </li>
-            <li>
-              <button type="button" onClick={() => scrollToId('it-support')} className="text-blue-600 hover:text-blue-800 flex items-center gap-2">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                IT Support
-              </button>
-            </li>
-            <li>
-              <button type="button" onClick={() => scrollToId('hr-contact')} className="text-blue-600 hover:text-blue-800 flex items-center gap-2">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                </svg>
-                HR Contact
-              </button>
-            </li>
-          </ul>
+          <div id="handbook" className="bg-slate-900 rounded-3xl p-8 text-white relative overflow-hidden group">
+            <div className="absolute bottom-0 right-0 w-64 h-64 bg-blue-600/10 rounded-full -mr-32 -mb-32 blur-3xl"></div>
+            <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
+               <div className="space-y-2">
+                  <h3 className="text-2xl font-bold">Employee Handbook</h3>
+                  <p className="text-slate-400 font-medium max-w-md">Our comprehensive guide covering onboarding, culture, and operational excellence.</p>
+               </div>
+               <button className="px-8 py-3 bg-white text-slate-900 font-black rounded-2xl hover:bg-slate-100 transition-all active:scale-95 shadow-xl">
+                  Download PDF
+               </button>
+            </div>
+          </div>
         </div>
 
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-          <h2 className="text-lg font-semibold text-slate-900 mb-4">Frequently Asked Questions</h2>
-          <ul className="space-y-3">
-            <li>
-              <div className="flex items-start gap-2">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <div>
-                  <div className="text-slate-900 font-medium">How do I request leave?</div>
-                  <div className="text-sm text-slate-600">Go to My Leave and click Apply Leave.</div>
+        {/* Support Channels */}
+        <div className="space-y-6">
+           <div className="flex items-center gap-3 px-2">
+             <div className="w-1.5 h-6 bg-indigo-600 rounded-full"></div>
+             <h2 className="text-2xl font-black text-slate-900">Assistance</h2>
+          </div>
+
+          <div id="contacts" className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
+             <div className="p-6 border-b border-slate-50 bg-slate-50/50">
+                <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Direct Support</h3>
+                <div className="space-y-4">
+                   <div className="flex items-center gap-4 group cursor-pointer">
+                      <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-all">
+                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                      </div>
+                       <div>
+                          <div className="text-sm font-black text-slate-900">HR Department</div>
+                          <div className="text-xs text-slate-500 font-bold">{bootstrap?.systemConfig?.HR_SUPPORT_EMAIL?.value || 'hr@example.com'}</div>
+                       </div>
+                   </div>
+                   
+                   <div className="flex items-center gap-4 group cursor-pointer">
+                      <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-all">
+                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                      </div>
+                       <div>
+                          <div className="text-sm font-black text-slate-900">IT Helpdesk</div>
+                          <div className="text-xs text-slate-500 font-bold">Extension: {bootstrap?.systemConfig?.IT_HELPDESK_EXT?.value || '987'}</div>
+                       </div>
+                   </div>
+
+                   <div className="flex items-center gap-4 group cursor-pointer">
+                      <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition-all">
+                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                      </div>
+                       <div>
+                          <div className="text-sm font-black text-slate-900">Finance & Payroll</div>
+                          <div className="text-xs text-slate-500 font-bold">{bootstrap?.systemConfig?.FINANCE_SUPPORT_EMAIL?.value || 'finance@example.com'}</div>
+                       </div>
+                   </div>
                 </div>
-              </div>
-            </li>
-            <li>
-              <div className="flex items-start gap-2">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <div>
-                  <div className="text-slate-900 font-medium">How do I submit timesheet?</div>
-                  <div className="text-sm text-slate-600">Open My Timesheets, fill your week, and submit.</div>
+             </div>
+             
+             <div className="p-6 bg-indigo-600 text-white text-center space-y-4">
+                <div className="text-xs font-black uppercase tracking-widest opacity-60">System Status</div>
+                <div className="flex items-center justify-center gap-2">
+                   <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
+                   <span className="text-sm font-black">All Systems Operational</span>
                 </div>
-              </div>
-            </li>
-            <li>
-              <div className="flex items-start gap-2">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <div>
-                  <div className="text-slate-900 font-medium">Where can I find my payslips?</div>
-                  <div className="text-sm text-slate-600">Open My Payslips from the sidebar.</div>
-                </div>
-              </div>
-            </li>
-            <li>
-              <div className="flex items-start gap-2">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <div>
-                  <div className="text-slate-900 font-medium">How do I update my profile?</div>
-                  <div className="text-sm text-slate-600">Go to My Profile and update your details.</div>
-                </div>
-              </div>
-            </li>
-          </ul>
-        </div>
-      </div>
-
-      <div id="handbook" className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 mb-8">
-        <h2 className="text-lg font-semibold text-slate-900 mb-2">Employee Handbook</h2>
-        <p className="text-sm text-slate-600">Guidelines, onboarding information, and workplace expectations.</p>
-        <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-          Contact HR if you need the latest handbook PDF.
-        </div>
-      </div>
-
-      <div id="policies" className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 mb-8">
-        <h2 className="text-lg font-semibold text-slate-900 mb-2">Company Policies</h2>
-        <p className="text-sm text-slate-600">Key policies every employee should know.</p>
-        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="rounded-xl border border-slate-200 p-4">
-            <div className="font-medium text-slate-900">Leave & Attendance</div>
-            <div className="text-sm text-slate-600 mt-1">Rules for attendance marking, leave eligibility, and approvals.</div>
-          </div>
-          <div className="rounded-xl border border-slate-200 p-4">
-            <div className="font-medium text-slate-900">Code of Conduct</div>
-            <div className="text-sm text-slate-600 mt-1">Professional behavior, compliance, and workplace safety.</div>
-          </div>
-          <div className="rounded-xl border border-slate-200 p-4">
-            <div className="font-medium text-slate-900">Expenses & Reimbursements</div>
-            <div className="text-sm text-slate-600 mt-1">How to submit expenses and reimbursement timelines.</div>
-          </div>
-          <div className="rounded-xl border border-slate-200 p-4">
-            <div className="font-medium text-slate-900">IT & Security</div>
-            <div className="text-sm text-slate-600 mt-1">Account security, device policy, and support channels.</div>
+             </div>
           </div>
         </div>
       </div>
 
-      {/* Contact Information */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6" id="contacts">
-        <h2 className="text-lg font-semibold text-slate-900 mb-4">Contact Information</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div id="hr-contact">
-            <h3 className="font-medium text-slate-900 mb-2">HR Department</h3>
-            <p className="text-sm text-slate-600 mb-1">Email: hr@company.com</p>
-            <p className="text-sm text-slate-600 mb-1">Phone: +1 (555) 123-4567</p>
-            <p className="text-sm text-slate-600">Hours: 9:00 AM - 6:00 PM</p>
-          </div>
-          <div id="it-support">
-            <h3 className="font-medium text-slate-900 mb-2">IT Support</h3>
-            <p className="text-sm text-slate-600 mb-1">Email: it@company.com</p>
-            <p className="text-sm text-slate-600 mb-1">Phone: +1 (555) 987-6543</p>
-            <p className="text-sm text-slate-600">24/7 Support Available</p>
-          </div>
-          <div>
-            <h3 className="font-medium text-slate-900 mb-2">Finance Department</h3>
-            <p className="text-sm text-slate-600 mb-1">Email: finance@company.com</p>
-            <p className="text-sm text-slate-600 mb-1">Phone: +1 (555) 456-7890</p>
-            <p className="text-sm text-slate-600">Hours: 9:00 AM - 5:00 PM</p>
-          </div>
+      {/* Policies Grid */}
+      <div id="policies" className="space-y-6 pt-8">
+        <div className="flex items-center gap-3 px-2">
+          <div className="w-1.5 h-6 bg-slate-900 rounded-full"></div>
+          <h2 className="text-2xl font-black text-slate-900">Global Policies</h2>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+           {[
+             { title: "Code of Conduct", icon: "🤝", desc: "Our commitment to ethical behavior and professionalism." },
+             { title: "IT Security", icon: "🛡️", desc: "Guidelines for device use and data protection." },
+             { title: "Leave Policy", icon: "✈️", desc: "Detailed breakdown of leave types and eligibility." },
+             { title: "Expense Policy", icon: "📊", desc: "Framework for reimbursements and official spending." }
+           ].map((policy, i) => (
+             <div key={i} className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm hover:border-blue-400 transition-all cursor-pointer group">
+                <div className="text-3xl mb-4 group-hover:scale-125 transition-transform inline-block">{policy.icon}</div>
+                <h3 className="text-lg font-bold text-slate-900 mb-2">{policy.title}</h3>
+                <p className="text-xs text-slate-500 font-bold leading-relaxed">{policy.desc}</p>
+             </div>
+           ))}
         </div>
       </div>
     </div>
