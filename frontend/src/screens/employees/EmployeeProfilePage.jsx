@@ -146,7 +146,7 @@ export function EmployeeProfilePage() {
   const [idReason, setIdReason] = useState('');
   const [idConfirmText, setIdConfirmText] = useState('');
 
-  const eligibleManagers = usePagedQuery({ path: '/api/v1/employees/eligible-managers', page: 1, pageSize: 500, enabled: identityModalOpen });
+
 
   const [empState, setEmpState] = useState({ status: 'idle', data: null, error: null, refreshIndex: 0 });
   const refreshEmployee = () => setEmpState((s) => ({ ...s, refreshIndex: s.refreshIndex + 1 }));
@@ -178,6 +178,13 @@ export function EmployeeProfilePage() {
   const employee = empState.data?.item || null;
   const employeeDivision = employee?.primaryDivisionId ? divisionsById[employee.primaryDivisionId] : null;
   const divisionColor = employeeDivision?.color || '#3B82F6';
+
+  const eligibleManagers = usePagedQuery({ 
+    path: `/api/v1/employees/eligible-managers${employee?.primaryDivisionId ? `?divisionId=${employee.primaryDivisionId}` : ''}`, 
+    page: 1, 
+    pageSize: 1000, 
+    enabled: identityModalOpen 
+  });
 
   const SYSTEM_ROLES = ['SUPER_ADMIN', 'ADMIN', 'COREOPS_ADMIN'];
   const FUNCTIONAL_ROLES = ['EMPLOYEE', 'MANAGER', 'HR_ADMIN', 'FINANCE_ADMIN', 'FOUNDER'];
@@ -775,7 +782,15 @@ export function EmployeeProfilePage() {
                   disabled={readOnlyMode || eligibleManagers.status === 'loading'}
                 >
                   <option value="">No Reporting Manager</option>
-                  {(eligibleManagers.data?.items || []).filter(m => m.id !== id).map(m => (
+                  {eligibleManagers.status === 'loading' && <option value="" disabled>Loading managers...</option>}
+                  {eligibleManagers.status === 'error' && <option value="" disabled>Error loading managers</option>}
+                  
+                  {/* Ensure current manager is always an option even if not in the first page of results */}
+                  {employee?.reportingManagerId && !(eligibleManagers.data?.items || []).some(m => m.id === employee.reportingManagerId) && (
+                    <option value={employee.reportingManagerId}>{employee.reportingManagerName || 'Current Manager'}</option>
+                  )}
+
+                  {(eligibleManagers.data?.items || []).filter(m => m.id !== id && m.id !== employee?.reportingManagerId).map(m => (
                     <option key={m.id} value={m.id}>{m.name} ({m.designation})</option>
                   ))}
                 </select>

@@ -109,6 +109,11 @@ export function SuperAdminSidebar({ open, setOpen }) {
 
   const isMobile = open !== undefined; // If open prop is provided, we're in mobile mode
 
+  const roles = bootstrap?.rbac?.roles || [];
+  const isCoreOpsAdmin = roles.includes('COREOPS_ADMIN');
+  const sidebarTitle = isCoreOpsAdmin ? 'CoreOps Admin' : 'Super Admin';
+  const sidebarInitials = isCoreOpsAdmin ? 'CO' : 'SA';
+
   const handleClose = () => {
     if (isMobile && setOpen) {
       setOpen(false);
@@ -172,9 +177,9 @@ export function SuperAdminSidebar({ open, setOpen }) {
             <div className="flex items-center justify-between p-4 border-b border-slate-200/60 bg-white/80 backdrop-blur-sm">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-lg flex items-center justify-center shadow-md">
-                  <span className="text-white font-bold text-xs">SA</span>
+                  <span className="text-white font-bold text-xs">{sidebarInitials}</span>
                 </div>
-                <span className="font-semibold text-slate-800 text-sm">Super Admin</span>
+                <span className="font-semibold text-slate-800 text-sm">{sidebarTitle}</span>
               </div>
               <button
                 onClick={handleClose}
@@ -244,10 +249,10 @@ export function SuperAdminSidebar({ open, setOpen }) {
           <div className="p-6 border-b border-slate-200/60">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-xl flex items-center justify-center shadow-lg">
-                <span className="text-white font-bold">SA</span>
+                <span className="text-white font-bold">{sidebarInitials}</span>
               </div>
               <div>
-                <div className="text-sm font-bold text-slate-800">Super Admin</div>
+                <div className="text-sm font-bold text-slate-800">{sidebarTitle}</div>
                 <div className="text-xs text-slate-500">JASIQ CoreOps</div>
               </div>
             </div>
@@ -294,7 +299,7 @@ export function SuperAdminSidebar({ open, setOpen }) {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="font-medium text-slate-800 text-sm truncate">{userEmail}</div>
-                <div className="text-xs text-slate-500 truncate">Super Admin</div>
+                <div className="text-xs text-slate-500 truncate">{sidebarTitle}</div>
               </div>
               <div className="flex items-center gap-1">
                 <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse shadow-sm" />

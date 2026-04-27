@@ -87,7 +87,7 @@ export async function updateEmployeeProfile(client, { id, firstName, lastName, e
          email = COALESCE($4, email),
          phone = COALESCE($5, phone),
          designation = CASE WHEN $6::text IS NOT NULL THEN $6 ELSE designation END,
-         reporting_manager_id = CASE WHEN $7::uuid IS NOT NULL THEN $7 ELSE reporting_manager_id END,
+         reporting_manager_id = $7,
          updated_at = NOW(),
          updated_by = $8,
          version = version + 1

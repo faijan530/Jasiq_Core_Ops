@@ -18,8 +18,13 @@ export function SuperAdminDashboard() {
 
   const roles = bootstrap?.rbac?.roles || [];
   const isFounder = roles.includes('FOUNDER');
+  const isCoreOpsAdmin = roles.includes('COREOPS_ADMIN');
   const routePrefix = isFounder ? '/founder' : '/super-admin';
-  const dashboardTitle = isFounder ? 'Founder Dashboard' : 'Super Admin Dashboard';
+  const dashboardTitle = isFounder 
+    ? 'Founder Dashboard' 
+    : isCoreOpsAdmin 
+      ? 'CoreOps Dashboard' 
+      : 'Super Admin Dashboard';
 
   // Navigation handlers with error handling
   const handleNavigate = (path) => {
