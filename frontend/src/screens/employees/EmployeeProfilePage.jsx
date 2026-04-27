@@ -180,7 +180,7 @@ export function EmployeeProfilePage() {
   const divisionColor = employeeDivision?.color || '#3B82F6';
 
   const eligibleManagers = usePagedQuery({ 
-    path: `/api/v1/employees/eligible-managers${employee?.primaryDivisionId ? `?divisionId=${employee.primaryDivisionId}` : ''}`, 
+    path: `/api/v1/employees/eligible-managers${(employee?.primaryDivisionId && !currentUserSystemRoles.includes('SUPER_ADMIN')) ? `?divisionId=${employee.primaryDivisionId}` : ''}`, 
     page: 1, 
     pageSize: 1000, 
     enabled: identityModalOpen 
