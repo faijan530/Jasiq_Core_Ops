@@ -62,6 +62,8 @@ export function employeeController({ pool }) {
             status: r.status,
             scope: r.scope,
             primaryDivisionId: r.primary_division_id,
+            reportingManagerId: r.reporting_manager_id,
+            reportingManagerName: r.reporting_manager_name || null,
             createdAt: r.created_at,
             updatedAt: r.updated_at
           })),

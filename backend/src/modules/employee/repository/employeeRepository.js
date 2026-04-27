@@ -35,9 +35,11 @@ export async function countEmployees(client, { divisionId, scope, status }) {
 export async function listEmployees(client, { divisionId, scope, status, offset, limit }) {
   const res = await client.query(
     `SELECT e.*,
+            CONCAT(m.first_name, ' ', m.last_name) AS reporting_manager_name,
             COALESCE(c.frequency, NULL) AS compensation_type,
             COALESCE(c.amount, NULL) AS compensation_amount
      FROM employee e
+     LEFT JOIN employee m ON e.reporting_manager_id = m.id
      LEFT JOIN employee_compensation_version c
        ON e.id = c.employee_id AND c.effective_to IS NULL
      WHERE ($1::uuid IS NULL OR e.primary_division_id = $1)

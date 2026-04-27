@@ -762,6 +762,7 @@ export function EmployeesPage() {
                           )}>{formatName(e)}</div>
                           <div className="mt-1 font-mono text-xs text-slate-500">{e.employeeCode}</div>
                           <div className="mt-1 text-xs text-slate-500 truncate">{e.email || '—'}</div>
+                          <div className="mt-1 text-xs text-slate-600 truncate">Manager: {e.reportingManagerName || '—'}</div>
                           <div className="mt-3 flex flex-wrap items-center gap-2">
                             {scopeBadge(e.scope, divisionColor)}
                             {statusBadge(e.status)}
@@ -815,6 +816,7 @@ export function EmployeesPage() {
                       <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Scope</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Division</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Designation</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Manager</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Status</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Joined On</th>
                       <th className="px-4 py-3 text-right text-xs font-semibold text-slate-600">Action</th>
@@ -845,6 +847,9 @@ export function EmployeesPage() {
                         </td>
                         <td className="px-4 py-3">
                           <span className="text-sm text-slate-700">{e.designation || '—'}</span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="text-sm text-slate-700">{e.reportingManagerName || '—'}</span>
                         </td>
                         <td className="px-4 py-3">{statusBadge(e.status)}</td>
                         <td className="px-4 py-3">
