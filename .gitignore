@@ -1,0 +1,41 @@
+
+# Dependencies
+node_modules/
+.npm
+.eslintcache
+
+# Environment Variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+logs/
+*.log
+
+# IDEs and Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Agent specific
+brain/
+scratch/
+.gemini/
+sync_superadmins.cjs
+
+# System
+Thumbs.db
