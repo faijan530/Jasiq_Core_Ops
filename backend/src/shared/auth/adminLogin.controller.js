@@ -41,7 +41,6 @@ export function adminLoginController({ pool }) {
         throw unauthorized('Invalid credentials');
       }
 
-      // Verify user has the required role in user_role
       const roleRes = await pool.query(
         `SELECT ur.role_id, r.name as role_name
          FROM user_role ur

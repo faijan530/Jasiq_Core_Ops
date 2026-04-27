@@ -212,6 +212,15 @@ export function adminManagementController({ pool }) {
       });
 
       res.status(201).json({ id: createdUserId, email, name, role: requestedRole });
+    }),
+
+    listAdmins: asyncHandler(async (req, res) => {
+      const result = await pool.query(
+        `SELECT id, email, role_name, is_active, created_at
+         FROM admin_user
+         ORDER BY created_at DESC`
+      );
+      res.json(result.rows);
     })
   };
 }

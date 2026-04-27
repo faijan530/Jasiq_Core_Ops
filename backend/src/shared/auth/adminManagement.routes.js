@@ -22,5 +22,12 @@ export function adminManagementRoutes({ pool }) {
     controller.createAdmin
   );
 
+  router.get(
+    '/admins',
+    authMiddleware({ jwtConfig: config.jwt }),
+    requireAnyPermission({ pool, permissionCodes: ['AUTH_ADMIN_MANAGE'] }),
+    controller.listAdmins
+  );
+
   return router;
 }

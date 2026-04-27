@@ -116,6 +116,7 @@ import { SuperAdminOverridesPage } from '../screens/super-admin/ops/SuperAdminOv
 import { SuperAdminDataQualityPage } from '../screens/super-admin/ops/SuperAdminDataQualityPage.jsx';
 import { SuperAdminReimbursementsPage } from '../screens/super-admin/reimbursements/SuperAdminReimbursementsPage.jsx';
 import { SuperAdminReimbursementDetailPage } from '../screens/super-admin/reimbursements/SuperAdminReimbursementDetailPage.jsx';
+import { SuperAdminAdminsPage } from '../screens/super-admin/SuperAdminAdminsPage.jsx';
 import { MonthClosePage } from '../screens/monthClose/MonthClosePage.jsx';
 import { AuditPage } from '../screens/audit/AuditPage.jsx';
 import { EmployeesPage } from '../screens/employees/EmployeesPage.jsx';
@@ -286,6 +287,7 @@ export function AppRouter() {
         <Route path="divisions/:id" element={<SuperAdminDivisionsPage />} />
         <Route path="projects" element={<SuperAdminProjectsPage />} />
         <Route path="timesheets" element={<SuperAdminTimesheetsPage />} />
+        <Route path="manage-admins" element={<SuperAdminAdminsPage />} />
         <Route path="system-config" element={<SuperAdminSystemConfigPage />} />
         <Route path="month-close" element={<MonthClosePage />} />
         <Route path="audit-logs" element={<AuditPage />} />
