@@ -142,7 +142,7 @@ export async function getEligibleReportingManagers(client, { divisionId }) {
     `SELECT id, first_name, last_name, designation
      FROM employee
      WHERE status = 'ACTIVE'
-       AND ($1::uuid IS NULL OR primary_division_id = $1)
+       AND ($1::uuid IS NULL OR primary_division_id = $1 OR primary_division_id IS NULL)
      ORDER BY first_name ASC, last_name ASC`,
     [divisionUuid]
   );
