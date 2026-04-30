@@ -355,6 +355,7 @@ export function AppRouter() {
         <Route path="dashboard" element={<HrDashboard />} />
         <Route path="employees" element={<HrEmployeesPage />} />
         <Route path="employees/add" element={<HrEmployeeAddPage />} />
+        <Route path="employees/:id" element={<HrEmployeeViewPage />} />
         <Route path="attendance" element={<HrAttendancePage />} />
         <Route path="my-attendance" element={<EmployeeAttendance />} />
         <Route path="timesheets" element={<HrTimesheetsPage />} />
